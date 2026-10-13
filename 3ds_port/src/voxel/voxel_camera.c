@@ -56,6 +56,15 @@ static void AdaptDistance(VoxelCamera *cam)
     scale = (float)(mapW > mapH ? mapW : mapH) * 0.2f;
     if (scale > 5.0f)
         scale = 5.0f;
+    /* RG DS branch: outdoors one framing for every map (out_frame, tenths;
+     * 40 = a 20-tile town's), so walking from a long route into a town does
+     * not pull the camera in. 0 keeps the size-based framing. */
+    {
+        const VoxelMapInstance *map = VoxelWorld_Instance(0);
+        int frame = CtrSettings_GetInt("out_frame", 40);
+        if (map != NULL && !map->indoor && frame >= 10 && frame <= 50)
+            scale = (float)frame / 10.0f;
+    }
     cam->distance = (8.0f + scale) * 100.0f / (float)CtrSettings_VoxelZoom();
     cam->pitch = (float)CtrSettings_VoxelPitch();
     cam->fov = 35.0f;

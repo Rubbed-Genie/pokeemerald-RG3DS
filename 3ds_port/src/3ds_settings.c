@@ -129,7 +129,9 @@ void CtrSettings_PollTune(void)
     char line[64];
     FILE *file;
 
-    if (++frames % 60)
+    /* The first call reads it at once, or what it sets showed a second late
+     * (the title menu at 100% and then zoomed). */
+    if (frames++ % 60)
         return;
     file = CtrFs_OpenData("tune.txt", "r");
     if (file == NULL)
