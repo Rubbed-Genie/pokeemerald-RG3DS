@@ -6205,6 +6205,13 @@ static void DrawTitleCredit(void)
             CapRows(&sNormal, &top, &bottom);
             DrawStr(&sNormal, str, x0 + ART_CREDIT_ICON + 8 - ix0,
                     iy + (ART_CREDIT_ICON - (bottom - top)) / 2 - top, grey, 0);
+#ifdef CTR_RG3DS_VERSION
+            /* Its own version, right-aligned over the port's. */
+            str = Ascii("v" CTR_RG3DS_VERSION);
+            InkColumns(&sNormal, str, &ix0, &ix1);
+            DrawStr(&sNormal, str, W - TITLE_MARGIN_X - ix1,
+                    iy + (ART_CREDIT_ICON - (bottom - top)) / 2 - top, grey, 0);
+#endif
         }
     }
     /* Its capitals level with the logo's lettering (the logo's rows 8 to 20). */

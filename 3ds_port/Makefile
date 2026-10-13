@@ -98,7 +98,10 @@ ifneq ($(TOP_WIDTH),)
 ifeq ($(TOP_WIDTH),320)
 APP_TITLE := Pokemon Emerald RG3DS
 APP_DESCRIPTION := Emerald 3Ds Dual Screen, tuned for the Anbernic RG DS
-APP_AUTHOR := ZallaxDev, RG DS edition by Matt
+APP_AUTHOR := ZallaxDev, RG3DS edition by Rubbed-Genie
+# The edition's own version, shown beside its credit under the title screen.
+RG3DS_VERSION := 1.0
+GAMEFLAGS += -DCTR_RG3DS_VERSION='"$(RG3DS_VERSION)"'
 endif
 CPPFLAGS += -DCTR_GAME_WIDTH=$(TOP_WIDTH)
 GAMEFLAGS += -DCTR_GAME_WIDTH=$(TOP_WIDTH)
