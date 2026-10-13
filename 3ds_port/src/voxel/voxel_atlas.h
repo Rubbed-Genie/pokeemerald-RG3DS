@@ -21,6 +21,8 @@
 #define VOXEL_ATLAS_W       512u
 #define VOXEL_ATLAS_H       256u
 #define VOXEL_ATLAS_SLOT    16u
+/* Texels a slot's UVs stop short of its edges (see VoxelAtlas_SlotUV). */
+#define VOXEL_ATLAS_UV_INSET 0.25f
 #define VOXEL_ATLAS_COLUMNS (VOXEL_ATLAS_W / VOXEL_ATLAS_SLOT)
 #define VOXEL_ATLAS_ROWS    (VOXEL_ATLAS_H / VOXEL_ATLAS_SLOT)
 #define VOXEL_ATLAS_MAX_SLOTS (VOXEL_ATLAS_COLUMNS * VOXEL_ATLAS_ROWS)

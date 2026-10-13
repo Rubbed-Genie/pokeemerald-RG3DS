@@ -468,12 +468,18 @@ static bool EmitCell(VoxelBuilder *b, const VoxelMapInstance *inst, int x, int y
     if (!r || !VoxelMesh_TileUV(b, x, y, &u0, &v0, &u1, &v1)) return false;
     memset(&mask, 0, sizeof(mask));
     mask.width = mask.height = 16;
-    mask.u0 = u0; mask.v0 = v0;
-    mask.du = (u1 - u0) / 16.0f;
-    mask.dv = (v1 - v0) / 16.0f;
+    /* The sign is cut per pixel, so it wants the slot's exact edges back. */
+    mask.u0 = u0 - VOXEL_ATLAS_UV_INSET / VOXEL_ATLAS_W;
+    mask.v0 = v0 + VOXEL_ATLAS_UV_INSET / VOXEL_ATLAS_H;
+    mask.du = 1.0f / VOXEL_ATLAS_W;
+    mask.dv = -1.0f / VOXEL_ATLAS_H;
     /* A lamp: its lantern, drawn in the cell north, stands on the post. */
     if (HasHead(r) && VoxelMesh_TileUV(b, x, y - 1, &mask.headU0, &mask.headV0, &u1, &v1))
+    {
+        mask.headU0 -= VOXEL_ATLAS_UV_INSET / VOXEL_ATLAS_W;
+        mask.headV0 += VOXEL_ATLAS_UV_INSET / VOXEL_ATLAS_H;
         mask.headRows = 16;
+    }
     memcpy(mask.opaque, mask.headRows ? r->head : r->rows, sizeof(r->rows));
     if (mask.headRows)
     {
