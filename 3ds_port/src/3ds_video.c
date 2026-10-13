@@ -476,6 +476,18 @@ static C3D_Tex sAtlas, sSurface;
 static C3D_Tex sBloomTex;
 static C3D_RenderTarget *sBloom;
 static C3D_RenderTarget *sLogical, *sTop, *sTopRight;
+
+/* Citro2D sizes a scene from its target. On the top screen the scene is the
+ * logical width instead, so a 4:3 build (CTR_GAME_WIDTH 320) fills the panel. */
+static inline void TopSceneBegin(C3D_RenderTarget *target)
+{
+    C2D_SceneBegin(target);
+#if CTR_GAME_WIDTH != 400
+    if (target && (target == sTop || target == sTopRight))
+        C2D_SceneSize(CTR_GAME_HEIGHT, CTR_GAME_WIDTH, true);
+#endif
+}
+#define C2D_SceneBegin TopSceneBegin
 static bool sStereo;
 static Tile sTiles[CACHE_COUNT];
 static uint16_t sHash[HASH_COUNT];

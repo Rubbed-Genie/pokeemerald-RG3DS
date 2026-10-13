@@ -74,6 +74,12 @@ endif
 CPPFLAGS += -DCTR_SHOW_FPS=$(SHOW_FPS)
 # The options row that turns it on (3ds_bottom_ui.c).
 GAMEFLAGS += -DCTR_SHOW_FPS=$(SHOW_FPS)
+# TOP_WIDTH=320 lays the top screen out at 4:3 and widens it on present
+# (3ds_video.h); empty keeps the panel's 400.
+ifneq ($(TOP_WIDTH),)
+CPPFLAGS += -DCTR_GAME_WIDTH=$(TOP_WIDTH)
+GAMEFLAGS += -DCTR_GAME_WIDTH=$(TOP_WIDTH)
+endif
 CPPFLAGS += -DCTR_DATA_BACKEND=$(DATA_BACKEND)
 # Legacy code has existing warnings; platform code remains -Werror.
 GAMECFLAGS := $(filter-out -Werror,$(CFLAGS)) -fsigned-char -fno-strict-aliasing
