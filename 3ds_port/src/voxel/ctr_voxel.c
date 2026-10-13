@@ -213,6 +213,7 @@ static void MakeMotes(void);
 static void MakeFog(void);
 static void MakeGloom(void);
 static void FadeFor(bool sprites);
+static void PrepareTimeTint(void);
 #endif
 static void MakeStereo(void);
 static void FreeStereo(void);
@@ -5727,6 +5728,7 @@ static void PrepareFades(void)
     VoxelWorld_ScreenFade(&sWorldFade.amount, sWorldFade.rgb);
     sWorldFade = FadeThen(sWorldFade, sBrightBg, target);
     sSpriteFade = FadeThen(none, sBrightObj, target);
+    PrepareTimeTint();
 }
 
 /* What the distance fades to this frame (VoxelLight.hazeRgb). */
@@ -5759,11 +5761,52 @@ static void FadeTexEnv(const VoxelFade *fade)
     C3D_TexEnvColor(env, FadeColour(fade->amount, fade->rgb));
 }
 
-/* Environments 3 and 4 for what is drawn next: the world's or a sprite's. */
+/*
+ * RG3DS: the time of day (the lighting patch's day/night tint). The game tints
+ * the shown palettes, so sprites decoded from them are tinted already; the
+ * world's textures come from the tilesets' own palettes and take it here, as
+ * one multiply in environment 5. Without the lighting patch nothing tints.
+ */
+/* bool8 CtrLighting_WorldTint(u16 *r, u16 *g, u16 *b), the game's (overworld.c). */
+__attribute__((weak)) unsigned char CtrLighting_WorldTint(uint16_t *r, uint16_t *g, uint16_t *b)
+{
+    (void)r; (void)g; (void)b;
+    return 0;
+}
+
+static uint32_t sTimeTint;   /* 0: none, else ABGR constant */
+
+static void PrepareTimeTint(void)
+{
+    uint16_t r, g, b;
+
+    sTimeTint = 0;
+    if (CtrLighting_WorldTint(&r, &g, &b))
+        sTimeTint = 0xFF000000u | (uint32_t)(b > 255 ? 255 : b) << 16
+                  | (uint32_t)(g > 255 ? 255 : g) << 8 | (r > 255 ? 255 : r);
+}
+
+static void TimeTexEnv(bool sprites)
+{
+    C3D_TexEnv *env = C3D_GetTexEnv(5);
+
+    C3D_TexEnvInit(env);
+    if (sprites || sTimeTint == 0)
+        return;
+    /* previous x tint */
+    C3D_TexEnvSrc(env, C3D_RGB, GPU_PREVIOUS, GPU_CONSTANT, GPU_PREVIOUS);
+    C3D_TexEnvFunc(env, C3D_RGB, GPU_MODULATE);
+    C3D_TexEnvSrc(env, C3D_Alpha, GPU_PREVIOUS, GPU_PREVIOUS, GPU_PREVIOUS);
+    C3D_TexEnvFunc(env, C3D_Alpha, GPU_REPLACE);
+    C3D_TexEnvColor(env, sTimeTint);
+}
+
+/* Environments 3, 4 and 5 for what is drawn next: the world's or a sprite's. */
 static void FadeFor(bool sprites)
 {
     HazeTexEnv(sprites ? SpriteHaze() : FadeColour(1.0f, sHazeRgb));
     FadeTexEnv(sprites ? &sSpriteFade : &sWorldFade);
+    TimeTexEnv(sprites);
 }
 
 /* Outdoors and under the ground; a building keeps the game's own sprites. */
@@ -5931,7 +5974,6 @@ void CtrVoxel_Draw(C3D_RenderTarget *target, float eyeOffset)
     memcpy(sHazeRgb, light.hazeRgb, sizeof(sHazeRgb));
     TerrainTexEnv(dapples ? &light : NULL);
     FadeFor(false);
-    C3D_TexEnvInit(C3D_GetTexEnv(5));
 #if CTR_VOXEL_LIGHTING
     if (dapples)
     {
