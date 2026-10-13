@@ -352,14 +352,8 @@ static void UpdateSet(StageSet *set, IntrCallback callback)
     set->on = on;
 }
 
-/* Whether the map name pop-up is up (map_name_popup.c, patch 0045). */
+/* Whether the map name pop-up is up (map_name_popup.c, patch 0044). */
 __attribute__((weak)) bool8 CtrMapNamePopup_Showing(void)
-{
-    return FALSE;
-}
-
-/* Whether a map preview card is up (map_preview.c, patch 0044); none without it. */
-__attribute__((weak)) bool32 CtrMapPreview_Showing(void)
 {
     return FALSE;
 }
@@ -395,10 +389,7 @@ static void UpdateStage(void)
             trail = true, held = 0;
         else if (trail && (sBattle.on || ++held > 120))
             trail = false;
-        /* RG3DS: a map preview card (patch 0044) is BG0 over the field, a
-         * GBA screen too: drawn larger, as the trail is. */
         CtrVideo_SetTrail(trail);
-        CtrVideo_SetPreview(CtrMapPreview_Showing());
         CtrVideo_SetPopup(CtrMapNamePopup_Showing());
     }
 }

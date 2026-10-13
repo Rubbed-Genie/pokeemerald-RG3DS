@@ -769,8 +769,6 @@ static void ColourClear(C3D_RenderTarget *target, uint32_t color)
 static bool sTransitionRequested, sTransition;
 /* RG DS branch: the Poké Ball trail is on (CtrVideo_SetTrail). */
 static bool sTrail;
-/* RG3DS: a map preview card is up (CtrVideo_SetPreview). */
-static bool sPreview;
 /* RG3DS: the map name pop-up is up (CtrVideo_SetPopup). */
 static bool sPopup;
 /* Composing the transition's own picture: GBA geometry (RenderTransition). */
@@ -6555,38 +6553,23 @@ static void ComposeVoxelOverlay(void)
          * lists higher up (a PC's, a YES/NO) stay as they are, or they were
          * pushed off the screen. */
         const int band = 112;
-        bool split = z != 1.0f && !sFieldBanner && !sTrail && !sPreview;
+        bool split = z != 1.0f && !sFieldBanner && !sTrail;
 
         /* RG DS branch: the Poké Ball trail's bars and balls are the GBA
          * screen's; at 1:1 they covered the top 160 lines and the middle 240
          * columns. At the transitions' scale (1.5), centred, they cover it all. */
-        /* A map preview card is a picture with its name at the edge: drawn
-         * to the screen's width instead, so nothing of it is cut. */
-        if (sTrail || sPreview)
+        if (sTrail)
         {
-            float tz = sTrail ? 1.5f : (float)CTR_GAME_WIDTH / 240.0f;
-
-            sZoom = tz;
+            sZoom = 1.5f;
             sOffX = (float)CTR_GAME_WIDTH / 2.0f
-                  - tz * ((float)CTR_VIEW_X + (sFieldBanner ? 0.0f : CTR_FIELD_UI_SHIFT) + 120.0f);
-            sOffY = (float)CTR_GAME_HEIGHT / 2.0f - tz * ((float)CTR_VIEW_Y + 80.0f);
-            /* The card is letterboxed in black: the map's edge it was laid
-             * over is not meant to be seen above and below it. */
-            if (sPreview && !sTrail)
-            {
-                float top = (float)CTR_GAME_HEIGHT / 2.0f - 80.0f * tz;
-                uint32_t black = C2D_Color32(0, 0, 0, 255);
-
-                C2D_DrawRectSolid(0, 0, 0, CTR_GAME_WIDTH, top + 0.5f, black);
-                C2D_DrawRectSolid(0, CTR_GAME_HEIGHT - top - 0.5f, 0, CTR_GAME_WIDTH, top + 0.5f, black);
-                C2D_Flush();
-            }
+                  - 1.5f * ((float)CTR_VIEW_X + (sFieldBanner ? 0.0f : CTR_FIELD_UI_SHIFT) + 120.0f);
+            sOffY = (float)CTR_GAME_HEIGHT / 2.0f - 1.5f * ((float)CTR_VIEW_Y + 80.0f);
         }
 
         /* RG3DS: the map name pop-up (its 5 tile rows at the top left)
          * larger, about its top left corner (popup_zoom, percent). */
         int pz = CtrSettings_GetInt("popup_zoom", 100);
-        float popZ = sPopup && !sTrail && !sPreview && pz > 100 && pz <= 150 ? (float)pz / 100.0f : 1.0f;
+        float popZ = sPopup && !sTrail && pz > 100 && pz <= 150 ? (float)pz / 100.0f : 1.0f;
         const int popBand = 40;
         float baseZoom = sZoom, baseOffX = sOffX, baseOffY = sOffY;
 
@@ -8735,7 +8718,6 @@ void CtrVideo_SetCentred(unsigned screen) { sCentredRequested = screen < CTR_CEN
 void CtrVideo_SetBattle(bool battle) { sBattleRequested = battle; }
 void CtrVideo_SetTransition(bool transition) { sTransitionRequested = transition; }
 void CtrVideo_SetTrail(bool trail) { sTrail = trail; }
-void CtrVideo_SetPreview(bool preview) { sPreview = preview; }
 void CtrVideo_SetPopup(bool popup) { sPopup = popup; }
 
 void CtrVideo_SetLineRegisters(const uint16_t *regs, unsigned lines)

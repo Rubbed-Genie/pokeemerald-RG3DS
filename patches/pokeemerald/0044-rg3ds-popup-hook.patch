@@ -1,6 +1,6 @@
 Pokémon Emerald 3Ds Dual Screen changes to pret/pokeemerald 76463dac15cad36aca5e2b3f6366abf9e53f814f: RG3DS map name pop-up hook
 CtrMapNamePopup_Showing, so the voxel overlay can draw the pop-up larger.
-Applies after 0044-rg3ds-map-previews.patch; apply with tools/bootstrap.py.
+Applies after 0043-rg3ds-lighting.patch; apply with tools/bootstrap.py.
 
 diff --git a/src/map_name_popup.c b/src/map_name_popup.c
 index 09992f8b2..605f7a5c6 100644
