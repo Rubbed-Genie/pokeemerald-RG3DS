@@ -2786,13 +2786,15 @@ static u8 CurrentMode(void)
     /* Before the boxes: the bag can be opened from them, whole screen too. */
     if (gMain.callback2 == CB2_BagMenuRun && gBagMenu)
         return MODE_BAG_MENU;
+    /* RG DS branch: the party before the whole-screen test - over the whole
+     * screen (a battle's) it was taken for the boxes and its taps were lost. */
+    if (FuncIsActiveTask(Task_HandleChooseMonInput))
+        sPartyMenuCallback = gMain.callback2;
+    if (sPartyMenuCallback && gMain.callback2 == sPartyMenuCallback && !CtrStorage_IsOpen())
+        return MODE_PARTY_MENU;
     /* A summary opened from the boxes is on the whole screen too. */
     if (CtrStorage_IsOpen() || CtrVideo_BottomWhole())
         return MODE_STORAGE;
-    if (FuncIsActiveTask(Task_HandleChooseMonInput))
-        sPartyMenuCallback = gMain.callback2;
-    if (sPartyMenuCallback && gMain.callback2 == sPartyMenuCallback)
-        return MODE_PARTY_MENU;
     if (gMain.inBattle)
     {
         if (gMain.callback2 == BattleMainCB2 && !gPaletteFade.active)
