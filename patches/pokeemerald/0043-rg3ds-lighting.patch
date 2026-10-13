@@ -1,5 +1,5 @@
 Pokémon Emerald 3Ds Dual Screen changes to pret/pokeemerald 76463dac15cad36aca5e2b3f6366abf9e53f814f: RG3DS day/night lighting
-From aarant/pokeemerald lighting-expanded-id (on top of followers), merged onto the port; LoadPaletteFast resolves port assets; CtrLighting_WorldTint for the voxel world.
+From aarant/pokeemerald lighting-expanded-id (on top of followers), merged onto the port; LoadPaletteFast resolves port assets; CtrLighting_WorldTint for the voxel world; tod_hour test setting.
 Applies after 0042-rg3ds-followers.patch; apply with tools/bootstrap.py.
 
 diff --git a/.git-blame-ignore-revs b/.git-blame-ignore-revs
@@ -8689,7 +8689,7 @@ index 3d7f2fa08..d8e5d3cee 100644
      INCBIN_U16("data/tilesets/primary/general/palettes/00.gbapal"),
      INCBIN_U16("data/tilesets/primary/general/palettes/01.gbapal"),
 diff --git a/src/overworld.c b/src/overworld.c
-index e1943e827..aa369fdec 100644
+index e1943e827..e0f07aaa7 100644
 --- a/src/overworld.c
 +++ b/src/overworld.c
 @@ -15,6 +15,7 @@
@@ -8749,7 +8749,7 @@ index e1943e827..aa369fdec 100644
      ResetCyclingRoadChallengeData();
      RestartWildEncounterImmunitySteps();
      TryUpdateRandomTrainerRematches(gSaveBlock1Ptr->location.mapGroup, gSaveBlock1Ptr->location.mapNum);
-@@ -1602,6 +1609,184 @@ void CB1_Overworld(void)
+@@ -1602,6 +1609,194 @@ void CB1_Overworld(void)
  #endif
  }
  
@@ -8767,6 +8767,16 @@ index e1943e827..aa369fdec 100644
 +    RtcCalcLocalTime();
 +    hours = sHoursOverride ? sHoursOverride : gLocalTime.hours;
 +    minutes = sHoursOverride ? 0 : gLocalTime.minutes;
++#ifdef PORT_BRIDGE
++    // RG3DS: tune.txt / settings.txt tod_hour (0-23) holds the clock at that
++    // hour, for trying the lighting at night by day.
++    {
++        extern int CtrSettings_GetInt(const char *key, int fallback);
++        int held = CtrSettings_GetInt("tod_hour", -1);
++        if (held >= 0 && held < 24)
++            hours = held, minutes = 0;
++    }
++#endif
 +    switch (hours)
 +    {
 +    case 0 ... 3: // night
@@ -8934,7 +8944,7 @@ index e1943e827..aa369fdec 100644
  static void OverworldBasic(void)
  {
      ScriptContext_RunScript();
-@@ -1613,6 +1798,20 @@ static void OverworldBasic(void)
+@@ -1613,6 +1808,20 @@ static void OverworldBasic(void)
      UpdatePaletteFade();
      UpdateTilesetAnimations();
      DoScheduledBgTilemapCopiesToVram();
@@ -8955,7 +8965,7 @@ index e1943e827..aa369fdec 100644
  }
  
  // This CB2 is used when starting
-@@ -3430,6 +3629,8 @@ static void CreateLinkPlayerSprite(u8 linkPlayerId, u8 gameVersion)
+@@ -3430,6 +3639,8 @@ static void CreateLinkPlayerSprite(u8 linkPlayerId, u8 gameVersion)
          sprite->coordOffsetEnabled = TRUE;
          sprite->data[0] = linkPlayerId;
          objEvent->triggerGroundEffectsOnMove = FALSE;
@@ -8964,7 +8974,7 @@ index e1943e827..aa369fdec 100644
      }
  }
  
-@@ -3454,3 +3655,16 @@ static void SpriteCB_LinkPlayer(struct Sprite *sprite)
+@@ -3454,3 +3665,16 @@ static void SpriteCB_LinkPlayer(struct Sprite *sprite)
          sprite->data[7]++;
      }
  }
