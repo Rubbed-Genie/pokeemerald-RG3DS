@@ -767,6 +767,8 @@ static void ColourClear(C3D_RenderTarget *target, uint32_t color)
  * composed, that band's values in place of the registers (Reg).
  */
 static bool sTransitionRequested, sTransition;
+/* RG DS branch: the Poké Ball trail is on (CtrVideo_SetTrail). */
+static bool sTrail;
 /* Composing the transition's own picture: GBA geometry (RenderTransition). */
 static bool sTransitionCompose;
 static const uint16_t (*sLineRegs)[CTR_LINE_REGS];
@@ -1876,23 +1878,36 @@ static unsigned BattleBoxLayers(void)
  * composed is carried from the scene's coordinates to the box's through the
  * screen, drawn there, and put back. The level-up box the same way, whole.
  */
+/* RG DS branch: the text box and the level-up box larger (settings/tune
+ * bat_zoom, percent; 133 fills the 4:3 screen's width), about the bottom
+ * middle of the screen, so they grow upwards. */
+static float BattleTextZoom(void)
+{
+    int pct = CtrSettings_GetInt("bat_zoom", 100);
+
+    return pct > 100 && pct <= 140 ? (float)pct / 100.0f : 1.0f;
+}
+
 static void DrawBattleTextLayer(unsigned bg)
 {
     int viewX = sViewX, viewY = sViewY;
     float zoom = sZoom, offX = sOffX, offY = sOffY;
     int clipX0 = sClipX0, clipY0 = sClipY0, clipX1 = sClipX1, clipY1 = sClipY1;
+    float bz = BattleTextZoom();
 
     float shift = sLayerShift;
 
-    sZoom = 1.0f;
-    sOffX = sOffY = 0.0f;
-    sLayerShift = shift * sShiftZoom;
+    sZoom = bz;
     sViewX = CTR_BATTLE_X;
     sViewY = CTR_BATTLE_Y;
-    sClipX0 = (int)roundf((clipX0 + viewX) * zoom + offX) - sViewX;
-    sClipX1 = (int)roundf((clipX1 + viewX) * zoom + offX) - sViewX;
-    sClipY0 = (int)roundf((clipY0 + viewY) * zoom + offY) - sViewY;
-    sClipY1 = (int)roundf((clipY1 + viewY) * zoom + offY) - sViewY;
+    sOffX = ((float)CTR_GAME_WIDTH - 240.0f * bz) / 2.0f - bz * (float)CTR_BATTLE_X;
+    sOffY = (float)CTR_GAME_HEIGHT - bz * (160.0f + (float)CTR_BATTLE_Y);
+    sLayerShift = shift * sShiftZoom / bz;
+    /* The rectangle being composed, from the scene's pixels to the box's. */
+    sClipX0 = (int)floorf((((clipX0 + viewX) * zoom + offX) - sOffX) / bz) - sViewX;
+    sClipX1 = (int)ceilf((((clipX1 + viewX) * zoom + offX) - sOffX) / bz) - sViewX;
+    sClipY0 = (int)floorf((((clipY0 + viewY) * zoom + offY) - sOffY) / bz) - sViewY;
+    sClipY1 = (int)ceilf((((clipY1 + viewY) * zoom + offY) - sOffY) / bz) - sViewY;
     if (bg == 0)
         DrawBattleText(bg);
     else
@@ -5188,7 +5203,6 @@ float CtrVideo_BottomZoom(void)
 {
     int pct;
 
-    CtrSettings_PollTune();
     /* The PC's boxes the same way (pc_zoom). */
     if (sCentredScreen == CTR_CENTRED_SUMMARY) pct = CtrSettings_GetInt("bot_zoom", 100);
     else if (sCentredScreen == CTR_CENTRED_STORAGE) pct = CtrSettings_GetInt("pc_zoom", 100);
@@ -5209,7 +5223,6 @@ static float TopZoom(void)
     if (sCentredScreen != CTR_CENTRED_PLAIN && sCentredScreen != CTR_CENTRED_MAIN_MENU
         && sCentredScreen != CTR_CENTRED_NAMING && sCentredScreen != CTR_CENTRED_CLOCK
         && sCentredScreen != CTR_CENTRED_STARTER) return 1.0f;
-    CtrSettings_PollTune();
     pct = CtrSettings_GetInt("top_zoom", 100);
     if (pct <= 100 || pct > 150) return 1.0f;
     return (float)pct / 100.0f;
@@ -6200,7 +6213,7 @@ static void RenderBattleStereo(uint32_t clear, float slider, C3D_Tex *world)
         /* Only the text box's lines when nothing of BG0 is above it. */
         if (textOnce && !sTextAbove)
         {
-            const float top = BATTLE_BAND_TOP * sZoom + sOffY;
+            const float top = (float)CTR_GAME_HEIGHT - (160 - BATTLE_BAND_TOP) * BattleTextZoom();
             const Tex3DS_SubTexture band = {CTR_GAME_WIDTH, (u16)(CTR_GAME_HEIGHT - top), 0, 1 - top / 256.0f,
                 CTR_GAME_WIDTH / 512.0f, 1 - CTR_GAME_HEIGHT / 256.0f};
 
@@ -6530,7 +6543,18 @@ static void ComposeVoxelOverlay(void)
          * lists higher up (a PC's, a YES/NO) stay as they are, or they were
          * pushed off the screen. */
         const int band = 112;
-        bool split = z != 1.0f && !sFieldBanner;
+        bool split = z != 1.0f && !sFieldBanner && !sTrail;
+
+        /* RG DS branch: the Poké Ball trail's bars and balls are the GBA
+         * screen's; at 1:1 they covered the top 160 lines and the middle 240
+         * columns. At the transitions' scale (1.5), centred, they cover it all. */
+        if (sTrail)
+        {
+            sZoom = 1.5f;
+            sOffX = (float)CTR_GAME_WIDTH / 2.0f
+                  - 1.5f * ((float)CTR_VIEW_X + (sFieldBanner ? 0.0f : CTR_FIELD_UI_SHIFT) + 120.0f);
+            sOffY = (float)CTR_GAME_HEIGHT / 2.0f - 1.5f * ((float)CTR_VIEW_Y + 80.0f);
+        }
 
         for (int pass = 0; pass < (split ? 2 : 1); ++pass)
         {
@@ -8218,6 +8242,8 @@ void CtrVideo_Present(void)
     sOffX = sBattle ? CTR_GAME_WIDTH / 2 - 120 * sZoom : 0.0f;
     sOffY = sBattle ? CTR_GAME_HEIGHT - 48 - 112 * sZoom : 0.0f;
     sShiftZoom = sZoom;
+    /* RG DS branch: tune.txt's values, live, whatever is on screen. */
+    CtrSettings_PollTune();
     if (sStage || sCentred)
     {
         sViewX = CTR_STAGE_X;
@@ -8656,6 +8682,7 @@ void CtrVideo_SetStage(bool stage) { sStageRequested = stage; }
 void CtrVideo_SetCentred(unsigned screen) { sCentredRequested = screen < CTR_CENTRED_SCREENS ? screen : CTR_CENTRED_NONE; }
 void CtrVideo_SetBattle(bool battle) { sBattleRequested = battle; }
 void CtrVideo_SetTransition(bool transition) { sTransitionRequested = transition; }
+void CtrVideo_SetTrail(bool trail) { sTrail = trail; }
 
 void CtrVideo_SetLineRegisters(const uint16_t *regs, unsigned lines)
 {

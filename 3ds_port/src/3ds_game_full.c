@@ -25,6 +25,8 @@
 #include "item_menu.h"
 #include "party_menu.h"
 #include "fldeff_misc.h"
+#include "field_effect.h"
+#include "constants/field_effects.h"
 #include "battle_pyramid.h"
 #include "sprite.h"
 #include "constants/party_menu.h"
@@ -364,6 +366,7 @@ static void UpdateStage(void)
     CtrVideo_SetCentred(sCentred.on ? sCentred.screen : CTR_CENTRED_NONE);
     CtrVideo_SetBattle(sBattle.on);
     CtrVideo_SetTransition(sTransition.on);
+    CtrVideo_SetTrail(FieldEffectActiveListContains(FLDEFF_POKEBALL_TRAIL));
 }
 
 /*
