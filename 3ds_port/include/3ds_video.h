@@ -9,7 +9,15 @@ bool CtrVideo_TryVoxelUpload(void);
 /* How many more uploads TryVoxelUpload would grant this frame. */
 unsigned CtrVideo_VoxelUploadsLeft(void);
 
+/*
+ * The top screen's logical width. 400 is the panel; TOP_WIDTH=320 lays the
+ * picture out at 4:3 (the bottom screen's shape) and the present widens it
+ * onto the 400-pixel framebuffer, for a frontend that stretches the top
+ * screen back onto a 4:3 panel (Azahar on dual-screen handhelds).
+ */
+#ifndef CTR_GAME_WIDTH
 #define CTR_GAME_WIDTH 400
+#endif
 #define CTR_GAME_HEIGHT 240
 
 /*
