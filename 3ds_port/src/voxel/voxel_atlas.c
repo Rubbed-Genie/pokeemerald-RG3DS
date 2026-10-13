@@ -32,11 +32,17 @@ void VoxelAtlas_SlotUV(unsigned slot, float *u0, float *v0, float *u1, float *v1
     float x = (float)(slot % VOXEL_ATLAS_COLUMNS) * VOXEL_ATLAS_SLOT;
     float y = (float)(slot / VOXEL_ATLAS_COLUMNS) * VOXEL_ATLAS_SLOT;
 
+    /* A quarter texel in from the slot's edges: away from a whole-pixel
+     * scale (the indoor camera), an edge sample can land on the neighbouring
+     * slot - a dotted line of its colour, or black from an empty one, along
+     * floor, table and chair seams. */
+    const float in = VOXEL_ATLAS_UV_INSET;
+
     /* Row 0 in memory is v=1, the same convention the 2D compositor uses. */
-    *u0 = page * 2.0f + x / VOXEL_ATLAS_W;
-    *u1 = page * 2.0f + (x + VOXEL_ATLAS_SLOT) / VOXEL_ATLAS_W;
-    *v0 = 1.0f - y / VOXEL_ATLAS_H;
-    *v1 = 1.0f - (y + VOXEL_ATLAS_SLOT) / VOXEL_ATLAS_H;
+    *u0 = page * 2.0f + (x + in) / VOXEL_ATLAS_W;
+    *u1 = page * 2.0f + (x + VOXEL_ATLAS_SLOT - in) / VOXEL_ATLAS_W;
+    *v0 = 1.0f - (y + in) / VOXEL_ATLAS_H;
+    *v1 = 1.0f - (y + VOXEL_ATLAS_SLOT - in) / VOXEL_ATLAS_H;
 }
 
 void VoxelAtlas_SolidUV(VoxelSolidColor color, float *u0, float *v0, float *u1, float *v1)
