@@ -1338,6 +1338,18 @@ unsigned VoxelEntities_Emit(VoxelBuilder *builder, uint16_t *atlas, const VoxelC
         card->feet = card->base - (sSlots[i].height - VisibleRows(&sSlots[i]));
         card->sprite = sprite;
         card->rise = 0.0f;
+        /* RG DS branch: whoever stands behind a counter - a mart clerk, the
+         * nurse - is raised (counter_rise, hundredths of a tile), so from a
+         * low camera the counter's model shows them from the chest up, as
+         * the GBA draws them, instead of hiding all but the hair. */
+        if (i != gPlayerAvatar.objectEventId)
+        {
+            int rise = CtrSettings_GetInt("counter_rise", 0);
+            int tx = (int)floorf(worldX + 0.5f), tz = (int)floorf(worldZ + 0.5f);
+
+            if (rise > 0 && rise <= 150 && VoxelWorld_ClassifyTile(tx, tz + 1) == VOXEL_SHAPE_COUNTER)
+                card->rise = (float)rise / 100.0f;
+        }
         card->shade = shade;
         card->outdoor = outdoor;
     }

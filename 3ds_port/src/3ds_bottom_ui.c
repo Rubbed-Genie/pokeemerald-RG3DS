@@ -7622,15 +7622,17 @@ static u8 ProcessTouch(u8 mode)
      * the touch in pixels of it, as it goes (drags scroll its list). */
     if ((in->touchDown && ShopShown(mode)) || (sTouch.bag && sTouch.active && ShopShown(mode)))
     {
-        int ox = (W - 240) / 2, oy = (H - 160) / 2;
+        /* RG DS branch: drawn larger (shop_zoom), mapped back. */
+        int x = in->touchX, y = in->touchY;
 
+        CtrVideo_BottomPictureMap(&x, &y);
         if (in->touchDown)
         {
             sTouch.active = sTouch.bag = TRUE;
-            CtrShop_Touch(BAG_TOUCH_DOWN, in->touchX - ox, in->touchY - oy);
+            CtrShop_Touch(BAG_TOUCH_DOWN, x, y);
         }
         else if (in->touchActive)
-            CtrShop_Touch(BAG_TOUCH_MOVE, in->touchX - ox, in->touchY - oy);
+            CtrShop_Touch(BAG_TOUCH_MOVE, x, y);
         else
         {
             sTouch.active = sTouch.bag = FALSE;
