@@ -6570,6 +6570,17 @@ static void ComposeVoxelOverlay(void)
             sOffX = (float)CTR_GAME_WIDTH / 2.0f
                   - tz * ((float)CTR_VIEW_X + (sFieldBanner ? 0.0f : CTR_FIELD_UI_SHIFT) + 120.0f);
             sOffY = (float)CTR_GAME_HEIGHT / 2.0f - tz * ((float)CTR_VIEW_Y + 80.0f);
+            /* The card is letterboxed in black: the map's edge it was laid
+             * over is not meant to be seen above and below it. */
+            if (sPreview && !sTrail)
+            {
+                float top = (float)CTR_GAME_HEIGHT / 2.0f - 80.0f * tz;
+                uint32_t black = C2D_Color32(0, 0, 0, 255);
+
+                C2D_DrawRectSolid(0, 0, 0, CTR_GAME_WIDTH, top + 0.5f, black);
+                C2D_DrawRectSolid(0, CTR_GAME_HEIGHT - top - 0.5f, 0, CTR_GAME_WIDTH, top + 0.5f, black);
+                C2D_Flush();
+            }
         }
 
         /* RG3DS: the map name pop-up (its 5 tile rows at the top left)

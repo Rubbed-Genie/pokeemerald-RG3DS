@@ -271,7 +271,7 @@ static const struct { const char *key; int value; } sEditionDefaults[] = {
     {"bot_zoom", 133}, {"pc_zoom", 133}, {"shop_zoom", 133},
     {"bag_zoom", 133}, {"party_zoom", 133},              /* bottom screens */
     {"bat_zoom", 133},                                   /* battle text box */
-    {"popup_zoom", 125},                                 /* map name pop-up */
+    {"popup_zoom", 115},                                 /* map name pop-up */
     {"dio_top", 56}, {"dio_bot", 32}, {"dio_pct", 60},   /* tilt-shift blur */
 };
 #endif
