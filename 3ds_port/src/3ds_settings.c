@@ -119,6 +119,33 @@ void CtrSettings_Load(void)
 }
 
 /*
+ * Live tuning: tune.txt next to settings.txt, "key=number" lines read about
+ * once a second while it exists, overriding the extra keys (in_pitch,
+ * dio_pct, ...). Only ever read, so it never races the settings writer.
+ */
+void CtrSettings_PollTune(void)
+{
+    static unsigned frames;
+    char line[64];
+    FILE *file;
+
+    if (++frames % 60)
+        return;
+    file = CtrFs_OpenData("tune.txt", "r");
+    if (file == NULL)
+        return;
+    while (fgets(line, sizeof(line), file))
+    {
+        char key[sizeof(sExtra[0].key)];
+        int value, index;
+
+        if (sscanf(line, "%23[a-z0-9_]=%d", key, &value) == 2 && (index = ExtraIndex(key, true)) >= 0)
+            sExtra[index].value = value;
+    }
+    fclose(file);
+}
+
+/*
  * Written by a thread of its own. Opening, truncating and closing a file on
  * the SD card took a second on hardware, and the settings are changed from
  * the bottom screen in the middle of play: every tap on an option froze the
