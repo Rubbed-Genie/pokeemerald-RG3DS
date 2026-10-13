@@ -7715,8 +7715,10 @@ static u8 ProcessTouch(u8 mode)
          * and take the tap themselves, in pixels of that picture. */
         if (mode == MODE_STORAGE)
         {
-            int x = sTouch.lastX - (W - 240) / 2, y = sTouch.lastY - (H - 160) / 2;
+            /* RG DS branch: drawn larger (pc_zoom, bot_zoom), mapped back. */
+            int x = sTouch.lastX, y = sTouch.lastY;
 
+            CtrVideo_BottomPictureMap(&x, &y);
             /* Or a summary opened from them, the same way. So does the
              * trade menu. */
             if (!sTouch.dragged && CtrStorage_IsOpen())
@@ -7724,13 +7726,7 @@ static u8 ProcessTouch(u8 mode)
             else if (!sTouch.dragged && CtrTrade_IsOpen())
                 CtrMenu_PostTap(x, y);
             else if (!sTouch.dragged)
-            {
-                /* RG DS branch: drawn larger (bot_zoom), mapped back. */
-                x = sTouch.lastX;
-                y = sTouch.lastY;
-                CtrVideo_BottomPictureMap(&x, &y);
                 CtrSummary_Tap(x, y);
-            }
             return HIT_NONE;
         }
         if (mode == MODE_POKENAV && sTouch.startX < CW)

@@ -7103,8 +7103,30 @@ bool CtrVideo_BottomInUse(void) { return sBottomInUse; }
  * (settings/tune bot_zoom, percent; 133 fills its width). */
 float CtrVideo_BottomZoom(void)
 {
-    int pct = CtrSettings_GetInt("bot_zoom", 100);
-    if (sCentredScreen != CTR_CENTRED_SUMMARY || pct <= 100 || pct > 140) return 1.0f;
+    int pct;
+
+    CtrSettings_PollTune();
+    /* The PC's boxes the same way (pc_zoom). */
+    if (sCentredScreen == CTR_CENTRED_SUMMARY) pct = CtrSettings_GetInt("bot_zoom", 100);
+    else if (sCentredScreen == CTR_CENTRED_STORAGE) pct = CtrSettings_GetInt("pc_zoom", 100);
+    else return 1.0f;
+    if (pct <= 100 || pct > 140) return 1.0f;
+    return (float)pct / 100.0f;
+}
+
+/* RG DS branch: the screens centred on the top screen - the title menu, the
+ * professor, naming, the clock, the starter, the maps - larger about the
+ * screen's middle (settings/tune top_zoom, percent; 133 fills its width). */
+static float TopZoom(void)
+{
+    int pct;
+
+    if (sCentredScreen != CTR_CENTRED_PLAIN && sCentredScreen != CTR_CENTRED_MAIN_MENU
+        && sCentredScreen != CTR_CENTRED_NAMING && sCentredScreen != CTR_CENTRED_CLOCK
+        && sCentredScreen != CTR_CENTRED_STARTER) return 1.0f;
+    CtrSettings_PollTune();
+    pct = CtrSettings_GetInt("top_zoom", 100);
+    if (pct <= 100 || pct > 150) return 1.0f;
     return (float)pct / 100.0f;
 }
 
@@ -7377,7 +7399,22 @@ static void RenderEye(C3D_RenderTarget *target, uint32_t clear, float parallax)
     if (scene) sLayerExclude = 63 & ~(1u | 32u | BattleBoxLayers());
     if (!(Reg(0) & 128))
     {
-        if (target != sBottom) Compose();
+        if (target != sBottom)
+        {
+            float z = TopZoom();
+            if (z != 1.0f)
+            {
+                sZoom = z;
+                sOffX = (float)CTR_GAME_WIDTH / 2.0f - z * ((float)CTR_VIEW_X + 120.0f);
+                sOffY = (float)CTR_GAME_HEIGHT / 2.0f - z * ((float)CTR_VIEW_Y + 80.0f);
+            }
+            Compose();
+            if (z != 1.0f)
+            {
+                sZoom = 1.0f;
+                sOffX = sOffY = 0.0f;
+            }
+        }
         else if (BottomWhole(sCentredScreen))
         {
             /* RG DS branch: the summary larger (bot_zoom, percent), about its
