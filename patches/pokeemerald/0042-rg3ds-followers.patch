@@ -40270,10 +40270,20 @@ index a3d6b842b..4f5c52fbf 100644
  
  void SetDaycareCompatibilityString(void)
 diff --git a/src/decompress.c b/src/decompress.c
-index 58b3a2d2c..65380bbbe 100644
+index 58b3a2d2c..ed6c5a017 100644
 --- a/src/decompress.c
 +++ b/src/decompress.c
-@@ -19,6 +19,27 @@ void LZDecompressVram(const u32 *src, void *dest)
+@@ -4,6 +4,9 @@
+ #include "decompress.h"
+ #include "pokemon.h"
+ #include "text.h"
++#ifdef PORT_BRIDGE
++#include "port_platform.h"
++#endif
+ 
+ EWRAM_DATA ALIGNED(4) u8 gDecompressionBuffer[0x4000] = {0};
+ 
+@@ -19,6 +22,33 @@ void LZDecompressVram(const u32 *src, void *dest)
      LZ77UnCompVram(src, dest);
  }
  
@@ -40281,8 +40291,14 @@ index 58b3a2d2c..65380bbbe 100644
 +// Checks word-alignment, min/max size, and header byte
 +// Returns uncompressed size if true, 0 otherwise
 +u32 IsLZ77Data(const void *ptr, u32 minSize, u32 maxSize) {
-+    const u8 *data = ptr;
++    const u8 *data;
 +    u32 size;
++#ifdef PORT_BRIDGE
++    // An INCBIN here is a stub symbol: look at the asset itself, or a
++    // compressed palette (the followers') reads as plain colours.
++    ptr = Port_ResolveAssetPointer(ptr);
++#endif
++    data = ptr;
 +    // Compressed data must be word aligned
 +    if (((u32)ptr) & 3)
 +        return 0;
@@ -40301,7 +40317,7 @@ index 58b3a2d2c..65380bbbe 100644
  u16 LoadCompressedSpriteSheet(const struct CompressedSpriteSheet *src)
  {
      struct SpriteSheet dest;
-@@ -30,6 +51,25 @@ u16 LoadCompressedSpriteSheet(const struct CompressedSpriteSheet *src)
+@@ -30,6 +60,25 @@ u16 LoadCompressedSpriteSheet(const struct CompressedSpriteSheet *src)
      return LoadSpriteSheet(&dest);
  }
  
