@@ -366,7 +366,18 @@ static void UpdateStage(void)
     CtrVideo_SetCentred(sCentred.on ? sCentred.screen : CTR_CENTRED_NONE);
     CtrVideo_SetBattle(sBattle.on);
     CtrVideo_SetTransition(sTransition.on);
-    CtrVideo_SetTrail(FieldEffectActiveListContains(FLDEFF_POKEBALL_TRAIL));
+    /* The trail's last ball leaves a few frames before the screen fades to
+     * black: its bars stay up until the battle, so the trail's scale does. */
+    {
+        static bool trail;
+        static unsigned held;
+
+        if (FieldEffectActiveListContains(FLDEFF_POKEBALL_TRAIL))
+            trail = true, held = 0;
+        else if (trail && (sBattle.on || ++held > 120))
+            trail = false;
+        CtrVideo_SetTrail(trail);
+    }
 }
 
 /*
