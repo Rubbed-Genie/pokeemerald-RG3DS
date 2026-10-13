@@ -46150,7 +46150,7 @@ index fcacdbeb3..74f927231 100644
  #include <cstdio>
  #include <limits>
 diff --git a/tools/preproc/c_file.cpp b/tools/preproc/c_file.cpp
-index 191ca4c15..4b40d18bc 100644
+index 191ca4c15..1ae94943f 100644
 --- a/tools/preproc/c_file.cpp
 +++ b/tools/preproc/c_file.cpp
 @@ -281,10 +281,10 @@ int ExtractData(const std::unique_ptr<unsigned char[]>& buffer, int offset, int
@@ -46158,7 +46158,7 @@ index 191ca4c15..4b40d18bc 100644
  void CFile::TryConvertIncbin()
  {
 -    std::string idents[6] = { "INCBIN_S8", "INCBIN_U8", "INCBIN_S16", "INCBIN_U16", "INCBIN_S32", "INCBIN_U32" };
-+    std::string idents[8] = { "INCBIN_S8", "INCBIN_U8", "INCBIN_S16", "INCBIN_U16", "INCBIN_S32", "INCBIN_U32", "DUMMY", "INCBIN_COMP"};
++    std::string idents[8] = { "INCBIN_S8", "INCBIN_U8", "INCBIN_S16", "INCBIN_U16", "INCBIN_S32", "INCBIN_U32", "INCBIN_UNUSED_SLOT_", "INCBIN_COMP"};
      int incbinType = -1;
  
 -    for (int i = 0; i < 6; i++)
