@@ -1058,6 +1058,8 @@ static int EffectOwner(const struct Sprite *sprite, const VoxelObjectCard *objec
     return best;
 }
 
+extern const struct Tileset gTileset_Shop;
+
 unsigned VoxelEntities_Emit(VoxelBuilder *builder, uint16_t *atlas, const VoxelCamera *camera,
                             VoxelBuilder *shadows, VoxelBuilder *reflections)
 {
@@ -1217,11 +1219,13 @@ unsigned VoxelEntities_Emit(VoxelBuilder *builder, uint16_t *atlas, const VoxelC
         card->feet = card->base - (sSlots[i].height - VisibleRows(&sSlots[i]));
         card->sprite = sprite;
         card->rise = 0.0f;
-        /* RG DS branch: whoever stands behind a counter - a mart clerk, the
-         * nurse - is raised (counter_rise, hundredths of a tile), so from a
-         * low camera the counter's model shows them from the chest up, as
-         * the GBA draws them, instead of hiding all but the hair. */
-        if (i != gPlayerAvatar.objectEventId)
+        /* RG DS branch: a mart's clerk, behind its tall glass counter, is
+         * raised (counter_rise, hundredths of a tile), so from a low camera
+         * the counter's model shows them from the chest up, as the GBA draws
+         * them, instead of hiding all but the hair. Only a mart's: the
+         * Pokémon Center's counter is low and its nurse was left floating. */
+        if (i != gPlayerAvatar.objectEventId && VoxelWorld_InstanceCount() > 0
+         && VoxelWorld_Instance(0)->secondaryTileset == &gTileset_Shop)
         {
             int rise = CtrSettings_GetInt("counter_rise", 0);
             int tx = (int)floorf(worldX + 0.5f), tz = (int)floorf(worldZ + 0.5f);
