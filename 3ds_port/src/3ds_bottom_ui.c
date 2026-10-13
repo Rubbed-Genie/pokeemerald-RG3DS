@@ -104,6 +104,7 @@
 #include "3ds_bottom.h"
 #include "3ds_extras.h"
 #include "3ds_bottom_art.h"
+#include "3ds_credit_art.h"
 #include "3ds_input.h"
 #include "3ds_log.h"
 #include "3ds_platform.h"
@@ -5245,6 +5246,30 @@ static void DrawTitleCredit(void)
             if (a)
                 Put(x0 + x, y0 + y, PackRgb(a, a, a));
         }
+    /* RG DS edition: Rubbed-Genie's icon and credit on a line of their own
+     * above the logo, the icon dimmed to sit with the logo's grey. */
+    {
+        int iy = y0 - ART_CREDIT_ICON - 6;
+        const u8 *str = Ascii("RG3DS edition by Rubbed-Genie");
+        int ix0, ix1, top, bottom;
+
+        for (int y = 0; y < ART_CREDIT_ICON; ++y)
+            for (int x = 0; x < ART_CREDIT_ICON; ++x)
+            {
+                const u8 *p = &sArtCreditIcon[(y * ART_CREDIT_ICON + x) * 4];
+                int k = p[3] * 150 / 255;   /* coverage, dimmed */
+
+                if (p[3])
+                    Put(x0 + x, iy + y, PackRgb(p[0] * k / 255, p[1] * k / 255, p[2] * k / 255));
+            }
+        if (sNormal.glyphs)
+        {
+            InkColumns(&sNormal, str, &ix0, &ix1);
+            CapRows(&sNormal, &top, &bottom);
+            DrawStr(&sNormal, str, x0 + ART_CREDIT_ICON + 8 - ix0,
+                    iy + (ART_CREDIT_ICON - (bottom - top)) / 2 - top, grey, 0);
+        }
+    }
     /* Its capitals level with the logo's lettering (the logo's rows 8 to 20). */
     {
         const u8 *str = Ascii("v" CTR_APP_VERSION);
