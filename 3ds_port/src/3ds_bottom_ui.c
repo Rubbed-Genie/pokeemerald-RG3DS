@@ -7645,15 +7645,23 @@ static u8 ProcessTouch(u8 mode)
     if ((in->touchDown && BagShown(mode) && (sShown.bagView == BAG_VIEW_WHOLE || in->touchX < CW))
      || (sTouch.bag && sTouch.active && BagShown(mode)))
     {
-        int ox = sShown.bagView == BAG_VIEW_WHOLE ? (W - 240) / 2 : 0, oy = (H - 160) / 2;
+        int x = in->touchX, y = in->touchY - (H - 160) / 2;
 
+        /* RG DS branch: over the whole screen it can be drawn larger
+         * (bag_zoom), mapped back. */
+        if (sShown.bagView == BAG_VIEW_WHOLE)
+        {
+            x = in->touchX;
+            y = in->touchY;
+            CtrVideo_BottomPictureMap(&x, &y);
+        }
         if (in->touchDown)
         {
             sTouch.active = sTouch.bag = TRUE;
-            CtrBag_Touch(BAG_TOUCH_DOWN, in->touchX - ox, in->touchY - oy);
+            CtrBag_Touch(BAG_TOUCH_DOWN, x, y);
         }
         else if (in->touchActive)
-            CtrBag_Touch(BAG_TOUCH_MOVE, in->touchX - ox, in->touchY - oy);
+            CtrBag_Touch(BAG_TOUCH_MOVE, x, y);
         else
         {
             sTouch.active = sTouch.bag = FALSE;
@@ -7707,10 +7715,16 @@ static u8 ProcessTouch(u8 mode)
          * column's buttons are ours. */
         if (mode == MODE_PARTY_MENU && (sShown.bagView == BAG_VIEW_WHOLE || sTouch.startX < CW))
         {
-            int ox = sShown.bagView == BAG_VIEW_WHOLE ? (W - 240) / 2 : 0, oy = (H - 160) / 2;
+            int x = sTouch.lastX, y = sTouch.lastY - (H - 160) / 2;
 
+            /* RG DS branch: larger over the whole screen (party_zoom). */
+            if (sShown.bagView == BAG_VIEW_WHOLE)
+            {
+                y = sTouch.lastY;
+                CtrVideo_BottomPictureMap(&x, &y);
+            }
             if (!sTouch.dragged)
-                CtrMenu_PostTap(sTouch.lastX - ox, sTouch.lastY - oy);
+                CtrMenu_PostTap(x, y);
             return HIT_NONE;
         }
         /* The boxes have the whole screen, their picture in the middle of it,
