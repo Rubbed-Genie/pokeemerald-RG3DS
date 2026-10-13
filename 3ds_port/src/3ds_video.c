@@ -5192,6 +5192,8 @@ float CtrVideo_BottomZoom(void)
     /* The PC's boxes the same way (pc_zoom). */
     if (sCentredScreen == CTR_CENTRED_SUMMARY) pct = CtrSettings_GetInt("bot_zoom", 100);
     else if (sCentredScreen == CTR_CENTRED_STORAGE) pct = CtrSettings_GetInt("pc_zoom", 100);
+    /* And a mart's BUY screen (shop_zoom). */
+    else if (sCentredScreen == CTR_CENTRED_SHOP) pct = CtrSettings_GetInt("shop_zoom", 100);
     else return 1.0f;
     if (pct <= 100 || pct > 140) return 1.0f;
     return (float)pct / 100.0f;
