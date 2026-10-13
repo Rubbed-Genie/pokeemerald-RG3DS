@@ -894,7 +894,7 @@ static float sLayerOrigin;
  * so its centre reaches the middle of the viewport at +76. The voxel overlay
  * does the same (ComposeVoxelOverlay); sFieldUi asks for it in the 2D field.
  */
-#define CTR_FIELD_UI_SHIFT 76.0f
+#define CTR_FIELD_UI_SHIFT ((float)CTR_GAME_WIDTH / 2.0f - 124.0f) /* 76 at 400 wide */
 static bool sFieldUi;
 /*
  * The banner of a field move (src/field_effect.c, the mon shown for Surf, Cut,
@@ -1365,9 +1365,13 @@ static void DrawSlotTinted(int slot, float x, float y, bool flipX, bool flipY, c
 {
     unsigned tileX = ((unsigned)slot % (ATLAS_SIZE / 8)) * 8;
     unsigned tileY = ((unsigned)slot / (ATLAS_SIZE / 8)) * 8;
-    Tex3DS_SubTexture sub = {8, 8, tileX / (float)ATLAS_SIZE,
-        1.0f - tileY / (float)ATLAS_SIZE,
-        (tileX + 8) / (float)ATLAS_SIZE, 1.0f - (tileY + 8) / (float)ATLAS_SIZE};
+    /* Zoomed by a fraction (ui_zoom), a tile's edge can sample its atlas
+     * neighbour: a stray line through a window. A quarter texel in keeps
+     * every sample inside the tile. */
+    float in = sZoom != 1.0f ? 0.25f : 0.0f;
+    Tex3DS_SubTexture sub = {8, 8, (tileX + in) / (float)ATLAS_SIZE,
+        1.0f - (tileY + in) / (float)ATLAS_SIZE,
+        (tileX + 8 - in) / (float)ATLAS_SIZE, 1.0f - (tileY + 8 - in) / (float)ATLAS_SIZE};
 
     if (++sStats.tiles >= MAX_DRAWS - 32)
     {
@@ -8173,8 +8177,16 @@ static void GpuSplit(void)
  * The surface is sampled NEAREST again afterwards: the picture itself stays
  * pixel-sharp.
  */
+#ifndef DIORAMA_TOP
 #define DIORAMA_TOP 100    /* rows blurred at the top */
+#endif
+#ifndef DIORAMA_BOTTOM
 #define DIORAMA_BOTTOM 56  /* ... and at the bottom */
+#endif
+/* Strength of the blur taps, 1 = as designed (DIORAMA=0.5 halves it). */
+#ifndef DIORAMA_STRENGTH
+#define DIORAMA_STRENGTH 1.0f
+#endif
 
 static void SurfaceFilter(GPU_TEXTURE_FILTER_PARAM filter)
 {
@@ -8210,15 +8222,28 @@ static float DioramaStrength(void)
 
 static void VoxelDiorama(void)
 {
-    float strength = DioramaStrength();
+    /* settings.txt: dio_top / dio_bot (rows) and dio_pct (strength, percent). */
+    int top = CtrSettings_GetInt("dio_top", DIORAMA_TOP);
+    int bottom = CtrSettings_GetInt("dio_bot", DIORAMA_BOTTOM);
+    float k = (float)CtrSettings_GetInt("dio_pct", 100) / 100.0f;
 
+    if (top < 0 || top > CTR_GAME_HEIGHT / 2) top = DIORAMA_TOP;
+    if (bottom < 0 || bottom > CTR_GAME_HEIGHT / 2) bottom = DIORAMA_BOTTOM;
+    if (k < 0.0f || k > 1.5f) k = 1.0f;
     SurfaceFilter(GPU_LINEAR);
     /* Half a texel either way: two 2x2 averages on either side of each
      * pixel, together centred on it - a blur that does not shift the picture. */
-    DioramaTap(0, DIORAMA_TOP, true, 0.5f, 0.5f, 0.67f * strength);
-    DioramaTap(0, DIORAMA_TOP, true, -0.5f, -0.5f, 0.50f * strength);
-    DioramaTap(CTR_GAME_HEIGHT - DIORAMA_BOTTOM, DIORAMA_BOTTOM, false, 0.5f, 0.5f, 0.60f * strength);
-    DioramaTap(CTR_GAME_HEIGHT - DIORAMA_BOTTOM, DIORAMA_BOTTOM, false, -0.5f, -0.5f, 0.45f * strength);
+    k *= DioramaStrength();
+    if (top > 0)
+    {
+        DioramaTap(0, top, true, 0.5f, 0.5f, 0.67f * k);
+        DioramaTap(0, top, true, -0.5f, -0.5f, 0.50f * k);
+    }
+    if (bottom > 0)
+    {
+        DioramaTap(CTR_GAME_HEIGHT - bottom, bottom, false, 0.5f, 0.5f, 0.60f * k);
+        DioramaTap(CTR_GAME_HEIGHT - bottom, bottom, false, -0.5f, -0.5f, 0.45f * k);
+    }
     SurfaceFilter(GPU_NEAREST);
 }
 
@@ -8446,13 +8471,30 @@ static void ComposeVoxelOverlay(void)
      * drawn without it they hid the world under them. */
     if (weather) Layers(1u << 4 | 32u);
     BlendForget();
-    /* Text windows and prompts must stay above the precipitation. */
-    sLayerOrigin = sFieldBanner ? 0.0f : CTR_FIELD_UI_SHIFT;
-    Layers(1u << 0);
-    sLayerOrigin = 0.0f;
-    sVoxelObjPass = VOXEL_OBJ_SCREEN;
-    if (screen) Layers(1u << 4);
-    sVoxelObjPass = VOXEL_OBJ_NONE;
+    /* Text windows and prompts must stay above the precipitation. They can
+     * be drawn larger to suit a bigger-looking world (settings/tune ui_zoom,
+     * percent): scaled about the bottom middle, so they grow upwards. */
+    {
+        int uiZoom = CtrSettings_GetInt("ui_zoom", 100);
+        float z = uiZoom >= 100 && uiZoom <= 150 ? (float)uiZoom / 100.0f : 1.0f;
+
+        if (z != 1.0f && !sFieldBanner)
+        {
+            sZoom = z;
+            /* The box's middle (view + shift + 124 = view + width / 2) stays
+             * the screen's middle. */
+            sOffX = (float)CTR_GAME_WIDTH / 2.0f - z * ((float)CTR_VIEW_X + (float)CTR_GAME_WIDTH / 2.0f);
+            sOffY = (1.0f - z) * (float)(CTR_GAME_HEIGHT - 2);
+        }
+        sLayerOrigin = sFieldBanner ? 0.0f : CTR_FIELD_UI_SHIFT;
+        Layers(1u << 0);
+        sLayerOrigin = 0.0f;
+        sVoxelObjPass = VOXEL_OBJ_SCREEN;
+        if (screen) Layers(1u << 4);
+        sVoxelObjPass = VOXEL_OBJ_NONE;
+        sZoom = 1.0f;
+        sOffX = sOffY = 0.0f;
+    }
 }
 
 /*
@@ -10616,7 +10658,21 @@ void CtrVideo_Present(void)
     }
 #endif
     /* Queued in the frame, behind the drawing into sBottom (BottomTransfer). */
-    if (bottom) BottomTransfer();
+    if (bottom)
+    {
+        BottomTransfer();
+        /*
+         * RG DS branch: the top screen is held, so nothing is presented this
+         * frame. Hardware scans memory anyway; Azahar redraws its screens only
+         * when the top screen is swapped (with "skip duplicate frames" on, the
+         * default up to 2026-09), so the bottom stayed at the black it had
+         * before the picture came. Present the top screen's shown buffer again
+         * - double buffering off for the call, so it is not flipped.
+         */
+        gfxSetDoubleBuffering(GFX_TOP, false);
+        gfxScreenSwapBuffers(GFX_TOP, sStereo);
+        gfxSetDoubleBuffering(GFX_TOP, true);
+    }
     PORT_PROF_END(draw, PORT_PROF_DRAW);
     PORT_PROF_BEGIN(frameEnd);
     float gpuStartMs;

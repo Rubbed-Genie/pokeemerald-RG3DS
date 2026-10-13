@@ -54,6 +54,7 @@ static void AdaptDistance(VoxelCamera *cam)
     int mapW = 0, mapH = 0;
     float scale = 5.0f;
 
+    CtrSettings_PollTune();
     if (!VoxelWorld_MapIsConnected())
     {
         VoxelWorld_GetMapDimensions(&mapW, &mapH);
@@ -63,6 +64,26 @@ static void AdaptDistance(VoxelCamera *cam)
     }
     cam->distance = (8.0f + scale) * 100.0f / (float)CtrSettings_VoxelZoom();
     cam->pitch = (float)CtrSettings_VoxelPitch();
+    cam->fov = 35.0f;
+    /* Rooms are small, so the camera comes close and the perspective is
+     * strong. settings.txt can frame them on their own: in_pitch (degrees,
+     * 0 = the field's), in_dist (percent of the distance) and in_fov (degrees,
+     * 0 = 35); a longer lens from further back flattens the room. */
+    {
+        const VoxelMapInstance *map = VoxelWorld_Instance(0);
+        if (map != NULL && map->indoor)
+        {
+            int pitch = CtrSettings_GetInt("in_pitch", 0);
+            int dist = CtrSettings_GetInt("in_dist", 100);
+            int fov = CtrSettings_GetInt("in_fov", 0);
+            if (pitch >= 20 && pitch <= 85)
+                cam->pitch = (float)pitch;
+            if (dist >= 50 && dist <= 400)
+                cam->distance *= (float)dist / 100.0f;
+            if (fov >= 10 && fov <= 60)
+                cam->fov = (float)fov;
+        }
+    }
 }
 
 void VoxelCamera_Snap(VoxelCamera *cam, float playerWorldX, float playerWorldZ)

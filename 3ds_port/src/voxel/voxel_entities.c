@@ -25,6 +25,25 @@
 #include "voxel_world.h"
 #include "voxel_lighting.h"
 
+int CtrSettings_GetInt(const char *key, int fallback); /* 3ds_settings.c */
+
+/*
+ * How far the cards stand forward of their tile's centre, towards the camera
+ * (tiles; settings.txt / tune.txt spr_z and in_spr_z, hundredths). Seen from
+ * above with furniture modelled, feet on the centre read as the row behind.
+ */
+static float sCardForward;
+
+static void UpdateCardForward(void)
+{
+    const VoxelMapInstance *map = VoxelWorld_Instance(0);
+    int v = (map != NULL && map->indoor) ? CtrSettings_GetInt("in_spr_z", 0) : CtrSettings_GetInt("spr_z", 0);
+
+    if (v < -50 || v > 60)
+        v = 0;
+    sCardForward = (float)v / 100.0f;
+}
+
 /* 16 pixels of sprite is one world tile, as in the reference renderer. */
 #define VOXEL_PIXELS_PER_TILE 16.0f
 
@@ -646,7 +665,7 @@ static void EmitBillboard(VoxelBuilder *builder, const VoxelSpriteSlot *slot, un
         push = model;
     /* Towards the camera: the right vector turned a quarter, unit length. */
     float along = push > 0.0f ? push / sqrtf(rightX * rightX + rightZ * rightZ) : 0.0f;
-    float px = cx + offX - rightZ * along, pz = cz + offZ + shift + rightX * along;
+    float px = cx + offX - rightZ * along, pz = cz + offZ + shift + rightX * along + sCardForward;
 
     lift += push;
     float ax = px - rightX * halfW, az = pz - rightZ * halfW;
@@ -847,7 +866,7 @@ static void EmitCastShadow(VoxelBuilder *shadows, const VoxelSpriteSlot *slot, u
     float height = rows / VOXEL_PIXELS_PER_TILE * stretch;
     /* Off the ground by `lift` (riding), the feet's shadow falls that much
      * further along the sun. */
-    float cx = worldX + 0.5f + VOXEL_SUN_DX * lift, cz = worldZ + 0.5f + VOXEL_SUN_DZ * lift;
+    float cx = worldX + 0.5f + VOXEL_SUN_DX * lift, cz = worldZ + 0.5f + VOXEL_SUN_DZ * lift + sCardForward;
     float ax = cx - rightX * halfW, az = cz - rightZ * halfW;
     float bx = cx + rightX * halfW, bz = cz + rightZ * halfW;
     float sx = VOXEL_SUN_DX * height, sz = VOXEL_SUN_DZ * height;
@@ -1157,6 +1176,7 @@ static int EffectOwner(const struct Sprite *sprite, const VoxelObjectCard *objec
 unsigned VoxelEntities_Emit(VoxelBuilder *builder, uint16_t *atlas, const VoxelCamera *camera,
                             VoxelBuilder *shadows, VoxelBuilder *reflections)
 {
+    UpdateCardForward();
     /* The billboards turn about the vertical axis to face the camera. With the
      * default yaw of 0 this is (1,0,0), the same plane the reference uses.
      * The card stands upright and the camera looks down on it, so on screen
@@ -1171,6 +1191,34 @@ unsigned VoxelEntities_Emit(VoxelBuilder *builder, uint16_t *atlas, const VoxelC
     float yawRad = camera->yaw * (3.14159265358979323846f / 180.0f);
     float narrow = sqrtf(cosf(camera->pitch * (3.14159265358979323846f / 180.0f)));
     float stretch = 1.0f / narrow;
+    /* spr_fit (percent, settings/tune): blend towards the GBA's own grid,
+     * where a sprite row is as tall on screen as a row of floor: full width
+     * and tan(pitch) tall. Below 45 degrees the floor foreshortens faster
+     * than an upright card, and the sqrt(cos) split reads as oversized. */
+    {
+        int fit = CtrSettings_GetInt("spr_fit", 0);
+        if (fit > 0 && fit <= 100)
+        {
+            float t = (float)fit / 100.0f;
+            float grid = tanf(camera->pitch * (3.14159265358979323846f / 180.0f));
+            narrow += (1.0f - narrow) * t;
+            stretch += (grid - stretch) * t;
+        }
+    }
+    /* spr_scale / in_spr_scale (percent): the cards smaller or larger, same
+     * proportions - the sprite stands on its tile at a size that suits a
+     * flatter camera. */
+    {
+        const VoxelMapInstance *map = VoxelWorld_Instance(0);
+        int scale = (map != NULL && map->indoor) ? CtrSettings_GetInt("in_spr_scale", 0) : 0;
+        if (scale == 0)
+            scale = CtrSettings_GetInt("spr_scale", 100);
+        if (scale >= 50 && scale <= 150)
+        {
+            narrow *= (float)scale / 100.0f;
+            stretch *= (float)scale / 100.0f;
+        }
+    }
     float rightX = cosf(yawRad) * narrow, rightZ = -sinf(yawRad) * narrow;
     /* Towards the camera, along the ground. */
     float towardX = sinf(yawRad), towardZ = cosf(yawRad);

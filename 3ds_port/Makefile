@@ -97,6 +97,13 @@ ifneq ($(TOP_WIDTH),)
 CPPFLAGS += -DCTR_GAME_WIDTH=$(TOP_WIDTH)
 GAMEFLAGS += -DCTR_GAME_WIDTH=$(TOP_WIDTH)
 endif
+# DIORAMA_ROWS="top bottom" and DIORAMA=<strength> tune the voxel tilt-shift blur.
+ifneq ($(DIORAMA_ROWS),)
+CPPFLAGS += -DDIORAMA_TOP=$(word 1,$(DIORAMA_ROWS)) -DDIORAMA_BOTTOM=$(word 2,$(DIORAMA_ROWS))
+endif
+ifneq ($(DIORAMA),)
+CPPFLAGS += -DDIORAMA_STRENGTH=$(DIORAMA)f
+endif
 CPPFLAGS += -DCTR_DATA_BACKEND=$(DATA_BACKEND)
 # Legacy code has existing warnings; platform code remains -Werror.
 GAMECFLAGS := $(filter-out -Werror,$(CFLAGS)) -fsigned-char -fno-strict-aliasing
