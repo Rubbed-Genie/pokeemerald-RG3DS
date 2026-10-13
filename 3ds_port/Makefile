@@ -77,6 +77,12 @@ GAMEFLAGS += -DCTR_SHOW_FPS=$(SHOW_FPS)
 # TOP_WIDTH=320 lays the top screen out at 4:3 and widens it on present
 # (3ds_video.h); empty keeps the panel's 400.
 ifneq ($(TOP_WIDTH),)
+# The RG DS edition (4:3 top screen, tuned defaults in 3ds_settings.c).
+ifeq ($(TOP_WIDTH),320)
+APP_TITLE := Pokemon Emerald RG3DS
+APP_DESCRIPTION := Emerald 3Ds Dual Screen, tuned for the Anbernic RG DS
+APP_AUTHOR := ZallaxDev, RG DS edition by Matt
+endif
 CPPFLAGS += -DCTR_GAME_WIDTH=$(TOP_WIDTH)
 GAMEFLAGS += -DCTR_GAME_WIDTH=$(TOP_WIDTH)
 endif
