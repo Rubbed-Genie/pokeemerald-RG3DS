@@ -203,6 +203,8 @@ void CtrVideo_SetTransition(bool transition);
 /* RG DS branch: the Poké Ball trail transition is a field effect, not a
  * transition callback; it is drawn over the field at the transitions' scale. */
 void CtrVideo_SetTrail(bool trail);
+/* RG DS branch: the battle text box's height on screen (bat_zoom). */
+float CtrVideo_BattleBoxHeight(void);
 /*
  * The registers from BG0HOFS to BLDY (CTR_LINE_REG_FIRST, CTR_LINE_REGS of
  * them) as each of the GBA's 160 lines of a transition's frame shows them:

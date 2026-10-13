@@ -1888,6 +1888,9 @@ static float BattleTextZoom(void)
     return pct > 100 && pct <= 140 ? (float)pct / 100.0f : 1.0f;
 }
 
+/* The text box's height on screen (voxel_battle.c places the battlers above it). */
+float CtrVideo_BattleBoxHeight(void) { return 48.0f * BattleTextZoom(); }
+
 static void DrawBattleTextLayer(unsigned bg)
 {
     int viewX = sViewX, viewY = sViewY;
@@ -5017,7 +5020,7 @@ static void BattleSceneCompose(int margin, unsigned exclude)
     oy = top * zoom + offY;
     float scale = zoom / SCENE_ZOOM;
     int width = (int)ceilf((CTR_GAME_WIDTH + margin * zoom - ox) / scale);
-    int height = (int)ceilf((CTR_GAME_HEIGHT - 48 - oy) / scale);
+    int height = (int)ceilf((CTR_GAME_HEIGHT - CtrVideo_BattleBoxHeight() - oy) / scale);
 
     if (width > SCENE_W) width = SCENE_W;
     if (height > SCENE_H) height = SCENE_H;
@@ -6894,7 +6897,7 @@ static float BattleScenerySway(unsigned reg)
  * All of it is the world's, under the battle's own picture.
  */
 /* The world's lowest line on screen: the text box covers the rest. */
-#define BATTLE_INTRO_FLOOR (CTR_BATTLE_Y + BATTLE_BAND_TOP)
+#define BATTLE_INTRO_FLOOR ((float)CTR_GAME_HEIGHT - CtrVideo_BattleBoxHeight())
 #define BATTLE_INTRO_BAR 22.0f      /* each cinema bar, closed */
 #define BATTLE_INTRO_BAR_EDGE 10.0f /* its soft edge */
 #define BATTLE_INTRO_STREAKS 12u
@@ -8240,7 +8243,9 @@ void CtrVideo_Present(void)
     sZoom = sBattle ? CTR_BATTLE_ZOOM : 1.0f;
     /* GBA (120, 112) - the middle of the scene's bottom edge - on screen (200, 192). */
     sOffX = sBattle ? CTR_GAME_WIDTH / 2 - 120 * sZoom : 0.0f;
-    sOffY = sBattle ? CTR_GAME_HEIGHT - 48 - 112 * sZoom : 0.0f;
+    /* RG DS branch: a larger text box (bat_zoom) lifts the scene by as much,
+     * so it covers none of the battlers or their boxes. */
+    sOffY = sBattle ? CTR_GAME_HEIGHT - CtrVideo_BattleBoxHeight() - 112 * sZoom : 0.0f;
     sShiftZoom = sZoom;
     /* RG DS branch: tune.txt's values, live, whatever is on screen. */
     CtrSettings_PollTune();
