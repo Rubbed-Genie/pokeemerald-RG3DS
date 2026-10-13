@@ -7724,7 +7724,13 @@ static u8 ProcessTouch(u8 mode)
             else if (!sTouch.dragged && CtrTrade_IsOpen())
                 CtrMenu_PostTap(x, y);
             else if (!sTouch.dragged)
+            {
+                /* RG DS branch: drawn larger (bot_zoom), mapped back. */
+                x = sTouch.lastX;
+                y = sTouch.lastY;
+                CtrVideo_BottomPictureMap(&x, &y);
                 CtrSummary_Tap(x, y);
+            }
             return HIT_NONE;
         }
         if (mode == MODE_POKENAV && sTouch.startX < CW)

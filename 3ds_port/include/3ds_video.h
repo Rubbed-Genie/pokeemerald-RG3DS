@@ -20,6 +20,11 @@ unsigned CtrVideo_VoxelUploadsLeft(void);
 #endif
 #define CTR_GAME_HEIGHT 240
 
+/* RG DS branch: the summary's zoom on the bottom screen, and a tap mapped
+ * into its picture (3ds_video.c). */
+float CtrVideo_BottomZoom(void);
+void CtrVideo_BottomPictureMap(int *x, int *y);
+
 /*
  * A GBA stage keeps the native pixel grid: the 240x160 picture sits 1:1 in the
  * middle of the 400x240 screen, and the compositor fills the space around it

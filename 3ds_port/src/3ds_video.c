@@ -7099,6 +7099,23 @@ static bool sBottomInUse;
 bool CtrVideo_BottomInUse(void) { return sBottomInUse; }
 
 /* The screens drawn over the whole bottom screen, rather than left of the column. */
+/* RG DS branch: how much larger the summary is drawn on the bottom screen
+ * (settings/tune bot_zoom, percent; 133 fills its width). */
+float CtrVideo_BottomZoom(void)
+{
+    int pct = CtrSettings_GetInt("bot_zoom", 100);
+    if (sCentredScreen != CTR_CENTRED_SUMMARY || pct <= 100 || pct > 140) return 1.0f;
+    return (float)pct / 100.0f;
+}
+
+/* A tap on the bottom screen in pixels of the whole-screen picture. */
+void CtrVideo_BottomPictureMap(int *x, int *y)
+{
+    float z = CtrVideo_BottomZoom();
+    *x = (int)((*x - (BOTTOM_WIDTH - 240.0f * z) / 2.0f) / z);
+    *y = (int)((*y - (BOTTOM_SIZE - 160.0f * z) / 2.0f) / z);
+}
+
 static bool BottomWhole(unsigned screen)
 {
     return screen == CTR_CENTRED_STORAGE || screen == CTR_CENTRED_SUMMARY || screen == CTR_CENTRED_BAG_WHOLE
@@ -7361,7 +7378,21 @@ static void RenderEye(C3D_RenderTarget *target, uint32_t clear, float parallax)
     if (!(Reg(0) & 128))
     {
         if (target != sBottom) Compose();
-        else if (BottomWhole(sCentredScreen)) StorageCompose(STORAGE_MARGIN_X);
+        else if (BottomWhole(sCentredScreen))
+        {
+            /* RG DS branch: the summary larger (bot_zoom, percent), about its
+             * middle; taps are mapped back (CtrVideo_BottomPictureMap). */
+            float z = CtrVideo_BottomZoom();
+            if (z != 1.0f)
+            {
+                sZoom = z;
+                sOffX = (BOTTOM_WIDTH - 240.0f * z) / 2.0f - z * (float)CTR_VIEW_X + (CTR_GAME_WIDTH - BOTTOM_WIDTH) / 2.0f;
+                sOffY = (BOTTOM_SIZE - 160.0f * z) / 2.0f - z * (float)CTR_VIEW_Y;
+            }
+            StorageCompose(STORAGE_MARGIN_X);
+            sZoom = 1.0f;
+            sOffX = sOffY = 0.0f;
+        }
         else if (sCentredScreen == CTR_CENTRED_BAG || sCentredScreen == CTR_CENTRED_POKEDEX
                  || sCentredScreen == CTR_CENTRED_PARTY) StorageCompose(0);
         else NavCompose();
@@ -8478,22 +8509,37 @@ static void ComposeVoxelOverlay(void)
         int uiZoom = CtrSettings_GetInt("ui_zoom", 100);
         float z = uiZoom >= 100 && uiZoom <= 150 ? (float)uiZoom / 100.0f : 1.0f;
 
-        if (z != 1.0f && !sFieldBanner)
+        /* Only the message box's band (GBA rows 112-160) is zoomed: menus and
+         * lists higher up (a PC's, a YES/NO) stay as they are, or they were
+         * pushed off the screen. */
+        const int band = 112;
+        bool split = z != 1.0f && !sFieldBanner;
+
+        for (int pass = 0; pass < (split ? 2 : 1); ++pass)
         {
-            sZoom = z;
-            /* The box's middle (view + shift + 124 = view + width / 2) stays
-             * the screen's middle. */
-            sOffX = (float)CTR_GAME_WIDTH / 2.0f - z * ((float)CTR_VIEW_X + (float)CTR_GAME_WIDTH / 2.0f);
-            sOffY = (1.0f - z) * (float)(CTR_GAME_HEIGHT - 2);
+            if (split && pass == 0)
+                sClipY1 = band;
+            if (split && pass == 1)
+            {
+                sClipY0 = band;
+                sClipY1 = CTR_GAME_HEIGHT;
+                sZoom = z;
+                /* The box's middle (view + shift + 124 = view + width / 2)
+                 * stays the screen's middle. */
+                sOffX = (float)CTR_GAME_WIDTH / 2.0f - z * ((float)CTR_VIEW_X + (float)CTR_GAME_WIDTH / 2.0f);
+                sOffY = (1.0f - z) * (float)(CTR_GAME_HEIGHT - 2);
+            }
+            sLayerOrigin = sFieldBanner ? 0.0f : CTR_FIELD_UI_SHIFT;
+            Layers(1u << 0);
+            sLayerOrigin = 0.0f;
+            sVoxelObjPass = VOXEL_OBJ_SCREEN;
+            if (screen) Layers(1u << 4);
+            sVoxelObjPass = VOXEL_OBJ_NONE;
         }
-        sLayerOrigin = sFieldBanner ? 0.0f : CTR_FIELD_UI_SHIFT;
-        Layers(1u << 0);
-        sLayerOrigin = 0.0f;
-        sVoxelObjPass = VOXEL_OBJ_SCREEN;
-        if (screen) Layers(1u << 4);
-        sVoxelObjPass = VOXEL_OBJ_NONE;
         sZoom = 1.0f;
         sOffX = sOffY = 0.0f;
+        sClipY0 = 0;
+        sClipY1 = CTR_GAME_HEIGHT;
     }
 }
 
