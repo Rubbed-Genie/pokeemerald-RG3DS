@@ -352,8 +352,8 @@ static void UpdateSet(StageSet *set, IntrCallback callback)
     set->on = on;
 }
 
-/* The map preview's (map_preview.c, patch 0044); none without it. */
-__attribute__((weak)) bool32 ForestMapPreviewScreenIsRunning(void)
+/* Whether a map preview card is up (map_preview.c, patch 0044); none without it. */
+__attribute__((weak)) bool32 CtrMapPreview_Showing(void)
 {
     return FALSE;
 }
@@ -391,7 +391,7 @@ static void UpdateStage(void)
             trail = false;
         /* RG3DS: a map preview card (patch 0044) is BG0 over the field, a
          * GBA screen too: drawn as the trail is. */
-        CtrVideo_SetTrail(trail || ForestMapPreviewScreenIsRunning());
+        CtrVideo_SetTrail(trail || CtrMapPreview_Showing());
     }
 }
 

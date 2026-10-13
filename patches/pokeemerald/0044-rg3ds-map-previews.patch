@@ -3674,10 +3674,10 @@ index 643799de5..97dcda1d7 100644
      LZ77UnCompVram(sCaveTransitionTiles, (void *)(VRAM + 0xC000));
 diff --git a/src/map_preview.c b/src/map_preview.c
 new file mode 100644
-index 000000000..747e2abea
+index 000000000..fe4a09498
 --- /dev/null
 +++ b/src/map_preview.c
-@@ -0,0 +1,770 @@
+@@ -0,0 +1,779 @@
 +#include "global.h"
 +#include "region_map.h"
 +#include "main.h"
@@ -4213,6 +4213,15 @@ index 000000000..747e2abea
 +    AddTextPrinterParameterized4(windowId, 2, xctr / 2, 2, 0, 0, color/* Access violation */, -1, gStringVar4);
 +    return windowId;
 +}
++
++#ifdef PORT_BRIDGE
++// RG3DS: whether a preview card is up (ForestMapPreviewScreenIsRunning
++// answers the opposite, despite its name: TRUE once it has finished).
++bool32 CtrMapPreview_Showing(void)
++{
++    return FuncIsActiveTask(Task_RunMapPreviewScreenForest);
++}
++#endif
 +
 +bool32 ForestMapPreviewScreenIsRunning(void)
 +{
