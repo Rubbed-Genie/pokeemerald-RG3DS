@@ -1,0 +1,23 @@
+Pokémon Emerald 3Ds Dual Screen changes to pret/pokeemerald 76463dac15cad36aca5e2b3f6366abf9e53f814f: RG DS caught-mon Pokedex page query
+Applies after 0040-trainer-hill-floors.patch; apply with tools/bootstrap.py.
+
+diff --git a/src/pokedex.c b/src/pokedex.c
+--- a/src/pokedex.c
++++ b/src/pokedex.c
+@@ -5814,6 +5814,16 @@
+     return VBlankCB_Pokedex;
+ }
+ 
++// RG DS: whether the page for a mon just caught is up. It keeps the battle's
++// callback, so the compositor drew it as the battle - magnified and cut off,
++// or over the 3D battle's world; 3ds_game_full.c shows it centred instead.
++bool8 CtrPokedex_CaughtPageShown(void)
++{
++    return FuncIsActiveTask(Task_DisplayCaughtMonDexPage)
++        || FuncIsActiveTask(Task_HandleCaughtMonPageInput)
++        || FuncIsActiveTask(Task_ExitCaughtMonPage);
++}
++
+ bool8 CtrPokedex_IsOpen(void)
+ {
+     return sPokedexView != NULL && (gMain.callback2 == CB2_Pokedex || gMain.callback2 == CB2_OpenPokedex);

@@ -312,6 +312,7 @@ void CtrCentredParty_SetVBlankCallback(IntrCallback callback)
 /* The Pokédex's own callback. The page it shows for a mon just caught puts
  * back the battle's, which stays the battle's. */
 IntrCallback CtrPokedex_VBlankCallback(void);
+bool8 CtrPokedex_CaughtPageShown(void);
 
 void CtrCentredPokedex_SetVBlankCallback(IntrCallback callback)
 {
@@ -363,7 +364,13 @@ static void UpdateStage(void)
         UpdateSet(&sTransition, callback);
     }
     CtrVideo_SetStage(sStage.on);
-    CtrVideo_SetCentred(sCentred.on ? sCentred.screen : CTR_CENTRED_NONE);
+    /* RG DS branch: the Pokédex page for a mon just caught keeps the battle's
+     * callback; drawn as the battle it was magnified and cut off (over the
+     * world in the 3D battle). Centred on the top screen, as the maps are. */
+    if (gMain.inBattle && CtrPokedex_CaughtPageShown())
+        CtrVideo_SetCentred(CTR_CENTRED_PLAIN);
+    else
+        CtrVideo_SetCentred(sCentred.on ? sCentred.screen : CTR_CENTRED_NONE);
     CtrVideo_SetBattle(sBattle.on);
     CtrVideo_SetTransition(sTransition.on);
     /* The trail's last ball leaves a few frames before the screen fades to
