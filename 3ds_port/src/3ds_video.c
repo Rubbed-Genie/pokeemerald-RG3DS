@@ -5211,6 +5211,11 @@ float CtrVideo_BottomZoom(void)
     else if (sCentredScreen == CTR_CENTRED_STORAGE) pct = CtrSettings_GetInt("pc_zoom", 100);
     /* And a mart's BUY screen (shop_zoom). */
     else if (sCentredScreen == CTR_CENTRED_SHOP) pct = CtrSettings_GetInt("shop_zoom", 100);
+    /* The bag and the party over the whole screen - from a battle, the PC,
+     * giving an item (bag_zoom, party_zoom). From the field they share the
+     * screen with the button column and stay as they are. */
+    else if (sCentredScreen == CTR_CENTRED_BAG_WHOLE) pct = CtrSettings_GetInt("bag_zoom", 100);
+    else if (sCentredScreen == CTR_CENTRED_PARTY_WHOLE) pct = CtrSettings_GetInt("party_zoom", 100);
     else return 1.0f;
     if (pct <= 100 || pct > 140) return 1.0f;
     return (float)pct / 100.0f;
