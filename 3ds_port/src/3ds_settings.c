@@ -296,11 +296,36 @@ bool CtrSettings_Voxel(void)
     return sVoxel;
 }
 
+/*
+ * RG DS edition (the 4:3 build): the values tuned on the device, as the
+ * defaults. settings.txt and tune.txt still override any of them.
+ */
+#if CTR_GAME_WIDTH == 320
+static const struct { const char *key; int value; } sEditionDefaults[] = {
+    {"in_pitch", 33}, {"in_fov", 22}, {"in_dist", 155},  /* indoor camera */
+    {"in_spr_z", 35}, {"in_spr_scale", 93},              /* indoor sprites */
+    {"counter_rise", 50},                                /* mart clerk */
+    {"ui_zoom", 125},                                    /* field message box */
+    {"top_zoom", 133},                                   /* title menu, maps... */
+    {"bot_zoom", 133}, {"pc_zoom", 133}, {"shop_zoom", 133},
+    {"bag_zoom", 133}, {"party_zoom", 133},              /* bottom screens */
+    {"bat_zoom", 133},                                   /* battle text box */
+    {"dio_top", 56}, {"dio_bot", 32}, {"dio_pct", 60},   /* tilt-shift blur */
+};
+#endif
+
 int CtrSettings_GetInt(const char *key, int fallback)
 {
     int index = ExtraIndex(key, false);
 
-    return index >= 0 ? sExtra[index].value : fallback;
+    if (index >= 0)
+        return sExtra[index].value;
+#if CTR_GAME_WIDTH == 320
+    for (unsigned i = 0; i < sizeof(sEditionDefaults) / sizeof(sEditionDefaults[0]); ++i)
+        if (strcmp(sEditionDefaults[i].key, key) == 0)
+            return sEditionDefaults[i].value;
+#endif
+    return fallback;
 }
 
 void CtrSettings_SetInt(const char *key, int value)
