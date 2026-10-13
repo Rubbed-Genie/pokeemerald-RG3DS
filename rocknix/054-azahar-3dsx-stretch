@@ -1,0 +1,69 @@
+#!/bin/sh
+# RG DS stock+ hook (2026-10-12): stretch Azahar's top screen for .3dsx homebrew only.
+#
+# Emerald3DS (native 3DS decomp port) is built here with TOP_WIDTH=320: it lays the top
+# screen out at 4:3 and widens it into the 400x240 framebuffer. Azahar's
+# screen_top_stretch undoes the widening on the 640x480 panel -> exact 2x of 320x240.
+# Retail .3ds games must NOT be stretched (they are true 5:3), and Azahar has no
+# per-game config for .3dsx (the 3DSX loader has no program ID), so the launcher sets
+# the key per launch from the ROM extension.
+# v2: also forces fullscreen=true. Azahar keeps resetting it to false (seen 2026-09 and
+# 2026-10-12), which leaves its menu + status bars on the top screen and shrinks the game.
+# v3: places the two windows for .3dsx. Azahar titles its bottom-screen window just
+# "Azahar", which the stock sway Secondary rule does not match: it stays hidden behind ES
+# with DSI-1 off, its Vulkan present blocks, and emulation stalls at frame 3 (measured
+# 2026-10-12, both from ES and SSH). Same idea as 041's melonDS placement block.
+#
+# Runs after 043, which bind-mounts its patched start_azahar.sh: if that mount is live
+# we patch 043's copy in place (same inode, the mount sees it); otherwise we make and
+# mount our own copy of stock. Refuses to mount anything that does not parse.
+MARK="RG DS: 3dsx top-screen stretch v3"
+LOG=/storage/.config/logs/054-azahar-3dsx-stretch.log
+SRC=/usr/bin/start_azahar.sh
+OWN=/storage/.config/launcher-patches/start_azahar-stretch.sh
+mkdir -p /storage/.config/logs /storage/.config/launcher-patches
+
+if grep -q " ${SRC} " /proc/mounts; then
+  DST=/storage/.config/launcher-patches/start_azahar-patched.sh   # 043's copy
+  [ -f "$DST" ] || { echo "$(date '+%F %T') mount live but $DST missing -- skipped" >> "$LOG"; exit 0; }
+  MODE=inplace
+else
+  DST=$OWN; cp "$SRC" "$DST"; MODE=own
+fi
+grep -q "$MARK" "$DST" && { echo "$(date '+%F %T') already patched ($MODE)" >> "$LOG"; exit 0; }
+grep -q '^# Force Disable Shader JIT' "$DST" || { echo "$(date '+%F %T') anchor gone from stock -- not patched" >> "$LOG"; exit 0; }
+
+cp "$DST" "$DST.054tmp"
+python3 - "$DST.054tmp" "$MARK" <<'PY'
+import sys
+p, mark = sys.argv[1:3]
+s = open(p).read()
+block = ('# ' + mark + ' -- .3dsx homebrew built for a 4:3 top screen; retail stays 5:3.\n'
+         'case "${1,,}" in *.3dsx) TOP_STRETCH=true ;; *) TOP_STRETCH=false ;; esac\n'
+         'sed -i "/^screen_top_stretch=/c\\\\screen_top_stretch=${TOP_STRETCH}" ${CONF_FILE}\n'
+         "sed -i '/^screen_top_stretch\\\\default=/c\\screen_top_stretch\\\\default=false' ${CONF_FILE}\n"
+         "sed -i '/^fullscreen=/c\\fullscreen=true' ${CONF_FILE}\n"
+         "sed -i '/^fullscreen\\\\default=/c\\fullscreen\\\\default=false' ${CONF_FILE}\n\n")
+s = s.replace('# Force Disable Shader JIT', block + '# Force Disable Shader JIT', 1)
+place = ('# ' + mark + ' -- put the bottom-screen window ("Azahar") on DSI-1, top fullscreen on DSI-2.\n'
+         'case "${1,,}" in *.3dsx) (\n'
+         '  export SWAYSOCK=${SWAYSOCK:-/run/0-runtime-dir/sway-ipc.0.sock}\n'
+         '  for i in $(seq 60); do sleep 0.5; swaymsg -t get_tree | grep -q \'"name": "Azahar"\' && break; done\n'
+         '  sleep 1; P=$(pidof azahar)\n'
+         '  [ -n "$P" ] || exit 0\n'
+         '  swaymsg -q "output DSI-1 power on"\n'
+         '  swaymsg -q "[pid=$P title=\\"^Azahar$\\"] move window to output DSI-1"\n'
+         '  swaymsg -q "[pid=$P title=\\"^Azahar$\\"] focus, fullscreen enable"\n'
+         '  swaymsg -q "[pid=$P title=\\"^Azahar [0-9a-f]+\\"] focus, fullscreen enable"\n'
+         ') >/dev/null 2>&1 & ;; esac\n')
+anchor = '${EMUPERF} /usr/bin/azahar "${1}"'
+assert anchor in s, 'launch line gone'
+s = s.replace(anchor, place + anchor, 1)
+open(p, 'w').write(s)
+PY
+grep -q "put the bottom-screen window" "$DST.054tmp" || { echo "$(date '+%F %T') launch line not found -- not applied" >> "$LOG"; rm -f "$DST.054tmp"; exit 0; }
+bash -n "$DST.054tmp" || { echo "$(date '+%F %T') syntax error, not applied" >> "$LOG"; rm -f "$DST.054tmp"; exit 1; }
+cat "$DST.054tmp" > "$DST"; rm -f "$DST.054tmp"; chmod +x "$DST"
+[ "$MODE" = own ] && mount --bind "$DST" "$SRC"
+echo "$(date '+%F %T') patched ($MODE)" >> "$LOG"
+exit 0

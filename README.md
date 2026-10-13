@@ -1,3 +1,115 @@
+<h1 align="center">Pokémon Emerald RG3DS</h1>
+
+<p align="center">
+  <strong>Pokémon Emerald 3Ds Dual Screen, tuned for the Anbernic RG DS.</strong><br>
+  A fork of <a href="https://github.com/ZallaxDev/pokeemerald-3Ds-dualscreen">ZallaxDev's Pokémon Emerald 3Ds Dual Screen</a> by <a href="https://github.com/Rubbed-Genie">Rubbed-Genie</a>.
+</p>
+
+<p align="center">
+  <img src="docs/rg3ds/screenshots/title-credit.png" alt="Title screen with the RG3DS credit on the bottom screen" width="720">
+</p>
+
+The RG DS is a dual-screen handheld with two **4:3, 640×480** panels. It runs
+3DS software through the Azahar emulator on ROCKNIX. The original port is laid
+out for the 3DS's wide 400×240 top screen, so on the RG DS it was stretched or
+letterboxed and the menus were small. RG3DS rebuilds it for the RG DS's screens
+and fixes what showed up along the way.
+
+All the hard work — the port itself, the touch interface and the voxel
+overworld — is ZallaxDev's. RG3DS is a layer of tuning and fixes on top.
+
+### What's different
+
+**Made for the RG DS's screens**
+- The top screen is laid out at **4:3 (320×240)** and shown at an exact 2× on the
+  640×480 panel, so pixels stay sharp and nothing is stretched.
+- Bigger screens everywhere they were small: the title menu, Professor Birch,
+  naming, the clock, the maps, the PC boxes, the mart, the bag and party in
+  battle, the summary and the battle text box (the battle scene moves up to
+  make room).
+- The Poké Ball battle transition fills the whole screen.
+
+**3D overworld tuning**
+- A lower, longer-lens indoor camera, chosen by playing through the early game
+  (tilt 33°, zoom 155%).
+- One camera framing for every outdoor map, so walking from a route into a town
+  doesn't jolt the camera.
+- Characters stand a little forward on their tile and at 93% size, so they read
+  as standing on it instead of behind it.
+- The mart clerk is lifted to show above the tall glass counter.
+- No more dotted or black seam lines along floors, tables and chairs.
+- Softer tilt-shift blur.
+
+**Fixes that also apply to the original**
+- Tapping a Pokémon in the party screen during a battle did nothing; it now works.
+- The Pokédex page after a catch was drawn as part of the battle: cut off in 2D
+  battles, smeared over the world in 3D battles. It is now its own centred page.
+- Bottom-screen menus (bag, party, Pokédex) showed black in Azahar, which only
+  redraws when the top screen changes. The top frame is now re-presented.
+
+Every value above is a built-in default (`sEditionDefaults` in
+[`3ds_port/src/3ds_settings.c`](3ds_port/src/3ds_settings.c)), and any of them can
+be overridden in `settings.txt`, or live from `tune.txt` while the game is running.
+
+<p align="center">
+  <img src="docs/rg3ds/screenshots/pokemon-center.png" alt="A Pokémon Center with the RG3DS indoor camera" width="360">
+  <img src="docs/rg3ds/screenshots/battle.png" alt="A trainer battle with the larger text box" width="720">
+</p>
+
+### Building RG3DS
+
+There is no download of the finished game: the built `.3dsx` contains Pokémon
+Emerald's graphics, maps and music, which belong to Nintendo, so you build it
+yourself. The build uses devkitARM in a container, so you only need **git**,
+**Python 3.11+** and **Podman** (or Docker).
+
+```sh
+git clone https://github.com/Rubbed-Genie/pokeemerald-RG3DS.git
+cd pokeemerald-RG3DS
+python3 tools/bootstrap.py            # pinned pret/pokeemerald + patches -> build/upstream
+cd build/upstream
+podman run --rm -v "$PWD":/work:Z -w /work docker.io/devkitpro/devkitarm \
+  sh -c 'make tools && make generated && \
+         make -C 3ds_port -j8 PYTHON=python3 TOP_WIDTH=320 DATA_BACKEND=1 EMBED_DATA=1'
+```
+
+`TOP_WIDTH=320` is what makes it RG3DS (the 4:3 layout, the tuned defaults and
+the credit). `EMBED_DATA=1` puts the game data inside the `.3dsx`, so the
+result, `build/upstream/3ds_port/emerald3ds.3dsx` (about 34 MB), is
+self-contained and needs no separate data pack.
+
+### Installing on the RG DS (ROCKNIX)
+
+1. Copy `emerald3ds.3dsx` to `roms/3ds/` (rename it as you like).
+2. For sound, put a `dspfirm.cdc` dumped from your own 3DS in
+   `roms/3ds/azahar/sdmc/3ds/`.
+3. Install the launcher hook [`rocknix/054-azahar-3dsx-stretch`](rocknix/054-azahar-3dsx-stretch)
+   in `/storage/.config/autostart/`. It turns on Azahar's top-screen stretch for
+   `.3dsx` homebrew only (retail 3DS games stay 5:3), keeps Azahar fullscreen,
+   and moves Azahar's bottom-screen window onto the bottom panel. Without that
+   last step the game stalls on a black screen.
+4. Optional: in ROCKNIX, set the game's Azahar resolution to 2× for a sharper
+   3D world.
+
+Saves live in `roms/3ds/azahar/sdmc/3ds/emerald3ds/emerald3ds.sav`, the same
+place as the original port's.
+
+### Credits
+
+- **[ZallaxDev](https://github.com/ZallaxDev)**: Pokémon Emerald 3Ds Dual
+  Screen, which this is built on. Support the original:
+  [Ko-fi](https://ko-fi.com/zallax), [Discord](https://discord.com/invite/tfqHF8496P).
+- **[pret](https://github.com/pret/pokeemerald)**: the Pokémon Emerald decompilation.
+- **[gradenGnostic/pokeemerald-multiplatform](https://github.com/gradenGnostic/pokeemerald-multiplatform)**:
+  the original voxel renderer.
+- **[Rubbed-Genie](https://github.com/Rubbed-Genie)**: RG3DS tuning and fixes,
+  playtested on an Anbernic RG DS.
+
+---
+
+<details>
+<summary><strong>The original Pokémon Emerald 3Ds Dual Screen README</strong> (for the 3DS release, web builder and full documentation)</summary>
+
 <p align="center">
   <img src="https://i.postimg.cc/Sxn0bM2v/logo.png" alt="Pokémon Emerald 3Ds Dual Screen" width="480">
 </p>
@@ -229,3 +341,5 @@ development: [AI_DISCLOSURE.md](AI_DISCLOSURE.md).
 Pokémon Emerald 3Ds Dual Screen is an unofficial fan project, not affiliated with or endorsed by
 Nintendo, Game Freak, Creatures or The Pokémon Company. Pokémon and Pokémon
 Emerald are trademarks of their respective owners.
+
+</details>
