@@ -3674,7 +3674,7 @@ index 643799de5..97dcda1d7 100644
      LZ77UnCompVram(sCaveTransitionTiles, (void *)(VRAM + 0xC000));
 diff --git a/src/map_preview.c b/src/map_preview.c
 new file mode 100644
-index 000000000..7c2e0040c
+index 000000000..747e2abea
 --- /dev/null
 +++ b/src/map_preview.c
 @@ -0,0 +1,770 @@
@@ -4193,7 +4193,7 @@ index 000000000..7c2e0040c
 +    SetGpuRegBits(REG_OFFSET_WININ, WININ_WIN0_CLR | WININ_WIN1_CLR);
 +    SetGpuRegBits(REG_OFFSET_WINOUT, WINOUT_WIN01_CLR);
 +    gTasks[taskId].data[11] = MapPreview_CreateMapNameWindow(mapsec);
-+    ScriptContext2_Enable();
++    LockPlayerFieldControls();
 +}
 +
 +static u16 MapPreview_CreateMapNameWindow(u8 mapsec)
@@ -4449,7 +4449,7 @@ index 000000000..7c2e0040c
 +}
 +
 diff --git a/src/overworld.c b/src/overworld.c
-index 020382fec..b2551cf54 100644
+index 0faef4522..ab0331ae2 100644
 --- a/src/overworld.c
 +++ b/src/overworld.c
 @@ -36,6 +36,7 @@
@@ -4460,7 +4460,7 @@ index 020382fec..b2551cf54 100644
  #include "match_call.h"
  #include "menu.h"
  #include "metatile_behavior.h"
-@@ -2279,8 +2280,15 @@ static bool32 LoadMapInStepsLocal(u8 *state, bool32 a2)
+@@ -2323,8 +2324,15 @@ static bool32 LoadMapInStepsLocal(u8 *state, bool32 a2)
          (*state)++;
          break;
      case 11:
@@ -4477,7 +4477,7 @@ index 020382fec..b2551cf54 100644
          (*state)++;
          break;
      case 12:
-@@ -3637,3 +3645,9 @@ bool8 ScrFunc_settimeofday(struct ScriptContext *ctx) {
+@@ -3681,3 +3689,9 @@ bool8 ScrFunc_settimeofday(struct ScriptContext *ctx) {
      SetTimeOfDay(ScriptReadByte(ctx));
      return FALSE;
  }
