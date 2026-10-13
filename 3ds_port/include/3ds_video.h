@@ -203,6 +203,10 @@ void CtrVideo_SetTransition(bool transition);
 /* RG DS branch: the Poké Ball trail transition is a field effect, not a
  * transition callback; it is drawn over the field at the transitions' scale. */
 void CtrVideo_SetTrail(bool trail);
+/* RG3DS: a map preview card is up (drawn to fit the width, nothing cut). */
+void CtrVideo_SetPreview(bool preview);
+/* RG3DS: the map name pop-up is up (drawn larger, popup_zoom). */
+void CtrVideo_SetPopup(bool popup);
 /* RG DS branch: the battle text box's height on screen (bat_zoom). */
 float CtrVideo_BattleBoxHeight(void);
 /*

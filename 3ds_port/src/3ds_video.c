@@ -769,6 +769,10 @@ static void ColourClear(C3D_RenderTarget *target, uint32_t color)
 static bool sTransitionRequested, sTransition;
 /* RG DS branch: the Poké Ball trail is on (CtrVideo_SetTrail). */
 static bool sTrail;
+/* RG3DS: a map preview card is up (CtrVideo_SetPreview). */
+static bool sPreview;
+/* RG3DS: the map name pop-up is up (CtrVideo_SetPopup). */
+static bool sPopup;
 /* Composing the transition's own picture: GBA geometry (RenderTransition). */
 static bool sTransitionCompose;
 static const uint16_t (*sLineRegs)[CTR_LINE_REGS];
@@ -6551,21 +6555,48 @@ static void ComposeVoxelOverlay(void)
          * lists higher up (a PC's, a YES/NO) stay as they are, or they were
          * pushed off the screen. */
         const int band = 112;
-        bool split = z != 1.0f && !sFieldBanner && !sTrail;
+        bool split = z != 1.0f && !sFieldBanner && !sTrail && !sPreview;
 
         /* RG DS branch: the Poké Ball trail's bars and balls are the GBA
          * screen's; at 1:1 they covered the top 160 lines and the middle 240
          * columns. At the transitions' scale (1.5), centred, they cover it all. */
-        if (sTrail)
+        /* A map preview card is a picture with its name at the edge: drawn
+         * to the screen's width instead, so nothing of it is cut. */
+        if (sTrail || sPreview)
         {
-            sZoom = 1.5f;
+            float tz = sTrail ? 1.5f : (float)CTR_GAME_WIDTH / 240.0f;
+
+            sZoom = tz;
             sOffX = (float)CTR_GAME_WIDTH / 2.0f
-                  - 1.5f * ((float)CTR_VIEW_X + (sFieldBanner ? 0.0f : CTR_FIELD_UI_SHIFT) + 120.0f);
-            sOffY = (float)CTR_GAME_HEIGHT / 2.0f - 1.5f * ((float)CTR_VIEW_Y + 80.0f);
+                  - tz * ((float)CTR_VIEW_X + (sFieldBanner ? 0.0f : CTR_FIELD_UI_SHIFT) + 120.0f);
+            sOffY = (float)CTR_GAME_HEIGHT / 2.0f - tz * ((float)CTR_VIEW_Y + 80.0f);
         }
 
-        for (int pass = 0; pass < (split ? 2 : 1); ++pass)
+        /* RG3DS: the map name pop-up (its 5 tile rows at the top left)
+         * larger, about its top left corner (popup_zoom, percent). */
+        int pz = CtrSettings_GetInt("popup_zoom", 100);
+        float popZ = sPopup && !sTrail && !sPreview && pz > 100 && pz <= 150 ? (float)pz / 100.0f : 1.0f;
+        const int popBand = 40;
+        float baseZoom = sZoom, baseOffX = sOffX, baseOffY = sOffY;
+
+        for (int pass = popZ != 1.0f ? -1 : 0; pass < (split ? 2 : 1); ++pass)
         {
+            sClipY0 = 0;
+            sClipY1 = CTR_GAME_HEIGHT;
+            sZoom = baseZoom;
+            sOffX = baseOffX;
+            sOffY = baseOffY;
+            if (pass == -1)
+            {
+                float shift = sFieldBanner ? 0.0f : CTR_FIELD_UI_SHIFT;
+
+                sClipY1 = popBand;
+                sZoom = popZ;
+                sOffX = shift - popZ * ((float)CTR_VIEW_X + shift);
+                sOffY = -popZ * (float)CTR_VIEW_Y;
+            }
+            else if (popZ != 1.0f)
+                sClipY0 = popBand;
             if (split && pass == 0)
                 sClipY1 = band;
             if (split && pass == 1)
@@ -8693,6 +8724,8 @@ void CtrVideo_SetCentred(unsigned screen) { sCentredRequested = screen < CTR_CEN
 void CtrVideo_SetBattle(bool battle) { sBattleRequested = battle; }
 void CtrVideo_SetTransition(bool transition) { sTransitionRequested = transition; }
 void CtrVideo_SetTrail(bool trail) { sTrail = trail; }
+void CtrVideo_SetPreview(bool preview) { sPreview = preview; }
+void CtrVideo_SetPopup(bool popup) { sPopup = popup; }
 
 void CtrVideo_SetLineRegisters(const uint16_t *regs, unsigned lines)
 {
