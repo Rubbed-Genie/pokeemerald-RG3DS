@@ -3493,7 +3493,7 @@ static void VisitView(float playerX, float playerZ, unsigned *missing, bool atla
 
     /* The belt, on the current map's grid: only squares some tile of which
      * belongs to no map at all. Indoors there is none; the clear is black. */
-    if (current == NULL || current->indoor)
+    if (current == NULL || current->indoor || VoxelWorld_Underground())
         return;
     {
         VoxelAtlasSlot *atlas = FindAtlas(current);

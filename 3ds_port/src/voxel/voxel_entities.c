@@ -533,6 +533,17 @@ static float ModelPush(float cx, float cz, float halfW)
     int x0 = (int)floorf(left), x1 = (int)floorf(right);
     float push = 0.0f;
 
+    /* RG3DS: standing on a model one can walk onto is sitting on a seat (a
+     * Pokemon Center's chairs): no push, so the chair hides the legs as on
+     * the GBA, instead of the walker standing up on it. */
+    {
+        int sx = (int)floorf(cx);
+        const VoxelMapInstance *seat = VoxelWorld_GetInstanceAt(sx, y);
+
+        if (seat != NULL && VoxelWorld_GetCollision(sx, y) == 0
+         && VoxelBuildings_CellAt(seat, sx, y, NULL, NULL))
+            return 0.0f;
+    }
     for (int x = x0; x <= x1; ++x)
     {
         const VoxelMapInstance *inst = VoxelWorld_GetInstanceAt(x, y);

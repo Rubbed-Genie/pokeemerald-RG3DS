@@ -1347,6 +1347,10 @@ void VoxelMesh_EmitBorder(VoxelBuilder *builder, int x0, int y0, int x1, int y1)
      * the doorway. The 2D game shows black there, and so does the clear. */
     if (VoxelWorld_Instance(0) != NULL && VoxelWorld_Instance(0)->indoor)
         return;
+    /* RG3DS: nor underground: the cave's border stood round it as a great
+     * dark box; outside the cave is the dark and the fog. */
+    if (VoxelWorld_Underground())
+        return;
     for (int y = y0; y < y1; ++y)
         for (int x = x0; x < x1; ++x)
         {
