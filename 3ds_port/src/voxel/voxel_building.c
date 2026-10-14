@@ -48,6 +48,7 @@ typedef struct
 {
     uint16_t w, h;
     uint32_t offset;
+    uint32_t light;     /* RG3DS: its light mask's offset, 0 for none */
 } BuildingPage;
 
 typedef struct
@@ -255,6 +256,30 @@ bool VoxelBuildings_Init(void)
      * floats, which is also the console's layout. */
     if (fread(sVertices, sizeof(VoxelVertex), sVertexCount, file) != sVertexCount)
         goto done;
+    /* RG3DS: the light masks' trailer, if the file has one (gen_voxel_
+     * buildings.py: u32 a page, then their offset and "LMSK" at the end). */
+    {
+        uint8_t tail[8];
+
+        for (unsigned i = 0; i < sPageCount; ++i)
+            sPages[i].light = 0;
+        if (fseek(file, -8, SEEK_END) == 0 && fread(tail, 1, 8, file) == 8 && memcmp(tail + 4, "LMSK", 4) == 0
+         && fseek(file, (long)U32(tail), SEEK_SET) == 0)
+        {
+            unsigned lit = 0;
+
+            for (unsigned i = 0; i < sPageCount; ++i)
+            {
+                uint8_t at[4];
+
+                if (fread(at, 1, 4, file) != 4)
+                    break;
+                sPages[i].light = U32(at);
+                lit += sPages[i].light != 0;
+            }
+            PORT_LOG("[VIDEO] VOXEL buildings: %u pages with lights\n", lit);
+        }
+    }
     sMaxTop = 0.0f;
     for (unsigned i = 0; i < sHeightBytes; ++i)
         if (sHeights[i] != 0xFF && sHeights[i] / 16.0f > sMaxTop)
@@ -324,8 +349,12 @@ bool VoxelBuildings_PageSize(unsigned page, unsigned *width, unsigned *height)
     return true;
 }
 
-bool VoxelBuildings_ReadPage(unsigned page, unsigned first, unsigned count, uint16_t *dest,
-                             const uint32_t *lightBits, uint8_t *mask)
+bool VoxelBuildings_PageHasLights(unsigned page)
+{
+    return page < sPageCount && sPages[page].light != 0;
+}
+
+bool VoxelBuildings_ReadPage(unsigned page, unsigned first, unsigned count, uint16_t *dest, uint8_t *mask)
 {
     if (page >= sPageCount || first + count > (unsigned)sPages[page].w * sPages[page].h)
         return false;
@@ -340,31 +369,11 @@ bool VoxelBuildings_ReadPage(unsigned page, unsigned first, unsigned count, uint
     if (fseek(sPageFile, (long)(sPages[page].offset + first * sizeof(uint16_t)), SEEK_SET) != 0
      || fread(dest, sizeof(uint16_t), count, sPageFile) != count)
         return false;
-    /* RG3DS: the night lights, by their colour before the grading, an 8x8
-     * tile at a time (64 texels in a row, the page's swizzled order), as
-     * VoxelAtlas_LightLevels keeps them. */
-    for (unsigned k0 = 0; lightBits != NULL && mask != NULL && k0 + 64 <= count; k0 += 64)
-    {
-        uint8_t lit[64], level[64];
-        bool any = false;
-
-        for (unsigned k = 0; k < 64; ++k)
-        {
-            unsigned t = dest[k0 + k] >> 1;
-
-            lit[k] = (dest[k0 + k] & 1u) && (lightBits[t >> 5] & (1u << (t & 31)));
-            any = any || lit[k];
-        }
-        if (!any)
-            continue;
-        VoxelAtlas_LightLevels(lit, level);
-        for (unsigned k = 0; k < 64; k += 2)
-        {
-            unsigned i = first + k0 + k;
-
-            mask[i >> 1] |= (uint8_t)(level[k] | level[k + 1] << 4);
-        }
-    }
+    /* RG3DS: the slice of its light mask (slices start on whole 8x8 tiles). */
+    if (mask != NULL && sPages[page].light != 0
+     && (fseek(sPageFile, (long)(sPages[page].light + first / 2u), SEEK_SET) != 0
+         || fread(mask + first / 2u, 1, (count + 1u) / 2u, sPageFile) != (count + 1u) / 2u))
+        return false;
     /* On the reading thread, off the render thread's frame. */
     VoxelGrade_Texels(dest, count);
     return true;

@@ -942,9 +942,8 @@ typedef struct
     C3D_Tex tex;
     uint32_t used;      /* frame last needed */
     uint64_t requested; /* tick it was asked for, for the log */
-    /* RG3DS: the night lights of its map's tilesets, and its mask of them. */
+    /* RG3DS: whether buildings.bin gives it lights, and its mask of them. */
     bool lights;
-    uint32_t lightBits[1024];
     C3D_Tex mask;
 } BuildingPageSlot;
 static BuildingPageSlot sPageSlots[VOXEL_BUILDING_PAGES];
@@ -964,8 +963,7 @@ static struct
     uint16_t *buffer;   /* linear, VOXEL_PAGE_SLICE texels */
     bool copyQueued;    /* the buffer is the source of this frame's copy */
     bool systemCore;    /* the worker runs on the system core */
-    /* RG3DS: the request's night lights and mask (NULL: none). */
-    const uint32_t *lightBits;
+    /* RG3DS: the request's light mask (NULL: none). */
     uint8_t *mask;
 } sStream;
 
@@ -1080,8 +1078,7 @@ static void StreamWorker(void *arg)
         if (sStream.state == STREAM_READING)
         {
             bool ok = VoxelBuildings_ReadPage((unsigned)sStream.page, sStream.first,
-                                              sStream.count, sStream.buffer, sStream.lightBits,
-                                              sStream.mask);
+                                              sStream.count, sStream.buffer, sStream.mask);
 
             /* Written from this core's cache: out to memory for the GPU's
              * copy before the render thread is told. */
@@ -1354,9 +1351,7 @@ static void WantPage(int page, uint32_t keep, bool quiet)
     if (victim->mask.data != NULL)
         C3D_TexDelete(&victim->mask);
     memset(&victim->mask, 0, sizeof(victim->mask));
-    victim->lights = sPageTilesets[page][0] != NULL
-                  && VoxelAtlas_LightColours(sPageTilesets[page][0], sPageTilesets[page][1],
-                                             victim->lightBits);
+    victim->lights = VoxelBuildings_PageHasLights((unsigned)page);
     if (victim->lights)
     {
         if (linearSpaceFree() > w * h / 2u + VOXEL_PAGE_MASK_RESERVE
@@ -1438,8 +1433,7 @@ static void StreamPages(void)
          || (next = NextPageSlot()) == NULL || !CtrVideo_TryVoxelUpload())
             return;
         if (!VoxelBuildings_ReadPage((unsigned)next->page, next->loaded, SliceOf(next),
-                                     sAtlasStaging, next->lights ? next->lightBits : NULL,
-                                     (uint8_t *)next->mask.data))
+                                     sAtlasStaging, (uint8_t *)next->mask.data))
         {
             MarkBadPage(next->page);
             next->page = -1;
@@ -1477,7 +1471,6 @@ static void StreamPages(void)
     sStream.page = next->page;
     sStream.first = next->loaded;
     sStream.count = SliceOf(next);
-    sStream.lightBits = next->lights ? next->lightBits : NULL;
     sStream.mask = (uint8_t *)next->mask.data;
     if (sStream.thread != NULL)
     {
@@ -1489,8 +1482,7 @@ static void StreamPages(void)
     {
         /* Picked up at the top of the next frame, like the worker's result. */
         sStream.state = VoxelBuildings_ReadPage((unsigned)sStream.page, sStream.first,
-                                                sStream.count, sStream.buffer, sStream.lightBits,
-                                                sStream.mask)
+                                                sStream.count, sStream.buffer, sStream.mask)
                       ? STREAM_DONE : STREAM_FAILED;
     }
 }
@@ -2292,6 +2284,10 @@ static uint32_t sAfterStarvedFrames;
  * linear memory has room to spare (else the page goes without: no glow).
  */
 #define VOXEL_MASK_RESERVE (256u * 1024u)
+/* RG3DS: the ground glows only from an explicit list of its lamps (to come):
+ * matched by colour, the light colours were the trim and outlines of
+ * everything. Off until then. */
+#define VOXEL_TERRAIN_GLOW 0
 
 static void TargetJobMask(VoxelAtlasSlot *slot, const VoxelAtlasJob *job)
 {
@@ -2304,7 +2300,7 @@ static void TargetJobMask(VoxelAtlasSlot *slot, const VoxelAtlasJob *job)
         return;
     }
     sMaskTarget = mask;
-    if (mask->data == NULL && VoxelAtlas_LightColours(job->primary, job->secondary, bits)
+    if (mask->data == NULL && VOXEL_TERRAIN_GLOW && VoxelAtlas_LightColours(job->primary, job->secondary, bits)
      && linearSpaceFree() > VOXEL_ATLAS_PIXELS / 2u + VOXEL_MASK_RESERVE
      && C3D_TexInit(mask, VOXEL_ATLAS_W, VOXEL_ATLAS_H, GPU_L4))
     {

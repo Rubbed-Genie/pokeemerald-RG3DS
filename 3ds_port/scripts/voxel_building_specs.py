@@ -1353,6 +1353,7 @@ def rustboro_gym():
 SPECS = [
     {
         "name": "littleroot_house_w",
+        "lights": "auto",   # RG3DS: its windows glow at night
         "layout": "LAYOUT_LITTLEROOT_TOWN",
         "rect": (2, 4, 5, 5),
         "ground": [GRASS],
@@ -1361,6 +1362,7 @@ SPECS = [
     },
     {
         "name": "littleroot_house_e",
+        "lights": "auto",   # RG3DS: its windows glow at night
         "layout": "LAYOUT_LITTLEROOT_TOWN",
         "rect": (13, 4, 5, 5),
         "ground": [GRASS],
@@ -1369,6 +1371,7 @@ SPECS = [
     },
     {
         "name": "littleroot_lab",
+        "lights": "auto",   # RG3DS: its windows glow at night
         "layout": "LAYOUT_LITTLEROOT_TOWN",
         "rect": (3, 12, 7, 5),
         "ground": [GRASS],
@@ -1378,6 +1381,7 @@ SPECS = [
     {
         # The canonical copy: Oldale paints its path into the top row.
         "name": "pokemon_center",
+        "lights": "auto",   # RG3DS: its windows glow at night
         "layout": "LAYOUT_PETALBURG_CITY",
         "rect": (19, 13, 4, 4),
         "match_rows": (1, 4),
@@ -1388,6 +1392,7 @@ SPECS = [
     {
         # Oldale's copy has a tree's crown over its top-right corner.
         "name": "poke_mart",
+        "lights": "auto",   # RG3DS: its windows glow at night
         "layout": "LAYOUT_MAUVILLE_CITY",
         "rect": (22, 11, 4, 4),
         "match_rows": (1, 4),
@@ -1397,6 +1402,7 @@ SPECS = [
     },
     {
         "name": "oldale_house",
+        "lights": "auto",   # RG3DS: its windows glow at night
         "layout": "LAYOUT_OLDALE_TOWN",
         "rect": (4, 4, 4, 4),
         "ground": [GRASS],
@@ -1405,6 +1411,7 @@ SPECS = [
     },
     {
         "name": "briney_house",
+        "lights": "auto",   # RG3DS: its windows glow at night
         "layout": "LAYOUT_ROUTE104",
         "rect": (15, 47, 5, 4),
         "ground": [GRASS],
@@ -1413,6 +1420,7 @@ SPECS = [
     },
     {
         "name": "flower_shop",
+        "lights": "auto",   # RG3DS: its windows glow at night
         "layout": "LAYOUT_ROUTE104",
         "rect": (3, 15, 6, 4),
         # the cobbled path round it
@@ -1422,6 +1430,7 @@ SPECS = [
     },
     {
         "name": "kit_house_4",
+        "lights": "auto",   # RG3DS: its windows glow at night
         "layout": "LAYOUT_PETALBURG_CITY",
         "rect": (9, 16, 4, 4),
         "ground": [GRASS],
@@ -1430,6 +1439,7 @@ SPECS = [
     },
     {
         "name": "kit_house_5",
+        "lights": "auto",   # RG3DS: its windows glow at night
         "layout": "LAYOUT_PETALBURG_CITY",
         "rect": (5, 2, 5, 4),
         "ground": [GRASS],
@@ -1438,6 +1448,7 @@ SPECS = [
     },
     {
         "name": "gym",
+        "lights": "auto",   # RG3DS: its windows glow at night
         "layout": "LAYOUT_PETALBURG_CITY",
         "rect": (12, 4, 6, 5),
         # the bottom row is porch and the town's own ground
@@ -1452,6 +1463,7 @@ SPECS = [
         # the middle house has trees over its ridge, so the ridge row is not
         # matched.
         "name": "dewford_house",
+        "lights": "auto",   # RG3DS: its windows glow at night
         "layout": "LAYOUT_DEWFORD_TOWN",
         "rect": (16, 11, 4, 4),
         "match_rows": (1, 4),
@@ -1462,6 +1474,7 @@ SPECS = [
     {
         # RG3DS: Dewford Hall, the same kit five cells wide.
         "name": "dewford_hall",
+        "lights": "auto",   # RG3DS: its windows glow at night
         "layout": "LAYOUT_DEWFORD_TOWN",
         "rect": (1, 0, 5, 4),
         "ground": [0x124],
@@ -1471,6 +1484,7 @@ SPECS = [
     {
         # RG3DS: Dewford's gym, Petalburg's drawn in the town's own tiles.
         "name": "dewford_gym",
+        "lights": "auto",   # RG3DS: its windows glow at night
         "layout": "LAYOUT_DEWFORD_TOWN",
         "rect": (5, 13, 6, 5),
         "match_rows": (0, 4),
@@ -1496,6 +1510,7 @@ SPECS = [
         # Rustboro's stone blocks, any width and any number of storeys: every
         # one in the map is found by its corners and modelled from its own art.
         "name": "rustboro_stone",
+        "lights": "auto",   # RG3DS: its windows glow at night
         "kit": {"layout": "LAYOUT_RUSTBORO_CITY", "corner": 0x224, "top": {0x225},
                 "end": {0x226}, "foot": 0x21c},
         "ground": [0x2BB, 0x2C3, GRASS],
@@ -1504,6 +1519,7 @@ SPECS = [
     },
     {
         "name": "rustboro_olive",
+        "lights": "auto",   # RG3DS: its windows glow at night
         "kit": {"layout": "LAYOUT_RUSTBORO_CITY", "corner": 0x220, "top": {0x221, 0x222},
                 "end": {0x223, 0x23F}, "foot": 0x240},
         "ground": [0x2BB, 0x2C3, GRASS],

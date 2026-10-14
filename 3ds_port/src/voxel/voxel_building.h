@@ -35,10 +35,10 @@ int VoxelBuildings_PageOf(const VoxelMapInstance *inst);
 bool VoxelBuildings_PageSize(unsigned page, unsigned *width, unsigned *height);
 /* Reads `count` of a page's RGBA5551 texels (PICA order) from texel `first`
  * into `dest`. */
-/* RG3DS: lightBits (VoxelAtlas_LightColours) and mask (4 bits a texel) may
- * be NULL; where given, the page's light texels are marked in the mask. */
-bool VoxelBuildings_ReadPage(unsigned page, unsigned first, unsigned count, uint16_t *dest,
-                             const uint32_t *lightBits, uint8_t *mask);
+/* RG3DS: mask (4 bits a texel, may be NULL) receives the slice of the page's
+ * light mask, where it has one (VoxelBuildings_PageHasLights). */
+bool VoxelBuildings_ReadPage(unsigned page, unsigned first, unsigned count, uint16_t *dest, uint8_t *mask);
+bool VoxelBuildings_PageHasLights(unsigned page);
 
 /* Tallest cell of any model, in tiles: a bound for shadow rays. */
 float VoxelBuildings_MaxTop(void);

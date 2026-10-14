@@ -27,6 +27,7 @@ import sys
 import types
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import voxel_art as va  # noqa: E402
 import voxel_building as vb  # noqa: E402
 import voxel_building_specs as specs  # noqa: E402
 import voxel_props  # noqa: E402
@@ -327,7 +328,8 @@ def kit_specs(spec):
                         "rect": (x, y, w, h), "ground": spec["ground"],
                         "parts": (lambda f, W, H, M: (lambda: f(W, H, M)))(
                             spec["parts"], w * 16, h * 16, meta),
-                        "exact": spec["exact"](w * 16, h * 16, meta)})
+                        "exact": spec["exact"](w * 16, h * 16, meta),
+                        "lights": spec.get("lights", ())})
     return out
 
 
@@ -1337,6 +1339,98 @@ def placement_patches(model, layout_json_entry_name, layouts, px, py, odd):
     return cells
 
 
+_LIGHT_COLOURS = {}
+
+
+def light_colours(layout_id):
+    """RG3DS: the colours the lighting patch marks as lights (bit 15 of the
+    built palette) in the layout's secondary tileset, as RGB888 - the art's
+    own values. General's are left out: they are every town's plaster."""
+    if layout_id in _LIGHT_COLOURS:
+        return _LIGHT_COLOURS[layout_id]
+    layouts = json.load(open(os.path.join(vb.ROOT, "data", "layouts", "layouts.json"),
+                             encoding="utf-8"))["layouts"]
+    entry = next((l for l in layouts if l and l["id"] == layout_id), None)
+    out = set()
+    base = va.tileset_dir(entry["secondary_tileset"]) if entry else None
+    for i in range(6, 13):
+        pal = os.path.join(base, "palettes", "%02d.gbapal" % i) if base else None
+        if not pal or not os.path.exists(pal):
+            continue
+        for c in struct.unpack("<16H", open(pal, "rb").read()[:32])[1:]:
+            if c & 0x8000:
+                out.add(((c & 31) * 255 // 31, ((c >> 5) & 31) * 255 // 31, ((c >> 10) & 31) * 255 // 31))
+    _LIGHT_COLOURS[layout_id] = out
+    return out
+
+
+def auto_lights(art, colours, max_w=40, max_h=32):
+    """RG3DS: a building's windows, found in its drawing: solid patches of the
+    town's light colours, at least 3x3, window-sized and pane-shaped (no long
+    strips), clear of the drawing's outer edge (outlines and trim), mostly
+    filled. Rectangles in art pixels."""
+    W, H = art.size
+    px = art.load()
+    lit = [[px[x, y][3] >= 128 and px[x, y][:3] in colours for x in range(W)] for y in range(H)]
+    seen = [[False] * W for _ in range(H)]
+    rects = []
+    for y0 in range(H):
+        for x0 in range(W):
+            if not lit[y0][x0] or seen[y0][x0]:
+                continue
+            stack, cells = [(x0, y0)], []
+            seen[y0][x0] = True
+            while stack:
+                x, y = stack.pop()
+                cells.append((x, y))
+                for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                    if 0 <= nx < W and 0 <= ny < H and lit[ny][nx] and not seen[ny][nx]:
+                        seen[ny][nx] = True
+                        stack.append((nx, ny))
+            xs = [c[0] for c in cells]
+            ys = [c[1] for c in cells]
+            bx0, by0, bx1, by1 = min(xs), min(ys), max(xs) + 1, max(ys) + 1
+            w, h = bx1 - bx0, by1 - by0
+            if w < 3 or h < 3 or w > max_w or h > max_h:
+                continue
+            # a pane, not a strip: the dashes along a roof's rim and the band
+            # of a sign are long and thin
+            if max(w, h) > 2.2 * min(w, h):
+                continue
+            if bx0 <= 1 or by0 <= 1 or bx1 >= W - 1 or by1 >= H - 1:
+                continue
+            if len(cells) < 0.6 * w * h:
+                continue
+            if not any(all(lit[y + j][x + i] for j in range(3) for i in range(3))
+                       for y in range(by0, by1 - 2) for x in range(bx0, bx1 - 2)):
+                continue
+            rects.append((bx0, by0, bx1, by1))
+    # a frieze, not windows: three or more patches of one band butted along a
+    # row a pixel apart (the dashes of a roof's rim)
+    frieze = set()
+    for r in rects:
+        row = sorted(q for q in rects if q[1] == r[1] and q[3] == r[3])
+        chain = [row[0]]
+        for q in row[1:]:
+            if q[0] - chain[-1][2] <= 1:
+                chain.append(q)
+            else:
+                if len(chain) >= 3:
+                    frieze.update(chain)
+                chain = [q]
+        if len(chain) >= 3:
+            frieze.update(chain)
+    return [r for r in rects if r not in frieze]
+
+
+def model_lights(m):
+    """The light rectangles of a model: its spec's list, or "auto"."""
+    lights = m.spec.get("lights", ())
+    if lights == "auto":
+        return auto_lights(m.art, light_colours(m.spec["layout"]))
+    return list(lights)
+
+
 def export(models, path):
     """Write buildings.bin (VXB7).
 
@@ -1407,7 +1501,7 @@ def export(models, path):
     by_layout = {}
     for rec in found:
         by_layout.setdefault(rec[0], []).append(rec)
-    pages, page_models, placements, texels = [], [], [], []
+    pages, page_models, placements, texels, page_lights = [], [], [], [], []
     for lid in sorted(by_layout):
         recs = by_layout[lid]
         used = sorted({r[1] for r in recs})
@@ -1433,6 +1527,28 @@ def export(models, path):
                     struct.pack_into("<H", tex, 2 * texel_offset(ox + x, oy + y, tw), value)
         pages.append((tw, th))
         texels.append(tex)
+        # RG3DS: the page's night lights - the rectangles of their drawings a
+        # model's spec names (windows, glazed doors), 4 bits a texel in the
+        # page's own order; None when no model on the page has any.
+        light = bytearray(tw * th // 2)
+        lit = False
+        for k in used:
+            m = models[k]
+            ox, oy = spots[("m", k)]
+            cx0, cy0 = crops[m.name][0], crops[m.name][1]
+            apx = m.art.load()
+            for rect in model_lights(m):
+                x0, y0, x1, y1 = rect[:4]
+                level = rect[4] if len(rect) > 4 else 15
+                cx1, cy1 = crops[m.name][2], crops[m.name][3]
+                for y in range(max(y0, cy0), min(y1, cy1)):
+                    for x in range(max(x0, cx0), min(x1, cx1)):
+                        if apx[x, y][3] < 128:
+                            continue
+                        t = texel_offset(ox + x - cx0, oy + y - cy0, tw)
+                        light[t >> 1] |= level << 4 if t & 1 else level
+                        lit = True
+        page_lights.append(light if lit else None)
         pm_of = {}
         for k in used:
             ox, oy = spots[("m", k)]
@@ -1489,11 +1605,23 @@ def export(models, path):
         table += struct.pack("<HHI", tw, th, offset)
         offset += len(tex)
     blob = head + table + body + b"".join(texels)
+    # RG3DS trailer: the pages' light masks, then a u32 offset of each (0:
+    # none) at `at`, then u32 at and "LMSK" - the file's last eight bytes.
+    offsets = []
+    for light in page_lights:
+        if light is None:
+            offsets.append(0)
+        else:
+            offsets.append(len(blob))
+            blob += bytes(light)
+    at = len(blob)
+    blob += struct.pack("<%dI" % len(offsets), *offsets) + struct.pack("<I", at) + b"LMSK"
+    lit_pages = sum(1 for o in offsets if o)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     open(path, "wb").write(blob)
-    print("voxel buildings: %d models, %d pages, %d placements, %d vertices, %d footprints, "
-          "%.1f KiB -> %s" % (len(models), len(pages), len(placements), nverts, len(masks),
-                              len(blob) / 1024.0, path))
+    print("voxel buildings: %d models, %d pages (%d with lights), %d placements, %d vertices, "
+          "%d footprints, %.1f KiB -> %s" % (len(models), len(pages), lit_pages, len(placements),
+                                             nverts, len(masks), len(blob) / 1024.0, path))
     for (tw, th), lid in zip(pages, sorted(by_layout)):
         print("  page for layout %3d: %dx%d" % (lid, tw, th))
 
