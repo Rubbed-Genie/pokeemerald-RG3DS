@@ -693,6 +693,41 @@ VoxelWeatherClass VoxelWorld_Weather(void)
     return VOXEL_WEATHER_CLEAR;
 }
 
+/* RG3DS: rain for the 3D streaks (ctr_voxel.c DrawRain). */
+float VoxelWorld_RainAmount(void)
+{
+#ifdef PLATFORM_3DS
+    switch (GetCurrentWeather())
+    {
+    case WEATHER_RAIN:
+        return 1.0f;
+    case WEATHER_RAIN_THUNDERSTORM:
+        return 1.4f;
+    case WEATHER_DOWNPOUR:
+        return 2.0f;
+    }
+#endif
+    return 0.0f;
+}
+
+/* The bolt: the storm brightens the palettes to colour map 19 and fades them
+ * back to its own 3 (field_weather_effect.c), the world follows. */
+float VoxelWorld_ThunderFlash(void)
+{
+#ifdef PLATFORM_3DS
+    int index;
+
+    if (GetCurrentWeather() != WEATHER_RAIN_THUNDERSTORM && GetCurrentWeather() != WEATHER_DOWNPOUR)
+        return 0.0f;
+    index = gWeatherPtr->colorMapIndex;
+    if (index <= 3)
+        return 0.0f;
+    return index >= 19 ? 1.0f : (float)(index - 3) / 16.0f;
+#else
+    return 0.0f;
+#endif
+}
+
 /*
  * The fog's own blend: the sprites come in at EVA 12 (4 under water) over a
  * few frames and leave the same way, so the world's fog follows them.

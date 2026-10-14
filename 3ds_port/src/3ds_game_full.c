@@ -399,6 +399,7 @@ void CtrGame_StepWeather(int direction)
 
 /* RG3DS debug driver (3ds_input.c): a warp asked for in drive.txt. */
 extern volatile int gCtrDriveWarp[5];
+extern volatile int gCtrDriveWeather;
 void DoWarp(void);
 
 static void DriveWarp(void)
@@ -406,6 +407,11 @@ static void DriveWarp(void)
     /* "lit": dark caves drawn lit, to look at them */
     if (gCtrDriveWarp[4] && gSaveBlock1Ptr != NULL)
         gSaveBlock1Ptr->flashLevel = 0;
+    if (gCtrDriveWeather >= 0 && gMain.callback2 == CB2_Overworld)
+    {
+        SetWeather(gCtrDriveWeather);
+        gCtrDriveWeather = -1;
+    }
     if (gCtrDriveWarp[0] < 0 || gMain.callback2 != CB2_Overworld)
         return;
     SetWarpDestination(gCtrDriveWarp[0], gCtrDriveWarp[1], WARP_ID_NONE, gCtrDriveWarp[2], gCtrDriveWarp[3]);
