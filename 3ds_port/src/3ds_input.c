@@ -163,11 +163,14 @@ void CtrInput_Scan(void)
         raw |= driveZ;
         driveLast = pad | driveZ;
     }
-    uint32_t menu = CtrDevMenu_Input(raw, down);
+    bool turboA = false;
+    uint32_t menu = CtrDevMenu_Input(raw, down, &turboA);
     for (unsigned i = 0; i < sizeof(keys) / sizeof(keys[0]); ++i)
         if (raw & keys[i])
             sample.buttons |= 1u << i;
     sample.buttons |= drive & 0xFFFu;
+    if (turboA)
+        sample.buttons |= 1u << 0; /* A */
     if (menu)
         sample.buttons = 0;
     circlePosition circle;
