@@ -1382,11 +1382,17 @@ static float CaveCorner(const VoxelMapInstance *inst, int cx, int cz)
 
     for (int dz = -1; dz <= 0; ++dz)
         for (int dx = -1; dx <= 0; ++dx)
-            if (VoxelWorld_GetInstanceAt(cx + dx, cz + dz) == inst && CaveRock(inst, cx + dx, cz + dz))
-            {
-                sum += CaveCellHeight(inst, cx + dx, cz + dz);
-                ++n;
-            }
+        {
+            if (VoxelWorld_GetInstanceAt(cx + dx, cz + dz) != inst)
+                continue;
+            /* a corner on the floor is the floor's: the rock's edge ramps
+             * from there, its band drawn on the ramp once - a face under a
+             * raised edge drew the band twice, with a seam */
+            if (!CaveRock(inst, cx + dx, cz + dz))
+                return 0.0f;
+            sum += CaveCellHeight(inst, cx + dx, cz + dz);
+            ++n;
+        }
     return n ? sum / (float)n : 0.0f;
 }
 
@@ -1452,6 +1458,10 @@ static void EmitCaveRock(VoxelBuilder *builder, const VoxelMapInstance *inst, in
         float x0 = wx, x1 = wx + 1.0f, z0 = wz, z1 = wz + 1.0f;
 
         if (!open[k])
+            continue;
+        /* only where the edge stands above the floor beside it (the map's
+         * own edge, a step into the dark) */
+        if ((k == 0 ? se + sw : k == 1 ? ne + se : nw + sw) < 0.01f && lo == 0.0f)
             continue;
         if (k == 0)
             VoxelBuilder_Quad(builder,
