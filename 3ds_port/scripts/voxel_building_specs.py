@@ -1421,7 +1421,8 @@ SPECS = [
     },
     {
         "name": "flower_shop",
-        "lights": "auto",   # RG3DS: its windows glow at night
+        # RG3DS: its windows, and the open door lit from inside at night
+        "lights": [(9, 42, 15, 53), (65, 42, 71, 53), (81, 42, 87, 53), (35, 51, 45, 59)],
         "layout": "LAYOUT_ROUTE104",
         "rect": (3, 15, 6, 4),
         # the cobbled path round it
