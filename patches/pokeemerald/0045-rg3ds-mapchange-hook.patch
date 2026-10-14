@@ -1,7 +1,35 @@
 RG3DS: CtrMapChange_Showing - the cave fade (fldeff_flash.c) is up, for the port to draw it whole;
-lamp lights (event_object_movement.c) lit steadily instead of the GBA flicker.
+lamp lights (event_object_movement.c) lit steadily instead of the GBA flicker;
+object events spawned over the edition camera's whole view (fieldmap.h).
 Applies over 0044.
 
+diff --git a/include/fieldmap.h b/include/fieldmap.h
+index daee48a24..1ccb7dede 100644
+--- a/include/fieldmap.h
++++ b/include/fieldmap.h
+@@ -24,13 +24,20 @@
+ // standing at its edges never come into existence; the two extra metatiles are
+ // the margin the original keeps so they appear before they are on screen.
+ #if defined(PLATFORM_3DS)
++#if defined(CTR_VOXEL_ENABLED) && CTR_VOXEL_ENABLED
++// RG3DS: the edition's lower camera sees further, and its view widens with
++// the distance: people at the far corners appeared late, walking towards them.
++#define OBJECT_EVENT_VIEW_LEFT   (FIELD_VIEW_OFFSET_X / 16 + 6)
++#define OBJECT_EVENT_VIEW_RIGHT  ((DISPLAY_WIDTH - FIELD_VIEW_OFFSET_X) / 16 + 6)
++#else
+ #define OBJECT_EVENT_VIEW_LEFT   (FIELD_VIEW_OFFSET_X / 16 + 2)
+ #define OBJECT_EVENT_VIEW_RIGHT  ((DISPLAY_WIDTH - FIELD_VIEW_OFFSET_X) / 16 + 2)
++#endif
+ // The voxel overworld's camera looks north and sees about 14 metatiles ahead
+ // of the player, twice what the 2D field shows: people standing there have to
+-// exist for it to draw them.
++// exist for it to draw them (RG3DS: 10, for the edition's lower camera).
+ #if defined(CTR_VOXEL_ENABLED) && CTR_VOXEL_ENABLED
+-#define OBJECT_EVENT_VIEW_TOP    6
++#define OBJECT_EVENT_VIEW_TOP    10
+ #else
+ #define OBJECT_EVENT_VIEW_TOP    0
+ #endif
 diff --git a/src/event_object_movement.c b/src/event_object_movement.c
 index b644aed5f..d4823e11f 100644
 --- a/src/event_object_movement.c

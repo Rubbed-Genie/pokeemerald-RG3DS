@@ -1576,7 +1576,9 @@ SPECS = [
         "name": "sand_boulder",
         "props": "sand_boulder",
         "ground": [0x124],
-        "rise": 1.0,
+        # RG3DS: twice as tall as deep - at 1 it lay on the sand like a decal
+        # under the edition's lower camera
+        "rise": 2.0,
         "step": 2,
     },
     {
