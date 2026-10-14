@@ -16,6 +16,7 @@ static CtrInput sInput;
  *   wait[N]        N frames (default 60)
  *   shot           dump the top screen (shot-<frame>.raw, CtrVideo)
  *   warp:G:N:X:Y   warp there (3ds_game_full.c)
+ *   lit            dark caves drawn lit from here on
  * A press holds 6 frames and lets go 6.
  */
 static struct
@@ -27,7 +28,7 @@ static struct
     int repeat;
 } sDrive;
 volatile int gCtrDriveShot;
-volatile int gCtrDriveWarp[4] = {-1, -1, -1, -1};
+volatile int gCtrDriveWarp[5] = {-1, -1, -1, -1, 0};
 
 static uint32_t DriveStep(void)
 {
@@ -87,6 +88,12 @@ static uint32_t DriveStep(void)
         while (sDrive.text[sDrive.pos] > ' ' && len < (int)sizeof(word) - 1)
             word[len++] = sDrive.text[sDrive.pos++];
         word[len] = 0;
+        if (strcmp(word, "lit") == 0)
+        {
+            /* the next warp lands with Flash used (a dark cave lit) */
+            gCtrDriveWarp[4] = 1;
+            return 0;
+        }
         if (strncmp(word, "warp:", 5) == 0)
         {
             int g, m, x, y;
