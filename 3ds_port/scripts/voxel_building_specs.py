@@ -571,6 +571,35 @@ def fallarbor_house(width):
     return ridged_house(width, (0, 9), (9, 12), (12, 37), (37, 40), 40)
 
 
+def tower_block(width, height, depth, roof_tile, side_tile):
+    """RG3DS: a building drawn as its front alone, the map's top cutting its
+    roof off (Lilycove's department store): a wall `height` tall standing at
+    the drawing's foot, `depth` deep, under a flat roof the drawing never
+    shows (`roof_tile` of its own wall)."""
+    front, back = height, height - depth
+    body = Prism(
+        "body", 0, width,
+        [(front, -1), (front, height), (back, height), (back, -1)],
+        edges={0: Proj(0, height), 1: roof_tile, 2: side_tile}, skip=(3,),
+        caps=[Band(-1, height + 1, side_tile, front)])
+    return [body]
+
+
+def contest_hall():
+    """RG3DS: Lilycove's Contest Hall (112 x 112), built like a Pokemon
+    Center: octagonal walls (rows 87-111), a band of roof at 45 degrees
+    (76-86) and a flat, studded top (8-75), only as deep as it is drawn."""
+    front, back = 112, 33
+    plan = [(8, front), (104, front), (112, front - 8), (112, back + 8),
+            (104, back), (8, back), (0, back + 8), (0, front - 8)]
+    return [Frustum(
+        "body", plan, wall_top=25,
+        wall_side=Strip((87, 112), wrap=(8, 16)),
+        band_rise=5.5,
+        band_side=Strip((76, 87), wrap=(16, 96)),
+        top=Strip((9, 76), wrap=(16, 96)))]
+
+
 def verdanturf_house(width):
     """RG3DS: Verdanturf's green-roofed houses."""
     return ridged_house(width, (0, 7), (7, 13), (13, 37), (37, 40), 40)
@@ -1938,6 +1967,35 @@ SPECS = [
         "ground": [GRASS],
         "parts": gym,
         "exact": GYM_EXACT,
+    },
+    {
+        # RG3DS: Lilycove's blue-roofed houses (six, one drawing).
+        "name": "lilycove_house",
+        "lights": "auto",
+        "layout": "LAYOUT_LILYCOVE_CITY",
+        "rect": (35, 3, 4, 4),
+        "ground": [GRASS, 0x002, 0x0d4, 0x1e8, 0x1e9, 0x190, 0x170],
+        "parts": lambda: ridged_house(64, (0, 8), (8, 13), (13, 37), (37, 40), 40),
+        "exact": [(2, 40, 62, 64), (8, 1, 56, 40)],
+    },
+    {
+        # RG3DS: Lilycove's department store, five storeys of its front.
+        "name": "lilycove_department_store",
+        "lights": "glass",
+        "layout": "LAYOUT_LILYCOVE_CITY",
+        "rect": (23, 0, 9, 7),
+        "ground": [GRASS],
+        "parts": lambda: tower_block(144, 112, 40, Tile(8, 70, 24, 80), Tile(16, 64, 32, 112, top=112)),
+        "exact": [(4, 0, 140, 110)],
+    },
+    {
+        "name": "lilycove_contest_hall",
+        "lights": "glass",
+        "layout": "LAYOUT_LILYCOVE_CITY",
+        "rect": (20, 18, 7, 7),
+        "ground": [GRASS],
+        "parts": contest_hall,
+        "exact": [(12, 88, 100, 110), (16, 14, 96, 76)],
     },
     {
         # RG3DS: Fortree's gym, its top row the trees' crowns over the roof.
