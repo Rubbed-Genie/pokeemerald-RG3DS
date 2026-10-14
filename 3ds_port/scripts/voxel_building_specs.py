@@ -34,6 +34,8 @@ Both roofs are hipped: seen from the side they are tiles too, laid along the
 side eave, so no gable wall of plaster ever shows.
 """
 
+import math
+
 from voxel_building import (Band, Cylinder, Frustum, HipRoof, Prism, Proj, Strip, Tile,
                             Vault, Walls)
 
@@ -359,6 +361,75 @@ def kit_house(width):
         caps=[Band(0, 26, boards, front_z, front=post, back=post, z1=back_z),
               Band(26, wall_top + 1, Tile(9, 38, 15, 39, top=wall_top), front_z)])
     return [base, roof]
+
+
+def slateport_hall(width=112, height=96):
+    """RG3DS: Slateport's red-roofed hall (the Pokemon Fan Club), 112 x 96:
+
+        rows  2- 3  the roof's outline
+        rows  3-47  its stripes, the hips' corners clipped 5 px
+        rows 48-57  the eave course, teeth over red
+        rows 58-61  fascia: rule, grey, red, rule
+        rows 62-95  the facade, porthole windows, the door in a porch
+
+    Real depth: all six rows are blocked, so the back wall stands at Z 8;
+    the roof is a low hip over it whose front reads the drawn rows exactly.
+    """
+    front, back = height, 8
+    wall_top = height - 62
+    roof = HipRoof(
+        "roof", 0, width, zf=front, zb=back, y0=wall_top,
+        fascia=Strip((58, 62)),
+        slope=Strip((3, 58)),
+        teeth=(2, 3), cap=(2, 3), pitch=math.degrees(math.atan2(
+            (front + back) / 2.0 + 0.5 - 3 - (wall_top + 4), front - ((front + back) / 2.0 + 0.5))),
+        run=5, ridge_u=(0, width), end_tile=Tile(20, 3, 21, 4), ridge=False)
+    side = Tile(4, 62, 16, 94, top=wall_top)
+    body = Prism(
+        "body", 1, width - 1,
+        [(front, 0), (front, wall_top), (back, wall_top), (back, 0)],
+        edges={0: Proj(62, 96), 2: side}, skip=(1, 3),
+        caps=[Band(0, wall_top + 1, side, front)])
+    return [body, roof]
+
+
+def slateport_fan_club():
+    """RG3DS: the Pokemon Fan Club, Slateport (80 x 80): a hipped roof with a
+    flat top, over a porch of columns.
+
+        rows  8- 39  the flat top, striped across, its back edge row 8
+        rows 40- 53  the front slope (the hips either side)
+        rows 54- 79  the eave's rule and the facade, columns and doors
+
+    Real depth: four collision rows, Z 16-80; the top grows back by its own
+    stripes (period 4).
+    """
+    front, back = 80, 16
+    plan = [(0, front), (80, front), (80, back), (0, back)]
+    return [Frustum(
+        "body", plan, wall_top=26,
+        wall_side=Strip((56, 80), wrap=(36, 44)),
+        band_rise=7,
+        band_side=Strip((40, 54), wrap=(16, 64)),
+        top=Strip((9, 40), repeat=(12, 16), wrap=(16, 64)))]
+
+
+def slateport_museum():
+    """RG3DS: the Oceanic Museum, Slateport (96 x 80): a flat teal roof with
+    its domes (rows 9-47), the cornice (48-55), the columned facade (56-79).
+
+    The roof is drawn only 39 rows deep, and growing it back to the blocked
+    rows would repeat its domes: the museum stands that deep (the back wall
+    at Z 41), the fence behind it showing over its back rows as it does.
+    """
+    front, back, wall, top = 80, 41, 24, 32
+    side = Tile(0, 56, 8, 80, top=wall)
+    body = Prism(
+        "body", 0, 96,
+        [(front, -1), (front, top), (back, top), (back, -1)],
+        edges={0: Proj(48, 80), 1: Strip((9, 48)), 2: side}, skip=(3,),
+        caps=[Band(-1, top + 1, side, front)])
+    return [body]
 
 
 def kit_house_exact(width):
@@ -1502,6 +1573,67 @@ SPECS = [
         "ground": [0x124],
         "parts": gym,
         "exact": GYM_EXACT,
+    },
+    {
+        # RG3DS: Slateport's houses (the Name Rater's, Stern's shipyard): the
+        # General kit's facade under the town's purple roof, its rows the
+        # kit's. Four cells wide; the shipyard's east wing six.
+        "name": "slateport_house_4",
+        "lights": "auto",
+        "layout": "LAYOUT_SLATEPORT_CITY",
+        "rect": (4, 16, 4, 4),
+        "ground": [GRASS, 0x202, 0x212],
+        "parts": lambda: kit_house(64),
+        "exact": kit_house_exact(64),
+    },
+    {
+        "name": "slateport_house_6",
+        "lights": "auto",
+        "layout": "LAYOUT_SLATEPORT_CITY",
+        "rect": (24, 41, 6, 4),
+        "ground": [0x202, 0x212],
+        "parts": lambda: kit_house(96),
+        "exact": kit_house_exact(96),
+    },
+    {
+        # RG3DS: the Harbor (its red-roofed hall).
+        "name": "slateport_hall",
+        "lights": "auto",
+        "layout": "LAYOUT_SLATEPORT_CITY",
+        "rect": (25, 7, 7, 6),
+        "ground": [GRASS, 0x170, 0x189, 0x002, 0x003, 0x016, 0x0c7],
+        "parts": slateport_hall,
+        "exact": [(1, 62, 111, 94), (8, 4, 104, 58)],
+    },
+    {
+        "name": "slateport_fan_club",
+        "lights": "auto",
+        "layout": "LAYOUT_SLATEPORT_CITY",
+        "rect": (2, 22, 5, 5),
+        "ground": [GRASS],
+        "parts": slateport_fan_club,
+        "exact": [(8, 56, 72, 80), (16, 40, 64, 54), (18, 10, 62, 40)],
+    },
+    {
+        "name": "slateport_museum",
+        "lights": "auto",
+        "layout": "LAYOUT_SLATEPORT_CITY",
+        "rect": (28, 22, 6, 5),
+        "ground": [GRASS, 0x170, 0x158, 0x159, 0x243, 0x003, 0x2de, 0x2dd, 0x34c, 0x34d, 0x34b],
+        "parts": slateport_museum,
+        "exact": [(0, 56, 96, 80), (8, 10, 88, 48)],
+    },
+    {
+        # RG3DS: Stern's shipyard, a flat-roofed shed: corrugated roof rows
+        # 17-63 (its back parapet 2-16 laid at the far end), the eave's band
+        # 64-69, the siding 70-111.
+        "name": "slateport_shipyard",
+        "lights": "auto",
+        "layout": "LAYOUT_SLATEPORT_CITY",
+        "rect": (24, 32, 8, 7),
+        "ground": [0x202, 0x212, 0x189, 0x170, 0x190, 0x149, 0x222, 0x22a],
+        "parts": lambda: flat_block(128, 112, ((17, 64), (17, 33), (2, 17)), (64, 70), 70),
+        "exact": [(0, 70, 128, 111), (8, 17, 120, 64)],
     },
     {
         # Petalburg's hedges. Not a building: a run of metatiles of any shape,
