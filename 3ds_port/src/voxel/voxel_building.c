@@ -340,30 +340,29 @@ bool VoxelBuildings_ReadPage(unsigned page, unsigned first, unsigned count, uint
     if (fseek(sPageFile, (long)(sPages[page].offset + first * sizeof(uint16_t)), SEEK_SET) != 0
      || fread(dest, sizeof(uint16_t), count, sPageFile) != count)
         return false;
-    /* RG3DS: the night lights, by their colour before the grading. By the
-     * 8x8 tile (64 texels in a row, the page's swizzled order): a tile mostly
-     * of light colours is a lit wall - a Pokemon Center's, a facade's bricks -
-     * and glows faintly; the few light texels of a window or a trim glow full. */
-    for (unsigned k0 = 0; lightBits != NULL && mask != NULL && k0 < count; k0 += 64)
+    /* RG3DS: the night lights, by their colour before the grading, an 8x8
+     * tile at a time (64 texels in a row, the page's swizzled order), as
+     * VoxelAtlas_LightLevels keeps them. */
+    for (unsigned k0 = 0; lightBits != NULL && mask != NULL && k0 + 64 <= count; k0 += 64)
     {
-        unsigned n = count - k0 < 64 ? count - k0 : 64, lit = 0;
-        uint8_t level;
+        uint8_t lit[64], level[64];
+        bool any = false;
 
-        for (unsigned k = k0; k < k0 + n; ++k)
+        for (unsigned k = 0; k < 64; ++k)
         {
-            unsigned t = dest[k] >> 1;
+            unsigned t = dest[k0 + k] >> 1;
 
-            lit += (dest[k] & 1u) && (lightBits[t >> 5] & (1u << (t & 31)));
+            lit[k] = (dest[k0 + k] & 1u) && (lightBits[t >> 5] & (1u << (t & 31)));
+            any = any || lit[k];
         }
-        if (lit == 0)
+        if (!any)
             continue;
-        level = lit * 2u > n ? 0x4u : lit * 4u > n ? 0x8u : 0xFu;
-        for (unsigned k = k0; k < k0 + n; ++k)
+        VoxelAtlas_LightLevels(lit, level);
+        for (unsigned k = 0; k < 64; k += 2)
         {
-            unsigned t = dest[k] >> 1, i = first + k;
+            unsigned i = first + k0 + k;
 
-            if ((dest[k] & 1u) && (lightBits[t >> 5] & (1u << (t & 31))))
-                mask[i >> 1] |= (i & 1u) ? (uint8_t)(level << 4) : level;
+            mask[i >> 1] |= (uint8_t)(level[k] | level[k + 1] << 4);
         }
     }
     /* On the reading thread, off the render thread's frame. */

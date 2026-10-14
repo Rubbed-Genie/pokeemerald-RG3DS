@@ -143,7 +143,11 @@ bool VoxelAtlas_LightColours(const void *primary, const void *secondary, uint32_
     bool any = false;
 
     memset(bits, 0, 1024 * sizeof(uint32_t));
-    for (unsigned p = 0; p < 13; ++p)
+    /* The secondary tileset's palettes only, as on the ground (BuildColorTable):
+     * General's light blues and whites are also the plaster, the stripes and
+     * the trim of every town's buildings, and matched by colour they lit them
+     * all. */
+    for (unsigned p = NUM_PALS_IN_PRIMARY; p < 13; ++p)
     {
         const uint16_t *palette = pals[p < NUM_PALS_IN_PRIMARY ? 0 : 1];
 
@@ -162,6 +166,71 @@ bool VoxelAtlas_LightColours(const void *primary, const void *secondary, uint32_
         }
     }
     return any;
+}
+
+/*
+ * RG3DS: the glow of one 8x8 tile of a mask (64 texels in the PICA's order,
+ * lit[i] set where the texel is a light colour). A light texel glows only as
+ * part of a solid 3x3 of light - a window, a lamp's pane - never alone or in
+ * a thin line: the light colours are also the highlights speckled along
+ * fences, signs and trim, and a Mart's roof stripes, which lit up. And a tile three quarters light is a lit
+ * wall (a Pokemon Center's): it glows faintly.
+ */
+void VoxelAtlas_LightLevels(const uint8_t lit[64], uint8_t level[64])
+{
+    uint8_t grid[8][8], keep[8][8];
+    unsigned count = 0;
+    uint8_t full;
+
+    memset(keep, 0, sizeof(keep));
+    for (unsigned i = 0; i < 64; ++i)
+    {
+        unsigned x = (i & 1u) | ((i >> 1) & 2u) | ((i >> 2) & 4u);
+        unsigned y = ((i >> 1) & 1u) | ((i >> 2) & 2u) | ((i >> 3) & 4u);
+
+        grid[y][x] = lit[i] != 0;
+        count += grid[y][x];
+    }
+    for (unsigned y = 0; y < 6; ++y)
+        for (unsigned x = 0; x < 6; ++x)
+        {
+            bool solid = true;
+
+            for (unsigned dy = 0; dy < 3 && solid; ++dy)
+                for (unsigned dx = 0; dx < 3 && solid; ++dx)
+                    solid = grid[y + dy][x + dx] != 0;
+            for (unsigned dy = 0; dy < 3 && solid; ++dy)
+                for (unsigned dx = 0; dx < 3; ++dx)
+                    keep[y + dy][x + dx] = 1;
+        }
+    full = count * 4u > 64u * 3u ? 0x4u : 0xFu;
+    for (unsigned i = 0; i < 64; ++i)
+    {
+        unsigned x = (i & 1u) | ((i >> 1) & 2u) | ((i >> 2) & 4u);
+        unsigned y = ((i >> 1) & 1u) | ((i >> 2) & 2u) | ((i >> 3) & 4u);
+
+        level[i] = keep[y][x] ? full : 0;
+    }
+}
+
+/* The same over a whole mask (4 bits a texel), tile by tile, in place. */
+void VoxelAtlas_FilterLightMask(uint8_t *mask, unsigned texels)
+{
+    for (unsigned t = 0; t + 64 <= texels; t += 64)
+    {
+        uint8_t lit[64], level[64], *bytes = mask + t / 2;
+        bool any = false;
+
+        for (unsigned i = 0; i < 32; ++i)
+            any = any || bytes[i] != 0;
+        if (!any)
+            continue;
+        for (unsigned i = 0; i < 64; ++i)
+            lit[i] = (bytes[i >> 1] >> ((i & 1u) * 4)) & 0xFu;
+        VoxelAtlas_LightLevels(lit, level);
+        for (unsigned i = 0; i < 32; ++i)
+            bytes[i] = (uint8_t)(level[2 * i] | level[2 * i + 1] << 4);
+    }
 }
 
 void VoxelAtlas_SetLightMask(uint8_t *mask, bool fresh)

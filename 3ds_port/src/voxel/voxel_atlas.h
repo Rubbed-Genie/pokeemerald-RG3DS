@@ -190,4 +190,9 @@ void VoxelAtlas_SetLightMask(uint8_t *mask, bool fresh);
 bool VoxelAtlas_LightMaskLit(void);
 bool VoxelAtlas_LightColours(const void *primary, const void *secondary, uint32_t bits[1024]);
 
+/* RG3DS: the glow levels of one 8x8 tile of light (PICA order), and the
+ * same filter over a whole 4-bit mask in place. */
+void VoxelAtlas_LightLevels(const uint8_t lit[64], uint8_t level[64]);
+void VoxelAtlas_FilterLightMask(uint8_t *mask, unsigned texels);
+
 #endif

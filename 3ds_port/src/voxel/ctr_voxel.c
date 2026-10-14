@@ -2393,6 +2393,7 @@ static void RunAtlasJob(uint64_t started, float budget, bool inFrame)
         }
         else if (mask->data != NULL)
         {
+            VoxelAtlas_FilterLightMask((uint8_t *)mask->data, VOXEL_ATLAS_PIXELS);
             C3D_TexFlush(mask);
             CtrLog_Write(CTR_LOG_VIDEO, "VOXEL glow: atlas page %u has lights", job->page);
         }
