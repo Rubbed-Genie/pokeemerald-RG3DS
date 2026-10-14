@@ -1447,6 +1447,35 @@ SPECS = [
         "exact": GYM_EXACT,
     },
     {
+        # RG3DS: Dewford's houses, the kit house's drawing in the town's blue
+        # tile (cells 7..10 x 5..8; the others are the same metatiles).
+        "name": "dewford_house",
+        "layout": "LAYOUT_DEWFORD_TOWN",
+        "rect": (7, 5, 4, 4),
+        "ground": [0x124],
+        "parts": lambda: kit_house(64),
+        "exact": kit_house_exact(64),
+    },
+    {
+        # RG3DS: Dewford Hall, the same kit five cells wide.
+        "name": "dewford_hall",
+        "layout": "LAYOUT_DEWFORD_TOWN",
+        "rect": (1, 0, 5, 4),
+        "ground": [0x124],
+        "parts": lambda: kit_house(80),
+        "exact": kit_house_exact(80),
+    },
+    {
+        # RG3DS: Dewford's gym, Petalburg's drawn in the town's own tiles.
+        "name": "dewford_gym",
+        "layout": "LAYOUT_DEWFORD_TOWN",
+        "rect": (5, 13, 6, 5),
+        "match_rows": (0, 4),
+        "ground": [0x124],
+        "parts": gym,
+        "exact": GYM_EXACT,
+    },
+    {
         # Petalburg's hedges. Not a building: a run of metatiles of any shape,
         # so each connected run becomes its own model, read column by column
         # off its drawing. The front, where a run ends to the south, is
