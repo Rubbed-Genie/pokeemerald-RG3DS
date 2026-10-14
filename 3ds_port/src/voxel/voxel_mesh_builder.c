@@ -1345,22 +1345,42 @@ static bool CaveRock(const VoxelMapInstance *inst, int x, int y)
  */
 static float CaveCellHeight(const VoxelMapInstance *inst, int x, int y)
 {
-    static const float rise[4] = {0.0f, 0.45f, 0.85f, 1.15f};
-    float top = CaveRockHeight() / 1.15f;
-    int d = 3;
+    /* steps of rise by distance from the floor; rock at the map's edge is
+     * the back wall, full height, so no dark shows over it */
+    static const float rise[6] = {0.0f, 0.80f, 1.10f, 1.40f, 1.70f, 2.00f};
+    float top = CaveRockHeight() / 2.0f * 1.4f;
+    int d = 5;
 
-    for (int r = 1; r <= 2 && d == 3; ++r)
-        for (int dy = -r; dy <= r && d == 3; ++dy)
+    for (int r = 1; r <= 4 && d == 5; ++r)
+        for (int dy = -r; dy <= r && d == 5; ++dy)
             for (int dx = -r; dx <= r; ++dx)
             {
+                const VoxelMapInstance *n;
+
                 if (dx != -r && dx != r && dy != -r && dy != r)
                     continue;
-                if (VoxelWorld_GetInstanceAt(x + dx, y + dy) == inst && !CaveRock(inst, x + dx, y + dy))
+                n = VoxelWorld_GetInstanceAt(x + dx, y + dy);
+                if (n == inst && !CaveRock(inst, x + dx, y + dy))
                 {
                     d = r;
                     break;
                 }
             }
+    {
+        /* within two of the map's edge: the back wall */
+        bool edge = false;
+
+        /* north and to the sides only: the south edge is between the
+         * camera and the cave, and stood up it walled the view off */
+        for (int dy = -2; dy <= 0 && !edge; ++dy)
+            for (int dx = -2; dx <= 2 && !edge; ++dx)
+                edge = VoxelWorld_GetInstanceAt(x + dx, y + dy) != inst;
+        for (int dy = 1; dy <= 2 && edge; ++dy)
+            if (VoxelWorld_GetInstanceAt(x, y + dy) != inst)
+                edge = false;
+        if (edge && d >= 2)
+            d = 5;
+    }
     return rise[d] * top;
 }
 
@@ -1459,6 +1479,10 @@ static void EmitCaveRock(VoxelBuilder *builder, const VoxelMapInstance *inst, in
 
         if (!open[k])
             continue;
+        /* not down into the dark past the map's south edge: it faces the
+         * camera, and stood as a wall across the bottom of the view */
+        if (k == 0 && lo < 0.0f)
+            continue;
         /* only where the edge stands above the floor beside it (the map's
          * own edge, a step into the dark) */
         if ((k == 0 ? se + sw : k == 1 ? ne + se : nw + sw) < 0.01f && lo == 0.0f)
@@ -1485,15 +1509,8 @@ float VoxelMesh_CaveLift(const VoxelMapInstance *inst, int x, int y)
 {
     if (!CaveRock(inst, x, y) || !VoxelBuildings_CellAt(inst, x, y, NULL, NULL))
         return 0.0f;
-    {
-        /* on its highest corner: on the ramp's mean it sank into the rock */
-        float a = CaveCorner(inst, x, y), b = CaveCorner(inst, x + 1, y);
-        float c = CaveCorner(inst, x + 1, y + 1), d = CaveCorner(inst, x, y + 1);
-        float m = a > b ? a : b;
-
-        m = m > c ? m : c;
-        return m > d ? m : d;
-    }
+    return (CaveCorner(inst, x, y) + CaveCorner(inst, x + 1, y) + CaveCorner(inst, x + 1, y + 1)
+            + CaveCorner(inst, x, y + 1)) * 0.25f;
 }
 
 void VoxelMesh_EmitInstance(VoxelBuilder *builder, const VoxelMapInstance *inst,

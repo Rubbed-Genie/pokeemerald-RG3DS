@@ -51,10 +51,11 @@ OBJECTS = {
                      "palette": 6, "grid": ((640, 641), (656, 657))},
     "cave_pebbles": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Cave",
                      "palette": 6, "grid": ((519, 520), (535, 536))},
-    "cave_rockpile": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Cave",
-                      "palette": 6, "grid": ((794, 795), (810, 811))},
-    "cave_stalagmite": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Cave",
-                        "palette": 6, "grid": ((826, 827), (842, 843))},
+    # the heap of rock and the stalagmite under it are one tall rock, drawn
+    # over two cells (always so, but four lone heaps in the Desert Underpass,
+    # left flat for now)
+    "cave_column": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Cave",
+                    "palette": 6, "grid": ((794, 795), (810, 811), (826, 827), (842, 843))},
     "sea_stack": {
         "tileset": "gTileset_General",
         "palette": 3,

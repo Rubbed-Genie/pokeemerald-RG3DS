@@ -1609,17 +1609,9 @@ SPECS = [
         "step": 2,
     },
     {
-        # RG3DS: the cave's rock pile, a rounded rock on the floor.
-        "name": "cave_rockpile",
-        "props": "cave_rockpile",
-        "ground": [0x211, 0x201],
-        "rise": 2.8,
-        "step": 2,
-    },
-    {
-        # RG3DS: the cave's stalagmite, a rounded rock on the floor.
-        "name": "cave_stalagmite",
-        "props": "cave_stalagmite",
+        # RG3DS: the cave's tall rock, a heap over a stalagmite, two cells.
+        "name": "cave_column",
+        "props": "cave_column",
         "ground": [0x211, 0x201],
         "rise": 2.6,
         "step": 2,

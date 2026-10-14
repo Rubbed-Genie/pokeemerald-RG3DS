@@ -96,7 +96,7 @@ static void DrawText(const char *text, float x, float y, u32 colour)
 
 /* ── Rows ──────────────────────────────────────────────────────────────── */
 
-enum { ROW_TIME, ROW_WEATHER, ROW_CAVE, ROW_GLOW, ROW_GLOW_DEBUG, ROW_FPS, ROW_SPEED, ROW_ZLZR, ROW_COUNT };
+enum { ROW_TIME, ROW_WEATHER, ROW_CAVE, ROW_GLOW, ROW_GLOW_DEBUG, ROW_ZLZR, ROW_COUNT };
 
 /* What L2/R2 do on their own (zlzr_mode): step the speed, hold for turbo A,
  * or cycle the weather. */
@@ -147,14 +147,6 @@ static void RowText(int row, char *label, char *value, size_t size)
         strcpy(label, "SHOW LIGHTS");
         snprintf(value, size, "%s", CtrSettings_GetInt("glow_debug", 0) ? "ON" : "OFF");
         break;
-    case ROW_FPS:
-        strcpy(label, "FPS COUNTER");
-        snprintf(value, size, "%s", CtrSettings_ShowFps() ? "ON" : "OFF");
-        break;
-    case ROW_SPEED:
-        strcpy(label, "SPEED");
-        snprintf(value, size, "X%d", CtrSettings_Speed());
-        break;
     case ROW_CAVE:
         strcpy(label, "CAVE WALLS");
         snprintf(value, size, "%d%%", CtrSettings_GetInt("cave_rock", 100));
@@ -194,12 +186,6 @@ static void ChangeRow(int row, int direction)
         break;
     case ROW_GLOW_DEBUG:
         CtrSettings_SetInt("glow_debug", !CtrSettings_GetInt("glow_debug", 0));
-        break;
-    case ROW_FPS:
-        CtrSettings_SetShowFps(!CtrSettings_ShowFps());
-        break;
-    case ROW_SPEED:
-        CtrSettings_StepSpeed(direction, true);
         break;
     case ROW_CAVE:
     {
