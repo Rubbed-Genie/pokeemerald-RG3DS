@@ -1474,7 +1474,10 @@ unsigned VoxelEntities_Lamps(float *out, unsigned max)
         const struct ObjectEventTemplate *t = &gMapHeader.events->objectEvents[i];
         float x, z;
 
-        if (t->graphicsId != OBJ_EVENT_GFX_LIGHT_SPRITE)
+        /* only the lanterns: a Pokemon Center's or Mart's sign light
+         * (kinds 1, 2) stood off the building's corner, and its glass door
+         * glows already (buildings.bin) */
+        if (t->graphicsId != OBJ_EVENT_GFX_LIGHT_SPRITE || t->trainerRange_berryTreeId != 0)
             continue;
         x = (float)(inst->originX + t->x) + 0.5f;
         z = (float)(inst->originY + t->y);

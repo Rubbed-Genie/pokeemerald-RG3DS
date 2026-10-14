@@ -5514,9 +5514,32 @@ static void MoteVertex(VoxelGpuVertex *v, float x, float y, float z, float stren
 #define VOXEL_HALOS_MAX 24u
 #define VOXEL_WINDOW_POOLS_MAX 64u
 #define VOXEL_HALO_SEGMENTS 10u
-#define VOXEL_HALO_VERTICES (VOXEL_HALO_SEGMENTS * 6u)   /* the halo, then its pool */
+#define VOXEL_HALO_VERTICES (VOXEL_HALO_SEGMENTS * (3u + 9u))   /* the halo, then its pool */
 #define VOXEL_POOL_STRENGTH 0.55f
 static VoxelGpuVertex *sHalos;
+
+/* One slice of a light pool on the ground: flat across its middle (an even
+ * plateau to 55% of the way out, a touch under full), fading to the rim -
+ * the plain cone of a fan read as a bright dot. Nine vertices. */
+#define VOXEL_POOL_SLICE 9u
+static void PoolSlice(VoxelGpuVertex **out, float cx, float gy, float cz, float rx, float rz,
+                      float a0, float a1, float strength)
+{
+    VoxelGpuVertex *v = *out;
+    float c0 = cosf(a0), s0 = sinf(a0), c1 = cosf(a1), s1 = sinf(a1), k = 0.55f;
+    float inner = strength * 0.85f;
+
+    MoteVertex(&v[0], cx, gy, cz, strength * 0.9f);
+    MoteVertex(&v[1], cx + rx * k * c0, gy, cz + rz * k * s0, inner);
+    MoteVertex(&v[2], cx + rx * k * c1, gy, cz + rz * k * s1, inner);
+    MoteVertex(&v[3], cx + rx * k * c0, gy, cz + rz * k * s0, inner);
+    MoteVertex(&v[4], cx + rx * c0, gy, cz + rz * s0, 0.0f);
+    MoteVertex(&v[5], cx + rx * c1, gy, cz + rz * s1, 0.0f);
+    MoteVertex(&v[6], cx + rx * k * c0, gy, cz + rz * k * s0, inner);
+    MoteVertex(&v[7], cx + rx * c1, gy, cz + rz * s1, 0.0f);
+    MoteVertex(&v[8], cx + rx * k * c1, gy, cz + rz * k * s1, inner);
+    *out = v + VOXEL_POOL_SLICE;
+}
 
 static void DrawHalos(const C3D_Mtx *view, float dark)
 {
@@ -5539,7 +5562,7 @@ static void DrawHalos(const C3D_Mtx *view, float dark)
         return;
     if (sHalos == NULL)
         sHalos = linearAlloc((VOXEL_HALOS_MAX * VOXEL_HALO_VERTICES
-                              + VOXEL_WINDOW_POOLS_MAX * VOXEL_HALO_SEGMENTS * 3u) * sizeof(VoxelGpuVertex));
+                              + VOXEL_WINDOW_POOLS_MAX * VOXEL_HALO_SEGMENTS * VOXEL_POOL_SLICE) * sizeof(VoxelGpuVertex));
     if (sHalos == NULL)
         return;
     strength = (unsigned)((dark > 1.0f ? 1.0f : dark) * 200.0f);
@@ -5574,10 +5597,7 @@ static void DrawHalos(const C3D_Mtx *view, float dark)
                 float a0 = 6.2831853f * (float)k / VOXEL_HALO_SEGMENTS;
                 float a1 = 6.2831853f * (float)(k + 1) / VOXEL_HALO_SEGMENTS;
 
-                MoteVertex(&v[0], cx, gy, pz, VOXEL_POOL_STRENGTH);
-                MoteVertex(&v[1], cx + pr * cosf(a0), gy, pz + pr * sinf(a0), 0.0f);
-                MoteVertex(&v[2], cx + pr * cosf(a1), gy, pz + pr * sinf(a1), 0.0f);
-                v += 3;
+                PoolSlice(&v, cx, gy, pz, pr, pr, a0, a1, VOXEL_POOL_STRENGTH);
             }
         }
     }
@@ -5593,13 +5613,10 @@ static void DrawHalos(const C3D_Mtx *view, float dark)
             float a0 = 6.2831853f * (float)k / VOXEL_HALO_SEGMENTS;
             float a1 = 6.2831853f * (float)(k + 1) / VOXEL_HALO_SEGMENTS;
 
-            MoteVertex(&v[0], cx, gy, cz, VOXEL_POOL_STRENGTH * windows[i * 4 + 3]);
-            MoteVertex(&v[1], cx + rx * cosf(a0), gy, cz + rz * sinf(a0), 0.0f);
-            MoteVertex(&v[2], cx + rx * cosf(a1), gy, cz + rz * sinf(a1), 0.0f);
-            v += 3;
+            PoolSlice(&v, cx, gy, cz, rx, rz, a0, a1, VOXEL_POOL_STRENGTH * windows[i * 4 + 3]);
         }
     }
-    vertices = count * VOXEL_HALO_VERTICES + windowCount * VOXEL_HALO_SEGMENTS * 3u;
+    vertices = count * VOXEL_HALO_VERTICES + windowCount * VOXEL_HALO_SEGMENTS * VOXEL_POOL_SLICE;
     GSPGPU_FlushDataCache(sHalos, vertices * sizeof(VoxelGpuVertex));
 
     SetModelView(view, originX, originZ);

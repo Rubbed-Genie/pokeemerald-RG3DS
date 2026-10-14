@@ -380,25 +380,34 @@ def gym():
     """
     front, porch, back = 72, 80, 2
     wall_top, roof_top = 27, 31
-    panel = Tile(72, 45, 88, 72, top=wall_top)      # a window bay, for sides
-    corner = Tile(88, 45, 94, 72, top=wall_top)
-    lip = Tile(8, 41, 16, 45, top=roof_top)
+    # RG3DS: the facade's foot row is walkable either side of the porch, and
+    # standing at front=72 the wall stood half a cell into it: the player
+    # walked through it. The GBA's 45 degrees see a point moved back and down
+    # by the same amount where it was, so the body and its roof stand 8 back
+    # and 8 lower - the facade on the cell's edge - and the facade's last 8
+    # rows, which would be under the ground, lie on it in front of the wall.
+    sb = 8
+    face, wt, rt = front - sb, wall_top - sb, roof_top - sb
+    panel = Tile(72, 45, 88, 72, top=wt)      # a window bay, for sides
+    corner = Tile(88, 45, 94, 72, top=wt)
+    lip = Tile(8, 41, 16, 45, top=rt)
     body = Prism(
         "body", 2, 94,
-        [(front, -1), (front, wall_top), (back, wall_top), (back, -1)],
-        edges={0: Proj(45, 72), 2: panel}, skip=(1, 3),
-        caps=[Band(-1, wall_top, panel, front, front=corner, back=corner, z1=back)])
+        [(front, -1), (front, 0.25), (face, 0.25), (face, wt), (back, wt), (back, -1)],
+        edges={1: Proj(64, 72), 2: Proj(45, 64), 4: panel}, skip=(0, 3, 5),
+        caps=[Band(-1, wt, panel, face, front=corner, back=corner, z1=back)])
     roof = Prism(
         "roof", 0, 96,
-        [(front, wall_top), (front, roof_top), (back, roof_top), (back, wall_top)],
+        [(face, wt), (face, rt), (back, rt), (back, wt)],
         edges={0: Proj(41, 45), 1: Strip((5, 41), repeat=(5, 7)), 2: lip},
-        skip=(3,), caps=[Band(wall_top, roof_top + 1, lip, front)])
+        skip=(3,), caps=[Band(wt, rt + 1, lip, face)])
+    porch_lip = Tile(8, 41, 16, 45, top=roof_top)
     porch_roof = Prism(
         "porch_roof", 40, 72,
-        [(porch, wall_top), (porch, roof_top), (front, roof_top), (front, wall_top)],
+        [(porch, wall_top), (porch, roof_top), (face, roof_top), (face, wall_top)],
         edges={0: Proj(49, 54)}, skip=(2, 3),
-        caps=[Band(wall_top, roof_top + 1, lip, porch)])
-    porch_walls = Walls("porch", [(40, front), (48, porch), (64, porch), (72, front)],
+        caps=[Band(wall_top, roof_top + 1, porch_lip, porch)])
+    porch_walls = Walls("porch", [(40, face), (40, front), (48, porch), (64, porch), (72, front), (72, face)],
                         -1, wall_top)
     return [body, roof, porch_roof, porch_walls]
 
