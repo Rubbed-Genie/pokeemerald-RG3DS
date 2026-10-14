@@ -5516,7 +5516,7 @@ static void MoteVertex(VoxelGpuVertex *v, float x, float y, float z, float stren
 #define VOXEL_LIGHT_NEAR 40.0f   /* tiles from the camera a light is drawn within */
 #define VOXEL_HALO_SEGMENTS 10u
 #define VOXEL_HALO_VERTICES (VOXEL_HALO_SEGMENTS * (3u + 9u))   /* the halo, then its pool */
-#define VOXEL_POOL_STRENGTH 0.55f
+#define VOXEL_POOL_STRENGTH 0.40f
 static VoxelGpuVertex *sHalos;
 
 /* One slice of a light pool on the ground: flat across its middle (an even
@@ -5590,7 +5590,7 @@ static void DrawHalos(const C3D_Mtx *view, float dark)
                               + VOXEL_WINDOW_POOLS_MAX * VOXEL_HALO_SEGMENTS * VOXEL_POOL_SLICE) * sizeof(VoxelGpuVertex));
     if (sHalos == NULL)
         return;
-    strength = (unsigned)((dark > 1.0f ? 1.0f : dark) * 200.0f);
+    strength = (unsigned)((dark > 1.0f ? 1.0f : dark) * 135.0f);
     v = sHalos;
     for (unsigned i = 0; i < count; ++i)
     {
@@ -6203,7 +6203,7 @@ static void GlowTexEnvs(void)
     C3D_TexEnv *env;
     float dark = 1.0f - (float)((sTimeTint & 0xFF) + ((sTimeTint >> 8) & 0xFF) + ((sTimeTint >> 16) & 0xFF))
                       / (3.0f * 255.0f);
-    float k = dark * 0.8f > 0.45f ? 0.45f : dark * 0.8f;
+    float k = dark * 0.55f > 0.30f ? 0.30f : dark * 0.55f;   /* RG3DS: a third softer */
     unsigned r = (unsigned)(255.0f * k), g = (unsigned)(230.0f * k), b = (unsigned)(123.0f * k);
 
     HazeTexEnv(TintAbgr(FadeColour(1.0f, sHazeRgb), sTimeTint));

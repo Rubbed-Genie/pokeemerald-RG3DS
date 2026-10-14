@@ -96,7 +96,7 @@ static void DrawText(const char *text, float x, float y, u32 colour)
 
 /* ── Rows ──────────────────────────────────────────────────────────────── */
 
-enum { ROW_DEV, ROW_TIME, ROW_WEATHER, ROW_GLOW, ROW_GLOW_DEBUG, ROW_FPS, ROW_SPEED, ROW_ZLZR, ROW_COUNT };
+enum { ROW_TIME, ROW_WEATHER, ROW_GLOW, ROW_GLOW_DEBUG, ROW_FPS, ROW_SPEED, ROW_ZLZR, ROW_COUNT };
 
 /* What L2/R2 do on their own (zlzr_mode): step the speed, hold for turbo A,
  * or cycle the weather. */
@@ -111,13 +111,10 @@ static int ZlzrMode(void)
 {
     int mode;
 
-    /* only while dev keys are on; otherwise the port's own speed step */
-    if (!CtrSettings_GetInt("dev_keys", 0))
-        return ZLZR_SPEED;
     mode = CtrSettings_GetInt("zlzr_mode", -1);
 
     if (mode < 0)   /* the old on/off key */
-        mode = CtrSettings_GetInt("zlzr_auto_a", 0) ? ZLZR_TURBO : ZLZR_SPEED;
+        mode = ZLZR_TURBO;   /* the default */
     return mode >= 0 && mode < ZLZR_MODES ? mode : ZLZR_SPEED;
 }
 
@@ -158,10 +155,6 @@ static void RowText(int row, char *label, char *value, size_t size)
         strcpy(label, "SPEED");
         snprintf(value, size, "X%d", CtrSettings_Speed());
         break;
-    case ROW_DEV:
-        strcpy(label, "DEV KEYS L2/R2");
-        snprintf(value, size, "%s", CtrSettings_GetInt("dev_keys", 0) ? "ON" : "OFF");
-        break;
     case ROW_WEATHER:
         strcpy(label, "WEATHER");
         snprintf(value, size, "%s", CtrGame_WeatherName());
@@ -171,7 +164,7 @@ static void RowText(int row, char *label, char *value, size_t size)
         {
             int m = CtrSettings_GetInt("zlzr_mode", -1);
             if (m < 0 || m >= ZLZR_MODES)
-                m = CtrSettings_GetInt("zlzr_auto_a", 0) ? ZLZR_TURBO : ZLZR_SPEED;
+                m = ZLZR_TURBO;
             snprintf(value, size, "%s", sZlzrNames[m]);
         }
         break;
@@ -204,9 +197,6 @@ static void ChangeRow(int row, int direction)
     case ROW_SPEED:
         CtrSettings_StepSpeed(direction, true);
         break;
-    case ROW_DEV:
-        CtrSettings_SetInt("dev_keys", !CtrSettings_GetInt("dev_keys", 0));
-        break;
     case ROW_WEATHER:
         CtrGame_StepWeather(direction);
         break;
@@ -214,7 +204,7 @@ static void ChangeRow(int row, int direction)
         {
             int m = CtrSettings_GetInt("zlzr_mode", -1);
             if (m < 0 || m >= ZLZR_MODES)
-                m = CtrSettings_GetInt("zlzr_auto_a", 0) ? ZLZR_TURBO : ZLZR_SPEED;
+                m = ZLZR_TURBO;
             CtrSettings_SetInt("zlzr_mode", (m + direction + ZLZR_MODES) % ZLZR_MODES);
         }
         break;

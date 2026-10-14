@@ -1304,7 +1304,7 @@ void VoxelMesh_EmitGroundRow(VoxelBuilder *builder, const VoxelMapInstance *inst
  */
 static float CaveRockHeight(void)
 {
-    int v = CtrSettings_GetInt("cave_rock", 85);
+    int v = CtrSettings_GetInt("cave_rock", 100);
 
     return v <= 0 ? 0.0f : (v > 300 ? 3.0f : (float)v / 100.0f);
 }
@@ -1320,28 +1320,64 @@ static bool CaveRock(const VoxelMapInstance *inst, int x, int y)
     return true;
 }
 
+/* Rock on all four sides: the cave's solid rock, whose drawing is the plain
+ * plateau the walls stand under. */
+static bool CaveInterior(const VoxelMapInstance *inst, int x, int y)
+{
+    return CaveRock(inst, x, y) && CaveRock(inst, x, y + 1) && CaveRock(inst, x + 1, y)
+        && CaveRock(inst, x - 1, y) && CaveRock(inst, x, y - 1);
+}
+
+/*
+ * The GBA draws a cave's rock walls as the band of rock seen from in front
+ * (the wall's face) along the edge of the rock, the plain floor's drawing for
+ * the rock behind it. So: a rock cell stands a tile tall; each side of it
+ * open to the floor carries the cell's own drawing, standing up - the face
+ * the GBA drew - and its top is the plateau, taken from rock behind it.
+ */
 static void EmitCaveRock(VoxelBuilder *builder, const VoxelMapInstance *inst, int x, int y)
 {
-    float h = CaveRockHeight(), u0, v0, u1, v1;
+    float h = CaveRockHeight(), u0, v0, u1, v1, t0, s0, t1, s1;
     static const int sides[3][2] = {{0, 1}, {1, 0}, {-1, 0}};
+    bool open[3];
+    int plateau = -1;
 
     if (!MetatileUV(builder, VoxelWorld_GetMetatileId(x, y), &u0, &v0, &u1, &v1))
         return;
-    VoxelMesh_Top(builder, (float)x, (float)y, h, 0.0f, u0, v0, u1, v1, SHADE_TOP);
     for (unsigned k = 0; k < 3; ++k)
     {
         int nx = x + sides[k][0], ny = y + sides[k][1];
-        const VoxelMapInstance *n = VoxelWorld_GetInstanceAt(nx, ny);
 
-        if (n == inst && CaveRock(n, nx, ny))
+        open[k] = !(VoxelWorld_GetInstanceAt(nx, ny) == inst && CaveRock(inst, nx, ny));
+    }
+    /* the plateau: the nearest interior rock north or to the sides */
+    if (!open[0] && !open[1] && !open[2])
+        plateau = VoxelWorld_GetMetatileId(x, y);
+    else
+    {
+        static const int look[6][2] = {{0, -1}, {0, -2}, {-1, -1}, {1, -1}, {-1, 0}, {1, 0}};
+
+        for (unsigned k = 0; k < 6 && plateau < 0; ++k)
+            if (CaveInterior(inst, x + look[k][0], y + look[k][1]))
+                plateau = VoxelWorld_GetMetatileId(x + look[k][0], y + look[k][1]);
+    }
+    if (plateau < 0 || !MetatileUV(builder, plateau, &t0, &s0, &t1, &s1))
+    {
+        t0 = u0; s0 = v0; t1 = u1; s1 = v1;
+    }
+    VoxelMesh_Top(builder, (float)x, (float)y, h, 0.0f, t0, s0, t1, s1, SHADE_TOP);
+    for (unsigned k = 0; k < 3; ++k)
+    {
+        float lo = VoxelWorld_GetInstanceAt(x + sides[k][0], y + sides[k][1]) == NULL ? -2.0f : 0.0f;
+
+        if (!open[k])
             continue;
-        /* down to the floor, or into the dark past the cave's edge */
         if (k == 0)
-            VoxelMesh_South(builder, (float)x, (float)y, n == NULL ? -2.0f : 0.0f, h, 0.0f, u0, v0, u1, v1);
+            VoxelMesh_South(builder, (float)x, (float)y, lo, h, 0.0f, u0, v0, u1, v1);
         else if (k == 1)
-            VoxelMesh_East(builder, (float)x, (float)y, n == NULL ? -2.0f : 0.0f, h, 0.0f, u0, v0, u1, v1);
+            VoxelMesh_East(builder, (float)x, (float)y, lo, h, 0.0f, u0, v0, u1, v1);
         else
-            VoxelMesh_West(builder, (float)x, (float)y, n == NULL ? -2.0f : 0.0f, h, 0.0f, u0, v0, u1, v1);
+            VoxelMesh_West(builder, (float)x, (float)y, lo, h, 0.0f, u0, v0, u1, v1);
     }
 }
 
