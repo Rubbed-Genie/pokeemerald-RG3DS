@@ -1,6 +1,27 @@
-RG3DS: CtrMapChange_Showing - the cave fade (fldeff_flash.c) is up, for the port to draw it whole.
+RG3DS: CtrMapChange_Showing - the cave fade (fldeff_flash.c) is up, for the port to draw it whole;
+lamp lights (event_object_movement.c) lit steadily instead of the GBA flicker.
 Applies over 0044.
 
+diff --git a/src/event_object_movement.c b/src/event_object_movement.c
+index b644aed5f..d4823e11f 100644
+--- a/src/event_object_movement.c
++++ b/src/event_object_movement.c
+@@ -2543,6 +2543,15 @@ void UpdateLightSprite(struct Sprite *sprite) {
+ 
+     switch (sprite->data[5]) { // lightType
+     case 0:
++#ifdef PORT_BRIDGE
++        // RG3DS: the port blends for real; the GBA's every-other-frame flicker
++        // (its way to a half-lit glow) strobed there. Lit steadily, as when walking.
++        Weather_SetBlendCoeffs(7, 12);
++        sprite->invisible = FALSE;
++        if (GetSpritePaletteTagByPaletteNum(sprite->oam.paletteNum) == OBJ_EVENT_PAL_TAG_LIGHT_2)
++            LoadSpritePaletteInSlot(&sObjectEventSpritePalettes[FindObjectEventPaletteIndexByTag(OBJ_EVENT_PAL_TAG_LIGHT)], sprite->oam.paletteNum);
++        break;
++#endif
+         if (gPaletteFade.active) { // if palette fade is active, don't flicker since the timer won't be updated
+             Weather_SetBlendCoeffs(7, 12);
+             sprite->invisible = FALSE;
 diff --git a/src/fldeff_flash.c b/src/fldeff_flash.c
 index 643799de5..380fd8d72 100644
 --- a/src/fldeff_flash.c
