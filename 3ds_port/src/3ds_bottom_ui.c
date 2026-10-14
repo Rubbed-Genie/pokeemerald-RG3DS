@@ -3066,6 +3066,13 @@ void CtrBattleMenu_TargetInput(void)
 {
     u8 tap = TakeBattleTap(ASK_TARGET);
 
+    /* RG3DS: the shoulders move the target too (a double battle's), R on
+     * its own while L is A (the L=A button mode). */
+    if (gMain.newKeys & R_BUTTON)
+        gMain.newKeys = (gMain.newKeys & ~R_BUTTON) | DPAD_RIGHT;
+    if ((gMain.newKeys & L_BUTTON) && gSaveBlock2Ptr->optionsButtonMode != OPTIONS_BUTTON_MODE_L_EQUALS_A)
+        gMain.newKeys = (gMain.newKeys & ~L_BUTTON) | DPAD_LEFT;
+
     if (tap == HIT_TARGET_LEFT) gMain.newKeys |= DPAD_LEFT;
     else if (tap == HIT_TARGET_RIGHT) gMain.newKeys |= DPAD_RIGHT;
     else if (tap == HIT_TARGET_OK) gMain.newKeys |= A_BUTTON;

@@ -8,6 +8,7 @@
 #include <string.h>
 #include "3ds_platform.h"
 #include "3ds_video.h"
+#include "3ds_devmenu.h"
 #include "3ds_data.h"
 #include "3ds_bottom.h"
 #include "../compat/port_prof.h"
@@ -8625,6 +8626,13 @@ void CtrVideo_Present(void)
         if (stereo) DrawFps(sTopRight);
     }
 #endif
+    /* RG3DS dev menu (ZL+ZR), over everything on the top screen. */
+    if (!bottom)
+    {
+        CtrDevMenu_Draw(sTop);
+        if (stereo) CtrDevMenu_Draw(sTopRight);
+        BlendForget();
+    }
     /* Queued in the frame, behind the drawing into sBottom (BottomTransfer). */
     if (bottom)
     {
