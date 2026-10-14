@@ -26,6 +26,9 @@ int CtrSettings_GetInt(const char *key, int fallback); /* 3ds_settings.c */
 
 static bool CaveRock(const VoxelMapInstance *inst, int x, int y);
 static void EmitCaveRock(VoxelBuilder *builder, const VoxelMapInstance *inst, int x, int y);
+static bool EmitCaveLadder(VoxelBuilder *builder, const VoxelMapInstance *inst, int x, int y);
+struct Tileset;
+extern const struct Tileset gTileset_Cave;
 
 /*
  * Face shades, from the greys the reference gives its untextured side faces.
@@ -1052,6 +1055,8 @@ void VoxelMesh_EmitGroundRow(VoxelBuilder *builder, const VoxelMapInstance *inst
             EmitCaveRock(builder, inst, x, y);
             continue;
         }
+        if (EmitCaveLadder(builder, inst, x, y))
+            continue;
         /* A lifted cell lays its own drawing on its relief. A slope - rock,
          * stairs - is nothing but that; a level lifted cell still carries
          * whatever stands on it, drawn below with the same lift. */
@@ -1503,6 +1508,93 @@ static void EmitCaveRock(VoxelBuilder *builder, const VoxelMapInstance *inst, in
                 &(VoxelVertex){x0, sw, z1, u1, v0, faceShade}, &(VoxelVertex){x0, nw, z0, u0, v0, faceShade});
     }
     builder->lightingConstant = -1.0f;
+}
+
+/*
+ * RG3DS: the cave's ladders (the cave tileset's 23D/23E up, 23F down). Down:
+ * a pit in the floor, its shaft dark, the ladder's drawing sloping down into
+ * it. Up: the floor, and the ladder stood upright against the rock behind,
+ * as tall as the rock.
+ */
+static bool EmitCaveLadder(VoxelBuilder *builder, const VoxelMapInstance *inst, int x, int y)
+{
+    int m = VoxelWorld_GetMetatileId(x, y), floor = -1;
+    float u0, v0, u1, v1, f0, g0, f1, g1, wx = (float)x, wz = (float)y;
+    static const int look[4][2] = {{0, 1}, {-1, 0}, {1, 0}, {0, 2}};
+
+    if (inst == NULL || inst->indoor || !VoxelWorld_Underground() || inst->secondaryTileset != &gTileset_Cave)
+        return false;
+    if (m != 0x23D && m != 0x23E && m != 0x23F)
+        return false;
+    if (!MetatileUV(builder, m, &u0, &v0, &u1, &v1))
+        return false;
+    /* the floor round it: a walkable neighbour's drawing */
+    for (unsigned k = 0; k < 4 && floor < 0; ++k)
+    {
+        int nx = x + look[k][0], ny = y + look[k][1], n;
+
+        if (VoxelWorld_GetInstanceAt(nx, ny) != inst || VoxelWorld_GetCollision(nx, ny) != 0)
+            continue;
+        n = VoxelWorld_GetMetatileId(nx, ny);
+        if (n != 0x23D && n != 0x23E && n != 0x23F)
+            floor = n;
+    }
+    if (floor < 0 || !MetatileUV(builder, floor, &f0, &g0, &f1, &g1))
+    {
+        f0 = u0; g0 = v0; f1 = u1; g1 = v1;
+    }
+    builder->lightingConstant = 1.0f;
+    if (m == 0x23F)
+    {
+        const float d = -0.9f, in = 0.12f;
+
+        /* the rim of floor round the hole */
+        VoxelBuilder_Quad(builder,
+            &(VoxelVertex){wx, 0.0f, wz, f0, g0, SHADE_TOP}, &(VoxelVertex){wx + 1.0f, 0.0f, wz, f1, g0, SHADE_TOP},
+            &(VoxelVertex){wx + 1.0f, 0.0f, wz + in, f1, g0, SHADE_TOP}, &(VoxelVertex){wx, 0.0f, wz + in, f0, g0, SHADE_TOP});
+        VoxelBuilder_Quad(builder,
+            &(VoxelVertex){wx, 0.0f, wz + 1.0f - in, f0, g1, SHADE_TOP}, &(VoxelVertex){wx + 1.0f, 0.0f, wz + 1.0f - in, f1, g1, SHADE_TOP},
+            &(VoxelVertex){wx + 1.0f, 0.0f, wz + 1.0f, f1, g1, SHADE_TOP}, &(VoxelVertex){wx, 0.0f, wz + 1.0f, f0, g1, SHADE_TOP});
+        VoxelBuilder_Quad(builder,
+            &(VoxelVertex){wx, 0.0f, wz + in, f0, g0, SHADE_TOP}, &(VoxelVertex){wx + in, 0.0f, wz + in, f0, g0, SHADE_TOP},
+            &(VoxelVertex){wx + in, 0.0f, wz + 1.0f - in, f0, g1, SHADE_TOP}, &(VoxelVertex){wx, 0.0f, wz + 1.0f - in, f0, g1, SHADE_TOP});
+        VoxelBuilder_Quad(builder,
+            &(VoxelVertex){wx + 1.0f - in, 0.0f, wz + in, f1, g0, SHADE_TOP}, &(VoxelVertex){wx + 1.0f, 0.0f, wz + in, f1, g0, SHADE_TOP},
+            &(VoxelVertex){wx + 1.0f, 0.0f, wz + 1.0f - in, f1, g1, SHADE_TOP}, &(VoxelVertex){wx + 1.0f - in, 0.0f, wz + 1.0f - in, f1, g1, SHADE_TOP});
+        /* the shaft: its walls dark, the ladder's drawing down the slope */
+        builder->lightingConstant = 0.35f;
+        {
+            float a = wx + in, b = wx + 1.0f - in, n = wz + in, so = wz + 1.0f - in;
+
+            /* west wall (faces east), east wall (faces west), the south wall
+             * (faces north, seen down the hole) */
+            VoxelBuilder_Quad(builder,
+                &(VoxelVertex){a, d, so, f0, g1, 1.0f}, &(VoxelVertex){a, d, n, f1, g1, 1.0f},
+                &(VoxelVertex){a, 0.0f, n, f1, g0, 1.0f}, &(VoxelVertex){a, 0.0f, so, f0, g0, 1.0f});
+            VoxelBuilder_Quad(builder,
+                &(VoxelVertex){b, d, n, f0, g1, 1.0f}, &(VoxelVertex){b, d, so, f1, g1, 1.0f},
+                &(VoxelVertex){b, 0.0f, so, f1, g0, 1.0f}, &(VoxelVertex){b, 0.0f, n, f0, g0, 1.0f});
+            VoxelBuilder_Quad(builder,
+                &(VoxelVertex){b, d, so, f0, g1, 1.0f}, &(VoxelVertex){a, d, so, f1, g1, 1.0f},
+                &(VoxelVertex){a, 0.0f, so, f1, g0, 1.0f}, &(VoxelVertex){b, 0.0f, so, f0, g0, 1.0f});
+        }
+        builder->lightingConstant = 0.8f;
+        VoxelBuilder_Quad(builder,
+            &(VoxelVertex){wx + in, 0.0f, wz + in, u0, v0, SHADE_TOP}, &(VoxelVertex){wx + 1.0f - in, 0.0f, wz + in, u1, v0, SHADE_TOP},
+            &(VoxelVertex){wx + 1.0f - in, d, wz + 1.0f - in, u1, v1, SHADE_TOP}, &(VoxelVertex){wx + in, d, wz + 1.0f - in, u0, v1, SHADE_TOP});
+    }
+    else
+    {
+        float h = CaveRockHeight();
+
+        VoxelMesh_Top(builder, wx, wz, 0.0f, 0.0f, f0, g0, f1, g1, SHADE_TOP);
+        /* upright at the cell's back, a hair forward of the rock's face */
+        VoxelBuilder_Quad(builder,
+            &(VoxelVertex){wx + 0.1f, 0.0f, wz + 0.08f, u0, v1, 1.0f}, &(VoxelVertex){wx + 0.9f, 0.0f, wz + 0.08f, u1, v1, 1.0f},
+            &(VoxelVertex){wx + 0.9f, h, wz + 0.08f, u1, v0, 1.0f}, &(VoxelVertex){wx + 0.1f, h, wz + 0.08f, u0, v0, 1.0f});
+    }
+    builder->lightingConstant = -1.0f;
+    return true;
 }
 
 /* RG3DS: how far a model on a cave cell is lifted: a rock set in the wall
