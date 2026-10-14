@@ -1940,6 +1940,17 @@ SPECS = [
         "exact": GYM_EXACT,
     },
     {
+        # RG3DS: Fortree's gym, its top row the trees' crowns over the roof.
+        "name": "gym_fortree",
+        "lights": [(10, 49, 21, 54), (25, 49, 38, 54), (74, 49, 88, 54), (49, 60, 63, 77)],
+        "layout": "LAYOUT_FORTREE_CITY",
+        "rect": (19, 7, 6, 5),
+        "match_rows": (1, 4),
+        "ground": [GRASS, 0x00e, 0x260, 0x261],
+        "parts": gym,
+        "exact": [(2, 45, 40, 72), (72, 45, 94, 72), (3, 17, 93, 45), (40, 41, 72, 80)],
+    },
+    {
         # RG3DS: Route 111's Winstrate house, the Cycling Road's gatehouse five
         # cells wide.
         "name": "winstrate_house",
