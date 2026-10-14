@@ -8312,6 +8312,25 @@ void CtrVideo_Present(void)
     /* FrameBegin waited for the last frame's drawing: this is its time. Read
      * after FrameEnd, as it was, it was the frame before that one's. */
     sStats.gpuMs = C3D_GetDrawingTime();
+    /* RG3DS debug driver: "shot" in drive.txt - the top screen as drawn. */
+    {
+        extern volatile int gCtrDriveShot;
+
+        if (gCtrDriveShot)
+        {
+            char name[48];
+            FILE *shot;
+
+            gCtrDriveShot = 0;
+            snprintf(name, sizeof(name), "shot-%06lu.raw", (unsigned long)sStats.frames);
+            shot = CtrFs_OpenData(name, "wb");
+            if (shot != NULL)
+            {
+                fwrite(sTop->frameBuf.colorBuf, 4, 240 * 400, shot);
+                fclose(shot);
+            }
+        }
+    }
 #ifdef CTR_FRAME_DUMP
     /* The GPU has finished the last frame: its screens, raw, at fixed frames. */
 #ifdef CTR_DUMP_BATTLE
