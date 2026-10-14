@@ -519,6 +519,36 @@ def trick_house():
     return parts
 
 
+def mauville_house(width):
+    """RG3DS: Mauville's pink-roofed houses (the bike shop, the two houses),
+    the kit's shape in the town's own drawing, any width:
+
+        rows  0- 7  the ridge's cap
+        rows  8-13  its front
+        rows 14-37  the corrugated slope
+        rows 38-39  the fascia
+        rows 40-63  the facade
+    """
+    front_z, back_z = 64, 16
+    overhang = 2
+    columns = (8, width - 8)
+    roof = HipRoof(
+        "roof", 0, width, zf=front_z + overhang, zb=back_z - overhang, y0=26,
+        fascia=Strip((38, 40), wrap=columns),
+        slope=Strip((14, 38), wrap=columns),
+        # the ridge's teeth end on row 14: 2 up over the 22 to the ridge
+        teeth=(8, 14), cap=(0, 8), pitch=math.degrees(math.atan2(2.0, 22.0)), run=6,
+        ridge_u=(6, width - 6), end_tile=Tile(8, 8, 16, 14))
+    wall_top = 26
+    boards = Tile(9, 40, 15, 64, top=24)
+    base = Prism(
+        "ground_floor", 2, width - 2,
+        [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
+        edges={0: Proj(40, 64), 2: boards}, skip=(1, 3),
+        caps=[Band(0, wall_top + 1, boards, front_z)])
+    return [base, roof]
+
+
 def kit_house_exact(width):
     return [(2, 38, width - 2, 64), (8, 16, width - 8, 38)]
 
@@ -1760,6 +1790,56 @@ SPECS = [
         "ground": [GRASS, 0x170, 0x134, 0x003],
         "parts": lambda: flat_block(96, 80, ((12, 32), (12, 20), (0, 12)), (32, 40), 40),
         "exact": [(4, 40, 92, 78), (4, 12, 92, 40)],
+    },
+    {
+        # RG3DS: Mauville's pink-roofed houses: house 2, house 1, the bike shop.
+        "name": "mauville_house_4",
+        "lights": "auto",
+        "layout": "LAYOUT_MAUVILLE_CITY",
+        "rect": (18, 11, 4, 4),
+        "ground": [GRASS],
+        "parts": lambda: mauville_house(64),
+        "exact": [(2, 40, 62, 64), (8, 0, 56, 40)],
+    },
+    {
+        "name": "mauville_house_5",
+        "lights": "auto",
+        "layout": "LAYOUT_MAUVILLE_CITY",
+        "rect": (31, 11, 5, 4),
+        "ground": [GRASS],
+        "parts": lambda: mauville_house(80),
+        "exact": [(2, 40, 78, 64), (8, 0, 72, 40)],
+    },
+    {
+        "name": "mauville_bike_shop",
+        "lights": "auto",
+        "layout": "LAYOUT_MAUVILLE_CITY",
+        "rect": (34, 2, 5, 4),
+        "ground": [GRASS],
+        "parts": lambda: mauville_house(80),
+        "exact": [(2, 40, 78, 64), (8, 0, 72, 40)],
+    },
+    {
+        # RG3DS: Mauville's Game Corner: a flat pink roof (rows 0-25), its
+        # eave's band (26-31), the lit facade (32-63).
+        "name": "mauville_game_corner",
+        "lights": "auto",
+        "layout": "LAYOUT_MAUVILLE_CITY",
+        "rect": (5, 10, 7, 4),
+        "ground": [GRASS, 0x108, 0x111],
+        "parts": lambda: flat_block(112, 64, ((5, 26), (7, 15), (0, 5)), (26, 32), 32),
+        "exact": [(4, 32, 108, 64), (6, 5, 106, 26)],
+    },
+    {
+        # RG3DS: the yellow block by house 1, the Cycling Road's gatehouse
+        # four cells wide.
+        "name": "mauville_block",
+        "lights": "auto",
+        "layout": "LAYOUT_MAUVILLE_CITY",
+        "rect": (36, 11, 4, 5),
+        "ground": [GRASS, 0x101, 0x102, 0x00e],
+        "parts": lambda: flat_block(64, 80, ((12, 32), (12, 20), (0, 12)), (32, 40), 40),
+        "exact": [(4, 40, 60, 78), (4, 12, 60, 40)],
     },
     {
         # RG3DS: Slateport market's blue stalls (six, one drawing).
