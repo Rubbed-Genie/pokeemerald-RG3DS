@@ -15,12 +15,17 @@
 #include <string.h>
 
 #include "voxel_mesh_builder.h"
+
+int CtrSettings_GetInt(const char *key, int fallback); /* 3ds_settings.c */
 #include "voxel_atlas.h"
 #include "voxel_tree.h"
 #include "voxel_lighting.h"
 #include "voxel_sign.h"
 #include "voxel_building.h"
 #include "voxel_relief.h"
+
+static bool CaveRock(const VoxelMapInstance *inst, int x, int y);
+static void EmitCaveRock(VoxelBuilder *builder, const VoxelMapInstance *inst, int x, int y);
 
 /*
  * Face shades, from the greys the reference gives its untextured side faces.
@@ -1042,6 +1047,11 @@ void VoxelMesh_EmitGroundRow(VoxelBuilder *builder, const VoxelMapInstance *inst
             continue;
         if (shape == VOXEL_SHAPE_VOID)
             continue;
+        if (CaveRock(inst, x, y))
+        {
+            EmitCaveRock(builder, inst, x, y);
+            continue;
+        }
         /* A lifted cell lays its own drawing on its relief. A slope - rock,
          * stairs - is nothing but that; a level lifted cell still carries
          * whatever stands on it, drawn below with the same lift. */
@@ -1278,6 +1288,60 @@ void VoxelMesh_EmitGroundRow(VoxelBuilder *builder, const VoxelMapInstance *inst
             }
         }
         EmitTile(builder, x, y, shape);
+    }
+}
+
+/* ── RG3DS: carved caves ───────────────────────────────────────────────── */
+
+/*
+ * A cave's rock is drawn on the GBA as floor-coloured tops with ridges a few
+ * pixels tall along their edges: read off the drawing, the 3D cave was a
+ * flat floor with lips. Underground, every blocked cell that is plain ground
+ * stands as a block of rock instead - its own drawing on top, rock faces down
+ * to whatever beside it is not rock - so the corridors are cut into it.
+ * tune.txt / settings.txt cave_rock: the height in hundredths of a tile
+ * (default 85; 0 for the drawing's own).
+ */
+static float CaveRockHeight(void)
+{
+    int v = CtrSettings_GetInt("cave_rock", 85);
+
+    return v <= 0 ? 0.0f : (v > 300 ? 3.0f : (float)v / 100.0f);
+}
+
+static bool CaveRock(const VoxelMapInstance *inst, int x, int y)
+{
+    if (inst == NULL || inst->indoor || !VoxelWorld_Underground() || CaveRockHeight() <= 0.0f)
+        return false;
+    if (VoxelWorld_GetInstanceAt(x, y) != inst || VoxelWorld_GetCollision(x, y) == 0)
+        return false;
+    if (VoxelBuildings_CellAt(inst, x, y, NULL, NULL) || VoxelSign_IsCell(inst, x, y))
+        return false;
+    return true;
+}
+
+static void EmitCaveRock(VoxelBuilder *builder, const VoxelMapInstance *inst, int x, int y)
+{
+    float h = CaveRockHeight(), u0, v0, u1, v1;
+    static const int sides[3][2] = {{0, 1}, {1, 0}, {-1, 0}};
+
+    if (!MetatileUV(builder, VoxelWorld_GetMetatileId(x, y), &u0, &v0, &u1, &v1))
+        return;
+    VoxelMesh_Top(builder, (float)x, (float)y, h, 0.0f, u0, v0, u1, v1, SHADE_TOP);
+    for (unsigned k = 0; k < 3; ++k)
+    {
+        int nx = x + sides[k][0], ny = y + sides[k][1];
+        const VoxelMapInstance *n = VoxelWorld_GetInstanceAt(nx, ny);
+
+        if (n == inst && CaveRock(n, nx, ny))
+            continue;
+        /* down to the floor, or into the dark past the cave's edge */
+        if (k == 0)
+            VoxelMesh_South(builder, (float)x, (float)y, n == NULL ? -2.0f : 0.0f, h, 0.0f, u0, v0, u1, v1);
+        else if (k == 1)
+            VoxelMesh_East(builder, (float)x, (float)y, n == NULL ? -2.0f : 0.0f, h, 0.0f, u0, v0, u1, v1);
+        else
+            VoxelMesh_West(builder, (float)x, (float)y, n == NULL ? -2.0f : 0.0f, h, 0.0f, u0, v0, u1, v1);
     }
 }
 
