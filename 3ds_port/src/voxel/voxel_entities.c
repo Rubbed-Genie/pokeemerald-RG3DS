@@ -1206,8 +1206,12 @@ unsigned VoxelEntities_Emit(VoxelBuilder *builder, uint16_t *atlas, const VoxelC
             const VoxelMapInstance *inst = VoxelWorld_GetInstanceAt((int)floorf(worldX + 0.5f),
                                                                    (int)floorf(worldZ + 0.5f));
             outdoor = inst != NULL && !inst->indoor;
+            /* RG3DS: at the feet, where the card stands, as the ground's own
+             * shadow is baked - sampled at the chest from the tile's middle,
+             * a walker came out of a building's shadow a step before the
+             * ground did and went in a step late. */
             if (outdoor)
-                shade = VoxelLighting_Sample(worldX + 0.5f, 0.75f, worldZ + 0.5f);
+                shade = VoxelLighting_Sample(worldX + 0.5f, 0.1f, worldZ + 0.5f + sCardForward);
         }
 #endif
         card->drawn = true;

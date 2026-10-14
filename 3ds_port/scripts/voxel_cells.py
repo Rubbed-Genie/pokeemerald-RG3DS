@@ -108,6 +108,7 @@ class MapEvents:
 
     def __init__(self):
         self.outdoor, self.warps, self.signs = set(), {}, {}
+        self.gym_signs = {}     # RG3DS: the signs whose script is a gym's
         maps_dir = os.path.join(ROOT, "data", "maps")
         for name in sorted(os.listdir(maps_dir)):
             path = os.path.join(maps_dir, name, "map.json")
@@ -125,6 +126,8 @@ class MapEvents:
             for b in m.get("bg_events") or []:
                 if b.get("type") == "sign":
                     self.signs.setdefault(layout, set()).add((b["x"], b["y"]))
+                    if str(b.get("script", "")).endswith("GymSign"):
+                        self.gym_signs.setdefault(layout, set()).add((b["x"], b["y"]))
         # A layout a script swaps in (Route 111 once the tower has fallen,
         # Route 131 with the Sky Pillar, Sootopolis in the legends' battle)
         # belongs to no map: it has its map's events, the map it is named
@@ -388,7 +391,12 @@ def post_metatiles(events):
                 continue
             layout = Layout(entry, events)
             for (x, y) in layout.signs:
-                if not layout.off_map(x, y) and layout.open_post(x, y):
+                if layout.off_map(x, y):
+                    continue
+                # RG3DS: or a gym's sign - Dewford's stands against the gym,
+                # its metatile drawn nowhere else
+                gym = (x, y) in events.gym_signs.get(entry["id"], ())
+                if layout.open_post(x, y) or gym:
                     found.add(post_key(layout, layout.metatile(x, y)))
         events.posts = found
     return events.posts

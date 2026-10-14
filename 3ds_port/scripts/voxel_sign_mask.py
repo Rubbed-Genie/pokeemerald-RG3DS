@@ -22,6 +22,13 @@ def ground_colours(pair, layout, x, y):
         if pair.layer_pixels(m, 1):
             continue  # something is drawn over that ground; not a clean sample
         colours.update(pair.layer_pixels(m, 0).values())
+    if not colours:
+        # RG3DS: no clean sample (Dewford's sand draws over itself): the
+        # neighbours' lower layers anyway, or the post is a full square
+        for dx, dy in ((-1, 0), (1, 0), (0, 1), (-1, 1), (1, 1)):
+            nx, ny = x + dx, y + dy
+            if not layout.off_map(nx, ny) and not layout.blocked(nx, ny):
+                colours.update(pair.layer_pixels(layout.metatile(nx, ny), 0).values())
     return colours
 
 
@@ -54,7 +61,7 @@ def metatile_mask(pair, layout, x, y):
 
 # A head wider than this, or bigger, is a crown or a roof the sign stands in
 # front of, not a part of it.
-HEAD_MAX_WIDTH = 14
+HEAD_MAX_WIDTH = 15
 HEAD_MAX_PIXELS = 160
 
 
