@@ -1347,8 +1347,10 @@ static float CaveCellHeight(const VoxelMapInstance *inst, int x, int y)
 {
     /* steps of rise by distance from the floor; rock at the map's edge is
      * the back wall, full height, so no dark shows over it */
-    static const float rise[6] = {0.0f, 0.80f, 1.10f, 1.40f, 1.70f, 2.00f};
-    float top = CaveRockHeight() / 2.0f * 1.4f;
+    /* one level for all rock, the same everywhere; the back wall a second
+     * (uniform steps: by depth the thick rock stood tall, the thin short) */
+    static const float rise[6] = {0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 2.0f};
+    float top = CaveRockHeight();
     int d = 5;
 
     for (int r = 1; r <= 4 && d == 5; ++r)
