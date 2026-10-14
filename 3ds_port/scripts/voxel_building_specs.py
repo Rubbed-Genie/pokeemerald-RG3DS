@@ -1448,10 +1448,13 @@ SPECS = [
     },
     {
         # RG3DS: Dewford's houses, the kit house's drawing in the town's blue
-        # tile (cells 7..10 x 5..8; the others are the same metatiles).
+        # tile. The copy by the gym (cells 16..19 x 11..14) is the clean one;
+        # the middle house has trees over its ridge, so the ridge row is not
+        # matched.
         "name": "dewford_house",
         "layout": "LAYOUT_DEWFORD_TOWN",
-        "rect": (7, 5, 4, 4),
+        "rect": (16, 11, 4, 4),
+        "match_rows": (1, 4),
         "ground": [0x124],
         "parts": lambda: kit_house(64),
         "exact": kit_house_exact(64),
