@@ -565,6 +565,12 @@ def mauville_house(width):
     return ridged_house(width, (0, 8), (8, 14), (14, 38), (38, 40), 40)
 
 
+def fallarbor_house(width):
+    """RG3DS: Fallarbor's houses (and Route 113's glass workshop under its
+    ash): a railed ridge, the orange roof, the green facade."""
+    return ridged_house(width, (0, 9), (9, 12), (12, 37), (37, 40), 40)
+
+
 def verdanturf_house(width):
     """RG3DS: Verdanturf's green-roofed houses."""
     return ridged_house(width, (0, 7), (7, 13), (13, 37), (37, 40), 40)
@@ -1882,6 +1888,67 @@ SPECS = [
         "ground": [GRASS, 0x204],
         "parts": lambda: battle_tent("LAYOUT_VERDANTURF_TOWN", 1, 3, [GRASS, 0x204]),
         "exact": [(0, 0, 80, 80)],
+    },
+    {
+        # RG3DS: Fallarbor's houses: the Move Relearner's, Cozmo's (its
+        # chimney stands on the cap), Route 113's glass workshop.
+        "name": "fallarbor_house",
+        "lights": "auto",
+        "layout": "LAYOUT_FALLARBOR_TOWN",
+        "rect": (0, 3, 4, 4),
+        "ground": [0x279, 0x29f, 0x2a7, 0x003, 0x269, 0x26a],
+        "parts": lambda: fallarbor_house(64),
+        "exact": [(2, 40, 62, 64), (8, 1, 56, 40)],
+    },
+    {
+        "name": "fallarbor_cozmo",
+        "lights": "auto",
+        "layout": "LAYOUT_FALLARBOR_TOWN",
+        "rect": (5, 14, 4, 4),
+        "ground": [0x279, 0x29f, 0x2a7, 0x003],
+        "parts": lambda: fallarbor_house(64),
+        "exact": [(2, 40, 62, 64), (8, 10, 56, 40)],
+    },
+    {
+        "name": "glass_workshop",
+        "lights": "auto",
+        "layout": "LAYOUT_ROUTE113",
+        "rect": (32, 2, 4, 4),
+        "ground": [0x218, 0x20a, 0x229, 0x20c, 0x20d, 0x26d, 0x26e],
+        "parts": lambda: fallarbor_house(64),
+        "exact": [(2, 40, 62, 64), (8, 1, 56, 40)],
+    },
+    {
+        "name": "fallarbor_tent",
+        "lights": "glass",
+        "layout": "LAYOUT_FALLARBOR_TOWN",
+        "rect": (6, 3, 5, 5),
+        "owned": {(cx, cy) for cx in range(5) for cy in range(5)},
+        "ground": [0x279, 0x223, 0x269, 0x26a],
+        "parts": lambda: battle_tent("LAYOUT_FALLARBOR_TOWN", 6, 3, [0x279, 0x223, 0x269, 0x26a]),
+        "exact": [(0, 0, 80, 80)],
+    },
+    {
+        # RG3DS: Lavaridge's gym, the gym drawn in this town's tiles.
+        "name": "gym_lavaridge",
+        "lights": [(10, 49, 21, 54), (25, 49, 38, 54), (74, 49, 88, 54), (49, 60, 63, 77)],
+        "layout": "LAYOUT_LAVARIDGE_TOWN",
+        "rect": (2, 11, 6, 5),
+        "match_rows": (0, 4),
+        "ground": [GRASS],
+        "parts": gym,
+        "exact": GYM_EXACT,
+    },
+    {
+        # RG3DS: Route 111's Winstrate house, the Cycling Road's gatehouse five
+        # cells wide.
+        "name": "winstrate_house",
+        "lights": "auto",
+        "layout": "LAYOUT_ROUTE111",
+        "rect": (11, 109, 5, 5),
+        "ground": [GRASS, 0x002, 0x0d3, 0x016, 0x00e],
+        "parts": lambda: flat_block(80, 80, ((12, 32), (12, 20), (0, 12)), (32, 40), 40),
+        "exact": [(4, 40, 76, 78), (4, 12, 76, 40)],
     },
     {
         # RG3DS: the yellow block by house 1, the Cycling Road's gatehouse
