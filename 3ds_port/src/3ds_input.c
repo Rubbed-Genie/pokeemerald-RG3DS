@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "3ds_platform.h"
+#include "3ds_devmenu.h"
 
 static CtrInput sInput;
 
@@ -30,7 +31,7 @@ volatile int gCtrDriveWarp[4] = {-1, -1, -1, -1};
 static uint32_t DriveStep(void)
 {
     static const char *const names[] = {"a", "b", "select", "start", "right", "left", "up", "down",
-                                        "r", "l", "x", "y"};
+                                        "r", "l", "x", "y", "zl", "zr", "zlzr"};
 
     if (sDrive.text[0] == 0 && ++sDrive.polled % 30 == 0)
     {
@@ -141,17 +142,34 @@ void CtrInput_Scan(void)
     CtrInputSample sample = {0};
     hidScanInput();
     uint32_t raw = hidKeysHeld();
-    /* New 3DS: ZR and ZL step the fast-forward speed (OPTIONS has it too). */
+    /* New 3DS: ZR and ZL step the fast-forward speed (OPTIONS has it too),
+     * on release; together they open the dev menu, which then has the pad. */
     uint32_t down = hidKeysDown();
-    /* Not while a measured scenario runs: it is recorded and played at 1x. */
-    if ((down & KEY_ZR) && !CtrScenario_Active())
-        CtrSettings_StepSpeed(1, false);
-    if ((down & KEY_ZL) && !CtrScenario_Active())
-        CtrSettings_StepSpeed(-1, false);
+    /* the debug driver's words, ZL/ZR among them (bits 12-14 of its own) */
+    static uint32_t driveLast;
+    uint32_t drive = DriveStep(), driveZ = 0;
+    if (drive & (1u << 12)) driveZ |= KEY_ZL;
+    if (drive & (1u << 13)) driveZ |= KEY_ZR;
+    if (drive & (1u << 14)) driveZ |= KEY_ZL | KEY_ZR;
+    {
+        static const uint32_t padKeys[12] = {KEY_A, KEY_B, KEY_SELECT, KEY_START, KEY_DRIGHT, KEY_DLEFT,
+                                             KEY_DUP, KEY_DDOWN, KEY_R, KEY_L, KEY_X, KEY_Y};
+        uint32_t pad = 0;
+
+        for (unsigned i = 0; i < 12; ++i)
+            if (drive & (1u << i))
+                pad |= padKeys[i];
+        down |= (pad | driveZ) & ~driveLast;
+        raw |= driveZ;
+        driveLast = pad | driveZ;
+    }
+    uint32_t menu = CtrDevMenu_Input(raw, down);
     for (unsigned i = 0; i < sizeof(keys) / sizeof(keys[0]); ++i)
         if (raw & keys[i])
             sample.buttons |= 1u << i;
-    sample.buttons |= DriveStep();
+    sample.buttons |= drive & 0xFFFu;
+    if (menu)
+        sample.buttons = 0;
     circlePosition circle;
     hidCircleRead(&circle);
     sample.circleX = circle.dx;
