@@ -3931,8 +3931,10 @@ static unsigned RunJobs(uint64_t started, float holeMs, float aheadMs, bool inFr
  * ring one chunk deep was outrun, and chunks were built in its trail as
  * readily as ahead of it.
  */
-#define VOXEL_LEAD_FRAMES 90.0f
-#define VOXEL_LEAD_MAX 16.0f
+/* RG DS branch: 150 frames (about nine tiles walking), up to 20 tiles: on the
+ * handheld a city's squares took a second to come in behind their drafts. */
+#define VOXEL_LEAD_FRAMES 150.0f
+#define VOXEL_LEAD_MAX 20.0f
 static float sVelocityX, sVelocityZ;
 /* Where the player stood last frame; moved with the coordinates on a crossing
  * (HandleMapChange), so that the heading carries across it. */
