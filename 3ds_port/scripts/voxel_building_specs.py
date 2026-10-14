@@ -1696,7 +1696,7 @@ SPECS = [
         # General kit's facade under the town's purple roof, its rows the
         # kit's. Four cells wide; the shipyard's east wing six.
         "name": "slateport_house_4",
-        "lights": "auto",
+        "lights": "glass",
         "layout": "LAYOUT_SLATEPORT_CITY",
         "rect": (4, 16, 4, 4),
         "ground": [GRASS, 0x202, 0x212],
@@ -1705,7 +1705,7 @@ SPECS = [
     },
     {
         "name": "slateport_house_6",
-        "lights": "auto",
+        "lights": "glass",
         "layout": "LAYOUT_SLATEPORT_CITY",
         "rect": (24, 41, 6, 4),
         "ground": [0x202, 0x212],
@@ -1715,7 +1715,7 @@ SPECS = [
     {
         # RG3DS: the Harbor (its red-roofed hall).
         "name": "slateport_hall",
-        "lights": "auto",
+        "lights": "glass",
         "layout": "LAYOUT_SLATEPORT_CITY",
         "rect": (25, 7, 7, 6),
         "ground": [GRASS, 0x170, 0x189, 0x002, 0x003, 0x016, 0x0c7],
@@ -1733,7 +1733,8 @@ SPECS = [
     },
     {
         "name": "slateport_museum",
-        "lights": "auto",
+        # its arched windows, not the roof's domes
+        "lights": [(34, 56, 38, 62), (42, 56, 46, 62), (50, 56, 54, 62), (58, 56, 62, 62), (18, 64, 22, 70), (74, 64, 78, 70)],
         "layout": "LAYOUT_SLATEPORT_CITY",
         "rect": (28, 22, 6, 5),
         "ground": [GRASS, 0x170, 0x158, 0x159, 0x243, 0x003, 0x2de, 0x2dd, 0x34c, 0x34d, 0x34b],
@@ -1743,7 +1744,7 @@ SPECS = [
     {
         # RG3DS: the Battle Tent.
         "name": "slateport_tent",
-        "lights": "auto",
+        "lights": "glass",
         "layout": "LAYOUT_SLATEPORT_CITY",
         "rect": (8, 8, 5, 5),
         "owned": {(cx, cy) for cx in range(5) for cy in range(5)},
@@ -1754,7 +1755,7 @@ SPECS = [
     {
         # RG3DS: Route 109's Seashore House, the same kit five cells wide.
         "name": "seashore_house",
-        "lights": "auto",
+        "lights": "glass",
         "layout": "LAYOUT_ROUTE109",
         "rect": (10, 2, 5, 4),
         "ground": [0x124, 0x123],
