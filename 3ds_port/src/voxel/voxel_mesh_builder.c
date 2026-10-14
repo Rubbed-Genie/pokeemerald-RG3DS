@@ -1804,13 +1804,50 @@ static bool EmitCaveLadder(VoxelBuilder *builder, const VoxelMapInstance *inst, 
     }
     else
     {
-        float h = CaveRockHeight();
+        /* RG3DS: a ladder of rails and rungs up a rock column at the cell's
+         * back - the metatile stood upright was its floor too, a patch of
+         * floor on end. The wood is the drawing's rail, a narrow strip of it. */
+        const float h = 1.8f * CaveRockHeight(), back = 0.16f, foot = 0.34f;
+        float r0 = u0 + (u1 - u0) * 0.22f, r1 = u0 + (u1 - u0) * 0.30f, k0, k1, k2, k3;
 
         VoxelMesh_Top(builder, wx, wz, 0.0f, 0.0f, f0, g0, f1, g1, SHADE_TOP);
-        /* upright at the cell's back, a hair forward of the rock's face */
-        VoxelBuilder_Quad(builder,
-            &(VoxelVertex){wx + 0.1f, 0.0f, wz + 0.08f, u0, v1, 1.0f}, &(VoxelVertex){wx + 0.9f, 0.0f, wz + 0.08f, u1, v1, 1.0f},
-            &(VoxelVertex){wx + 0.9f, h, wz + 0.08f, u1, v0, 1.0f}, &(VoxelVertex){wx + 0.1f, h, wz + 0.08f, u0, v0, 1.0f});
+        if (MetatileUV(builder, 0x219, &k0, &k1, &k2, &k3))
+        {
+            /* the column: its front and sides, the band's drawing */
+            builder->lightingConstant = 0.9f;
+            VoxelBuilder_Quad(builder,
+                &(VoxelVertex){wx + 0.05f, 0.0f, wz + back, k0, k3, 1.0f}, &(VoxelVertex){wx + 0.95f, 0.0f, wz + back, k2, k3, 1.0f},
+                &(VoxelVertex){wx + 0.95f, h, wz + back, k2, k1, 1.0f}, &(VoxelVertex){wx + 0.05f, h, wz + back, k0, k1, 1.0f});
+            VoxelBuilder_Quad(builder,
+                &(VoxelVertex){wx + 0.95f, 0.0f, wz + back, k0, k3, 0.8f}, &(VoxelVertex){wx + 0.95f, 0.0f, wz, k2, k3, 0.8f},
+                &(VoxelVertex){wx + 0.95f, h, wz, k2, k1, 0.8f}, &(VoxelVertex){wx + 0.95f, h, wz + back, k0, k1, 0.8f});
+            VoxelBuilder_Quad(builder,
+                &(VoxelVertex){wx + 0.05f, 0.0f, wz, k0, k3, 0.8f}, &(VoxelVertex){wx + 0.05f, 0.0f, wz + back, k2, k3, 0.8f},
+                &(VoxelVertex){wx + 0.05f, h, wz + back, k2, k1, 0.8f}, &(VoxelVertex){wx + 0.05f, h, wz, k0, k1, 0.8f});
+            VoxelMesh_Top(builder, wx, wz - 1.0f + back, h, 0.0f, k0, k1, k2, k3, SHADE_TOP);
+        }
+        builder->lightingConstant = 1.0f;
+        /* two rails, leaning from the foot to the column's top */
+        for (int side = 0; side < 2; ++side)
+        {
+            float a = wx + (side ? 0.74f : 0.18f), c = a + 0.08f;
+
+            VoxelBuilder_Quad(builder,
+                &(VoxelVertex){a, 0.0f, wz + foot, r0, v1, 1.0f}, &(VoxelVertex){c, 0.0f, wz + foot, r1, v1, 1.0f},
+                &(VoxelVertex){c, h, wz + back, r1, v0, 1.0f}, &(VoxelVertex){a, h, wz + back, r0, v0, 1.0f});
+            VoxelBuilder_Quad(builder,
+                &(VoxelVertex){side ? c : a, 0.0f, wz + foot - 0.06f, r0, v1, 0.75f}, &(VoxelVertex){side ? c : a, 0.0f, wz + foot, r1, v1, 0.75f},
+                &(VoxelVertex){side ? c : a, h, wz + back, r1, v0, 0.75f}, &(VoxelVertex){side ? c : a, h, wz + back - 0.06f, r0, v0, 0.75f});
+        }
+        /* the rungs */
+        for (int r = 1; r <= 6; ++r)
+        {
+            float t = (float)r / 7.0f, y0 = h * t, z = wz + foot + (back - foot) * t;
+
+            VoxelBuilder_Quad(builder,
+                &(VoxelVertex){wx + 0.22f, y0 - 0.05f, z + 0.01f, r0, v1, 1.0f}, &(VoxelVertex){wx + 0.78f, y0 - 0.05f, z + 0.01f, r1, v1, 1.0f},
+                &(VoxelVertex){wx + 0.78f, y0 + 0.05f, z, r1, v0, 1.0f}, &(VoxelVertex){wx + 0.22f, y0 + 0.05f, z, r0, v0, 1.0f});
+        }
     }
     builder->lift = 0.0f;
     builder->lightingConstant = -1.0f;

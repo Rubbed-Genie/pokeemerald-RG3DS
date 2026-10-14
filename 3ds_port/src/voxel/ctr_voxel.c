@@ -4630,6 +4630,10 @@ bool CtrVoxel_Update(void)
         phase = hour >= 5 && hour <= 9 ? VOXEL_SUN_MORNING
               : hour >= 10 && hour <= 17 ? VOXEL_SUN_DAY
               : hour >= 18 && hour <= 20 ? VOXEL_SUN_EVENING : VOXEL_SUN_NIGHT;
+        /* underground no sun: light from straight above, as at night - the
+         * cliffs cast no long blocks of shadow over the floor */
+        if (VoxelWorld_Underground())
+            phase = VOXEL_SUN_NIGHT;
         {
             static int cave = -1;
             int now = CtrSettings_GetInt("cave_rock", 100) * 131 + CtrSettings_GetInt("cave_mound", 100);
