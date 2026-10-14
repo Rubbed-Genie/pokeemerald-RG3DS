@@ -2466,12 +2466,16 @@ static unsigned OpenTiles(const ChunkSite *site);
  */
 static uint32_t SiteHash(const ChunkSite *site)
 {
+    /* RG3DS: the cave rock's heights (dev menu) shape the chunk too */
+    uint32_t cave = (uint32_t)(CtrSettings_GetInt("cave_rock", 100) * 131 + CtrSettings_GetInt("cave_mound", 100))
+                  * 0x85EBCA6Bu;
+
 #if CTR_VOXEL_LIGHTING
     if (!site->inst->indoor)
-        return VoxelLighting_Hash(site->x0, site->y0, site->x1, site->y1);
+        return VoxelLighting_Hash(site->x0, site->y0, site->x1, site->y1) ^ cave;
 #endif
     return VoxelWorld_BlockHash(site->x0 - 1, site->y0 - VOXEL_CHUNK_MARGIN_NORTH - 1,
-                                site->x1 + 1, site->y1 + 2);
+                                site->x1 + 1, site->y1 + 2) ^ cave;
 }
 
 /*
@@ -4622,6 +4626,17 @@ bool CtrVoxel_Update(void)
         phase = hour >= 5 && hour <= 9 ? VOXEL_SUN_MORNING
               : hour >= 10 && hour <= 17 ? VOXEL_SUN_DAY
               : hour >= 18 && hour <= 20 ? VOXEL_SUN_EVENING : VOXEL_SUN_NIGHT;
+        {
+            static int cave = -1;
+            int now = CtrSettings_GetInt("cave_rock", 100) * 131 + CtrSettings_GetInt("cave_mound", 100);
+
+            if (now != cave)
+            {
+                if (cave >= 0)
+                    ++sEpoch;   /* the dev menu's cave height: rebuild */
+                cave = now;
+            }
+        }
         if (VoxelLighting_SetSun(phase))
         {
             ++sEpoch;

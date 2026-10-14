@@ -96,7 +96,7 @@ static void DrawText(const char *text, float x, float y, u32 colour)
 
 /* ── Rows ──────────────────────────────────────────────────────────────── */
 
-enum { ROW_TIME, ROW_WEATHER, ROW_GLOW, ROW_GLOW_DEBUG, ROW_FPS, ROW_SPEED, ROW_ZLZR, ROW_COUNT };
+enum { ROW_TIME, ROW_WEATHER, ROW_CAVE, ROW_GLOW, ROW_GLOW_DEBUG, ROW_FPS, ROW_SPEED, ROW_ZLZR, ROW_COUNT };
 
 /* What L2/R2 do on their own (zlzr_mode): step the speed, hold for turbo A,
  * or cycle the weather. */
@@ -155,6 +155,10 @@ static void RowText(int row, char *label, char *value, size_t size)
         strcpy(label, "SPEED");
         snprintf(value, size, "X%d", CtrSettings_Speed());
         break;
+    case ROW_CAVE:
+        strcpy(label, "CAVE WALLS");
+        snprintf(value, size, "%d%%", CtrSettings_GetInt("cave_rock", 100));
+        break;
     case ROW_WEATHER:
         strcpy(label, "WEATHER");
         snprintf(value, size, "%s", CtrGame_WeatherName());
@@ -197,6 +201,13 @@ static void ChangeRow(int row, int direction)
     case ROW_SPEED:
         CtrSettings_StepSpeed(direction, true);
         break;
+    case ROW_CAVE:
+    {
+        int v = CtrSettings_GetInt("cave_rock", 100) + direction * 25;
+
+        CtrSettings_SetInt("cave_rock", v < 25 ? 25 : v > 200 ? 200 : v);
+        break;
+    }
     case ROW_WEATHER:
         CtrGame_StepWeather(direction);
         break;

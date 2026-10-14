@@ -1304,7 +1304,7 @@ void VoxelMesh_EmitGroundRow(VoxelBuilder *builder, const VoxelMapInstance *inst
  */
 static float CaveRockHeight(void)
 {
-    int v = CtrSettings_GetInt("cave_rock", 75);
+    int v = CtrSettings_GetInt("cave_rock", 100);
 
     return v <= 0 ? 0.0f : (v > 300 ? 3.0f : (float)v / 100.0f);
 }
@@ -1340,7 +1340,7 @@ static int CaveEdgeKind(const VoxelMapInstance *inst, int x, int y)
 static float CaveCellHeight(const VoxelMapInstance *inst, int x, int y)
 {
     float wall = CaveRockHeight();
-    float mound = wall * (float)CtrSettings_GetInt("cave_mound", 55) / 100.0f;
+    float mound = wall * (float)CtrSettings_GetInt("cave_mound", 100) / 100.0f;
     int own = CaveEdgeKind(inst, x, y);
 
     if (own)
@@ -1368,15 +1368,32 @@ static float CaveCellHeight(const VoxelMapInstance *inst, int x, int y)
     return wall;
 }
 
-static bool CaveRock(const VoxelMapInstance *inst, int x, int y)
+/* Blocked plain ground underground: rock. */
+static bool CaveSolid(const VoxelMapInstance *inst, int x, int y)
 {
     if (inst == NULL || inst->indoor || !VoxelWorld_Underground() || CaveRockHeight() <= 0.0f)
         return false;
     if (VoxelWorld_GetInstanceAt(x, y) != inst || VoxelWorld_GetCollision(x, y) == 0)
         return false;
-    if (VoxelBuildings_CellAt(inst, x, y, NULL, NULL) || VoxelSign_IsCell(inst, x, y))
+    return !VoxelSign_IsCell(inst, x, y);
+}
+
+/* Rock that stands as a block: a modelled rock (cave_boulder ...) only when it
+ * stands free on the floor; one against the wall is part of it - out of the
+ * wall it left a pit. */
+static bool CaveRock(const VoxelMapInstance *inst, int x, int y)
+{
+    static const int n4[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+
+    if (!CaveSolid(inst, x, y))
         return false;
-    return true;
+    if (!VoxelBuildings_CellAt(inst, x, y, NULL, NULL))
+        return true;
+    for (unsigned k = 0; k < 4; ++k)
+        if (CaveSolid(inst, x + n4[k][0], y + n4[k][1])
+         && !VoxelBuildings_CellAt(inst, x + n4[k][0], y + n4[k][1], NULL, NULL))
+            return true;
+    return false;
 }
 
 /* Rock on all four sides: the cave's solid rock, whose drawing is the plain

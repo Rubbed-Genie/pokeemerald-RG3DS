@@ -1593,6 +1593,38 @@ SPECS = [
         "step": 2,
     },
     {
+        # RG3DS: the cave's boulder, a rounded rock on the floor.
+        "name": "cave_boulder",
+        "props": "cave_boulder",
+        "ground": [0x211, 0x201],
+        "rise": 2.0,
+        "step": 2,
+    },
+    {
+        # RG3DS: the cave's pebbles, a rounded rock on the floor.
+        "name": "cave_pebbles",
+        "props": "cave_pebbles",
+        "ground": [0x211, 0x201],
+        "rise": 1.2,
+        "step": 2,
+    },
+    {
+        # RG3DS: the cave's rock pile, a rounded rock on the floor.
+        "name": "cave_rockpile",
+        "props": "cave_rockpile",
+        "ground": [0x211, 0x201],
+        "rise": 2.0,
+        "step": 2,
+    },
+    {
+        # RG3DS: the cave's stalagmite, a rounded rock on the floor.
+        "name": "cave_stalagmite",
+        "props": "cave_stalagmite",
+        "ground": [0x211, 0x201],
+        "rise": 2.6,
+        "step": 2,
+    },
+    {
         # The brown stack in the sea: a peak, taller than it is deep.
         "name": "sea_stack",
         "props": "sea_stack",

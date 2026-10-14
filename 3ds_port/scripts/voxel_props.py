@@ -45,6 +45,16 @@ OBJECTS = {
         "grid": ((88, 89),
                  (104, 105)),
     },
+    # RG3DS: the cave tileset's rocks on its floor (upper layer, palette 6):
+    # a boulder, a pile of pebbles, a heap of rock, a stalagmite
+    "cave_boulder": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Cave",
+                     "palette": 6, "grid": ((640, 641), (656, 657))},
+    "cave_pebbles": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Cave",
+                     "palette": 6, "grid": ((519, 520), (535, 536))},
+    "cave_rockpile": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Cave",
+                      "palette": 6, "grid": ((794, 795), (810, 811))},
+    "cave_stalagmite": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Cave",
+                        "palette": 6, "grid": ((826, 827), (842, 843))},
     "sea_stack": {
         "tileset": "gTileset_General",
         "palette": 3,
@@ -171,7 +181,7 @@ def find(layout_entry, names=None):
     for name, obj in OBJECTS.items():
         if names and name not in names:
             continue
-        if primary != obj["tileset"]:
+        if primary != obj["tileset"] or obj.get("secondary", secondary) != secondary:
             continue
         if subs is None:
             subs = _subtiles_of(layout_entry)
