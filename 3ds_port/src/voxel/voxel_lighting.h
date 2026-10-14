@@ -12,8 +12,16 @@
 #if CTR_VOXEL_LIGHTING
 /* Sun in the northwest; shadows travel southeast. Y is height. The sun is
  * along (-DX, 1, -DZ): 45 degrees up. */
-#define VOXEL_SUN_DX 0.85f
-#define VOXEL_SUN_DZ 0.55f
+/* RG3DS: the sun moves with the time of day (VoxelLighting_SetSun): a
+ * shadow falls (VOXEL_SUN_DX, VOXEL_SUN_DZ) tiles per tile of height. Day's is
+ * the original (0.85, 0.55). DZ stays positive: the sun is in the north. */
+extern float gVoxelSunDX, gVoxelSunDZ;
+#define VOXEL_SUN_DX gVoxelSunDX
+#define VOXEL_SUN_DZ gVoxelSunDZ
+enum { VOXEL_SUN_MORNING, VOXEL_SUN_DAY, VOXEL_SUN_EVENING, VOXEL_SUN_NIGHT };
+/* True when the phase changed: every outdoor chunk's lighting is stale. */
+bool VoxelLighting_SetSun(unsigned phase);
+unsigned VoxelLighting_SunPhase(void);
 #define VOXEL_LIGHT_REACH 8
 /* The light of what the sun does not reach: a cast shadow, and a face turned
  * away from the sun. The same number, so a wall and the shadow it casts on

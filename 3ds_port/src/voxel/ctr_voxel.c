@@ -26,6 +26,7 @@
 #include <citro3d.h>
 #include <limits.h>
 #include <math.h>
+#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -4603,6 +4604,31 @@ bool CtrVoxel_Update(void)
         return false;
     }
 
+#if CTR_VOXEL_LIGHTING
+    /* RG3DS: the sun by the hour - the game's clock, or tod_hour as the
+     * lighting patch holds it - a phase at a time (VoxelLighting_SetSun);
+     * the chunks re-bake their shadows a few a frame, the old meanwhile. */
+    {
+        int hour = CtrSettings_GetInt("tod_hour", -1);
+        unsigned phase;
+
+        if (hour < 0 || hour > 23)
+        {
+            time_t now = time(NULL);
+            struct tm *local = localtime(&now);
+
+            hour = local != NULL ? local->tm_hour : 12;
+        }
+        phase = hour >= 5 && hour <= 9 ? VOXEL_SUN_MORNING
+              : hour >= 10 && hour <= 17 ? VOXEL_SUN_DAY
+              : hour >= 18 && hour <= 20 ? VOXEL_SUN_EVENING : VOXEL_SUN_NIGHT;
+        if (VoxelLighting_SetSun(phase))
+        {
+            ++sEpoch;
+            CtrLog_Write(CTR_LOG_VIDEO, "VOXEL sun: phase %u (hour %d)", phase, hour);
+        }
+    }
+#endif
     {
         uint32_t digest = VoxelWorld_LiveDigest(), signature = InstanceSignature();
 

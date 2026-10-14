@@ -136,6 +136,29 @@ void VoxelLighting_Reset(void)
     MapCeilings();
 }
 
+float gVoxelSunDX = 0.85f, gVoxelSunDZ = 0.55f;
+static unsigned sSunPhase = VOXEL_SUN_DAY;
+
+bool VoxelLighting_SetSun(unsigned phase)
+{
+    /* shadows per tile of height: morning's long to the west, evening's
+     * long to the east, the moon's short */
+    static const float sun[4][2] = {{-1.30f, 0.60f}, {0.85f, 0.55f}, {1.45f, 0.60f}, {0.35f, 0.45f}};
+
+    if (phase > VOXEL_SUN_NIGHT || phase == sSunPhase)
+        return false;
+    sSunPhase = phase;
+    gVoxelSunDX = sun[phase][0];
+    gVoxelSunDZ = sun[phase][1];
+    VoxelLighting_Reset();
+    return true;
+}
+
+unsigned VoxelLighting_SunPhase(void)
+{
+    return sSunPhase;
+}
+
 /*
  * The height past which nothing a ray from (x, z) can meet stands: over the
  * maps its reach overlaps (it runs northwest, towards the sun, and a cell's
@@ -143,7 +166,8 @@ void VoxelLighting_Reset(void)
  */
 static float RayCeiling(float x, float z)
 {
-    float x0 = x - VOXEL_SUN_DX * VOXEL_LIGHT_REACH - 1.0f, x1 = x + 1.0f;
+    float far = x - VOXEL_SUN_DX * VOXEL_LIGHT_REACH;
+    float x0 = (far < x ? far : x) - 1.0f, x1 = (far > x ? far : x) + 1.0f;
     float z0 = z - VOXEL_SUN_DZ * VOXEL_LIGHT_REACH - 1.0f, z1 = z + 1.0f;
     float ceiling = -1000.0f;
     unsigned count = VoxelWorld_InstanceCount();
@@ -346,7 +370,11 @@ static bool Lit(float x, float y, float z)
         {
             /* Reciprocals, not divisions: the guess is a step short of the
              * crossing anyway, far more than their rounding. */
-            float ex = (x - (float)tx) * (1.0f / (VOXEL_SUN_DX * 0.25f));
+            /* towards the sun: west of the cell for an afternoon sun's
+             * rays, east of it for a morning one's */
+            float ex = VOXEL_SUN_DX > 0.0f ? (x - (float)tx) * (1.0f / (VOXEL_SUN_DX * 0.25f))
+                     : VOXEL_SUN_DX < 0.0f ? ((float)tx + 1.0f - x) * (1.0f / (-VOXEL_SUN_DX * 0.25f))
+                     : 1.0e9f;
             float ez = (z - (float)tz) * (1.0f / (VOXEL_SUN_DZ * 0.25f));
             int guess = (int)(ex < ez ? ex : ez) - 1;
             const float left = (float)tx, top = (float)tz;
@@ -359,7 +387,7 @@ static bool Lit(float x, float y, float z)
             for (; step <= VOXEL_LIGHT_REACH * 4; ++step)
             {
                 RayPoint(x, y, z, step, &rx, &ry, &rz);
-                if (rx < left || rz < top || ry >= ceiling)
+                if ((VOXEL_SUN_DX >= 0.0f ? rx < left : rx >= left + 1.0f) || rz < top || ry >= ceiling)
                     break;
             }
         }
@@ -448,9 +476,11 @@ uint32_t VoxelLighting_Hash(int x0, int z0, int x1, int z1)
      * and neighbours on the opposite boundary for AO and face visibility. */
     int northReach = VOXEL_LIGHT_REACH > VOXEL_CHUNK_MARGIN_NORTH
                    ? VOXEL_LIGHT_REACH : VOXEL_CHUNK_MARGIN_NORTH;
-    int hx0 = x0 - VOXEL_LIGHT_REACH - 1, hz0 = z0 - northReach - 1;
-    int hx1 = x1 + 1, hz1 = z1 + 2;
-    uint32_t hash = VoxelWorld_BlockHash(hx0, hz0, hx1, hz1);
+    int reachX = (int)ceilf(fabsf(VOXEL_SUN_DX) * VOXEL_LIGHT_REACH);
+    int hx0 = x0 - (VOXEL_SUN_DX > 0.0f ? reachX : 0) - 1, hz0 = z0 - northReach - 1;
+    int hx1 = x1 + (VOXEL_SUN_DX < 0.0f ? reachX : 0) + 1, hz1 = z1 + 2;
+    /* RG3DS: and the sun's place, so a new phase re-bakes the chunk */
+    uint32_t hash = VoxelWorld_BlockHash(hx0, hz0, hx1, hz1) ^ (sSunPhase * 0x9E3779B9u);
 
     /* Equal tile IDs in a different tileset/layout do not mean equal casters.
      * Relative origins preserve the hash when the entire world is rebased. */
