@@ -10,7 +10,8 @@ static CtrInput sInput;
  * RG3DS debug driver: drive.txt next to settings.txt, read when it appears
  * and then deleted, plays its words as if from the pad - so a test can be run
  * on the desktop emulator without sending keys to the desktop. Words:
- *   up down left right a b start select l r x y [N]  press N times (default 1)
+ *   up down left right a b start select l r x y [N][@F]  press N times
+ *                  (default 1), each held F frames (default 6; a tile is 16)
  *   wait[N]        N frames (default 60)
  *   shot           dump the top screen (shot-<frame>.raw, CtrVideo)
  *   warp:G:N:X:Y   warp there (3ds_game_full.c)
@@ -20,7 +21,7 @@ static struct
 {
     char text[1024];
     unsigned pos, polled;
-    int hold, gap, wait;
+    int hold, gap, wait, held;
     uint32_t bits;
     int repeat;
 } sDrive;
@@ -65,7 +66,7 @@ static uint32_t DriveStep(void)
     if (sDrive.repeat > 0)
     {
         --sDrive.repeat;
-        sDrive.hold = 6;
+        sDrive.hold = sDrive.held;
         return sDrive.bits;
     }
     while (sDrive.text[0] != 0)
@@ -108,6 +109,21 @@ static uint32_t DriveStep(void)
             sDrive.wait = word[4] ? atoi(word + 4) : 60;
             return 0;
         }
+        {
+            /* "down@64": held 64 frames, 16 a tile walking */
+            char *at = strchr(word, '@');
+            int held = 6;
+
+            if (at != NULL)
+            {
+                held = atoi(at + 1);
+                *at = 0;
+                len = (int)(at - word);
+                if (held <= 0)
+                    held = 6;
+            }
+            sDrive.held = held;
+        }
         while (len > 0 && word[len - 1] >= '0' && word[len - 1] <= '9')
             --len;
         if (word[len] != 0)
@@ -120,7 +136,7 @@ static uint32_t DriveStep(void)
             continue;
         sDrive.bits = 1u << i;
         sDrive.repeat = count - 1;
-        sDrive.hold = 6;
+        sDrive.hold = sDrive.held;
         return sDrive.bits;
     }
     return 0;

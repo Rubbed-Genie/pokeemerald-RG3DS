@@ -340,13 +340,31 @@ bool VoxelBuildings_ReadPage(unsigned page, unsigned first, unsigned count, uint
     if (fseek(sPageFile, (long)(sPages[page].offset + first * sizeof(uint16_t)), SEEK_SET) != 0
      || fread(dest, sizeof(uint16_t), count, sPageFile) != count)
         return false;
-    /* RG3DS: the night lights, by their colour before the grading. */
-    for (unsigned k = 0; lightBits != NULL && mask != NULL && k < count; ++k)
+    /* RG3DS: the night lights, by their colour before the grading. By the
+     * 8x8 tile (64 texels in a row, the page's swizzled order): a tile mostly
+     * of light colours is a lit wall - a Pokemon Center's, a facade's bricks -
+     * and glows faintly; the few light texels of a window or a trim glow full. */
+    for (unsigned k0 = 0; lightBits != NULL && mask != NULL && k0 < count; k0 += 64)
     {
-        unsigned t = dest[k] >> 1, i = first + k;
+        unsigned n = count - k0 < 64 ? count - k0 : 64, lit = 0;
+        uint8_t level;
 
-        if ((dest[k] & 1u) && (lightBits[t >> 5] & (1u << (t & 31))))
-            mask[i >> 1] |= (i & 1u) ? 0xF0u : 0x0Fu;
+        for (unsigned k = k0; k < k0 + n; ++k)
+        {
+            unsigned t = dest[k] >> 1;
+
+            lit += (dest[k] & 1u) && (lightBits[t >> 5] & (1u << (t & 31)));
+        }
+        if (lit == 0)
+            continue;
+        level = lit * 2u > n ? 0x4u : lit * 4u > n ? 0x8u : 0xFu;
+        for (unsigned k = k0; k < k0 + n; ++k)
+        {
+            unsigned t = dest[k] >> 1, i = first + k;
+
+            if ((dest[k] & 1u) && (lightBits[t >> 5] & (1u << (t & 31))))
+                mask[i >> 1] |= (i & 1u) ? (uint8_t)(level << 4) : level;
+        }
     }
     /* On the reading thread, off the render thread's frame. */
     VoxelGrade_Texels(dest, count);

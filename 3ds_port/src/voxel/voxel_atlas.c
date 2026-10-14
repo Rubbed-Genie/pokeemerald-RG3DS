@@ -123,7 +123,10 @@ static void BuildColorTable(struct AtlasSource *src)
 
             src->texel[p][c] = VoxelGrade_RGBA5551(bgr15);
             src->black[p][c] = (bgr15 & 0x7FFF) == 0;
-            src->light[p][c] = c != 0 && (bgr15 & 0x8000) != 0;
+            /* RG3DS: the ground takes the secondary tileset's lights only:
+             * the General one's (palette 4) are the water's and its rocks'
+             * colours as much as any lamp's, and lit the sea at night. */
+            src->light[p][c] = c != 0 && p >= NUM_PALS_IN_PRIMARY && (bgr15 & 0x8000) != 0;
         }
 }
 
