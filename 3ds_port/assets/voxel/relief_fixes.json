@@ -1,6 +1,82 @@
 {
- "furniture": {},
- "layouts": {},
- "pieces": {},
- "version": 1
+  "furniture": {},
+  "layouts": {
+    "LAYOUT_ROUTE115": {
+      "note": "RG3DS: the cliff's inner corner (0x90) on the beach drawn half a step low left a black sliver where the cliff meets the sand and the ledges",
+      "cells": {
+        "1,14": {
+          "cut": {
+            "foot": 0
+          }
+        },
+        "10,33": {
+          "cut": {
+            "foot": 0
+          }
+        },
+        "11,62": {
+          "cut": {
+            "foot": 0
+          }
+        },
+        "14,39": {
+          "cut": {
+            "foot": 0
+          }
+        },
+        "15,46": {
+          "cut": {
+            "foot": 0
+          }
+        },
+        "18,52": {
+          "cut": {
+            "foot": 0
+          }
+        },
+        "19,53": {
+          "cut": {
+            "foot": 0
+          }
+        },
+        "2,16": {
+          "cut": {
+            "foot": 0
+          }
+        },
+        "4,17": {
+          "cut": {
+            "foot": 0
+          }
+        },
+        "6,22": {
+          "cut": {
+            "foot": 0
+          }
+        },
+        "7,30": {
+          "cut": {
+            "foot": 0
+          }
+        },
+        "9,31": {
+          "cut": {
+            "foot": 0
+          }
+        },
+        "9,64": {
+          "cut": {
+            "foot": 0
+          }
+        },
+        "9,70": {
+          "cut": {
+            "foot": 0
+          }
+        }
+      }
+    }
+  },
+  "pieces": {},
+  "version": 1
 }
