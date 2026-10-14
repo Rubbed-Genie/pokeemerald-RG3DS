@@ -1304,9 +1304,68 @@ void VoxelMesh_EmitGroundRow(VoxelBuilder *builder, const VoxelMapInstance *inst
  */
 static float CaveRockHeight(void)
 {
-    int v = CtrSettings_GetInt("cave_rock", 100);
+    int v = CtrSettings_GetInt("cave_rock", 75);
 
     return v <= 0 ? 0.0f : (v > 300 ? 3.0f : (float)v / 100.0f);
+}
+
+/* The cave tileset's rock edges: the band of rock drawn as a wall's face and
+ * the walls' sides stand full height; the arched edges of a mound of rock
+ * (tune cave_mound, hundredths of the wall's height) stand lower. */
+struct Tileset;
+extern const struct Tileset gTileset_Cave;
+
+static int CaveEdgeKind(const VoxelMapInstance *inst, int x, int y)
+{
+    int m;
+
+    if (inst->secondaryTileset != &gTileset_Cave)
+        return 0;
+    m = VoxelWorld_GetMetatileId(x, y);
+    switch (m)
+    {
+    case 0x218: case 0x219: case 0x21A: case 0x21B: case 0x21C:   /* the band: a wall's face */
+    case 0x210: case 0x212:                                        /* a wall's sides */
+        return 1;
+    case 0x202: case 0x203: case 0x208: case 0x209: case 0x20A:   /* a mound's arched edges */
+    case 0x21F: case 0x220: case 0x222: case 0x223: case 0x224: case 0x227:
+        return 2;
+    default:
+        return 0;
+    }
+}
+
+/* A rock cell's height: its own edge's, else the nearest edge's within two
+ * cells (walls before mounds), else the wall's. */
+static float CaveCellHeight(const VoxelMapInstance *inst, int x, int y)
+{
+    float wall = CaveRockHeight();
+    float mound = wall * (float)CtrSettings_GetInt("cave_mound", 55) / 100.0f;
+    int own = CaveEdgeKind(inst, x, y);
+
+    if (own)
+        return own == 1 ? wall : mound;
+    for (int r = 1; r <= 2; ++r)
+    {
+        bool sawWall = false, sawMound = false;
+
+        for (int dy = -r; dy <= r; ++dy)
+            for (int dx = -r; dx <= r; ++dx)
+            {
+                int k;
+
+                if ((dx != -r && dx != r && dy != -r && dy != r) || !CaveRock(inst, x + dx, y + dy))
+                    continue;
+                k = CaveEdgeKind(inst, x + dx, y + dy);
+                sawWall = sawWall || k == 1;
+                sawMound = sawMound || k == 2;
+            }
+        if (sawWall)
+            return wall;
+        if (sawMound)
+            return mound;
+    }
+    return wall;
 }
 
 static bool CaveRock(const VoxelMapInstance *inst, int x, int y)
@@ -1337,9 +1396,10 @@ static bool CaveInterior(const VoxelMapInstance *inst, int x, int y)
  */
 static void EmitCaveRock(VoxelBuilder *builder, const VoxelMapInstance *inst, int x, int y)
 {
-    float h = CaveRockHeight(), u0, v0, u1, v1, t0, s0, t1, s1;
+    float h = CaveCellHeight(inst, x, y), u0, v0, u1, v1, t0, s0, t1, s1;
     static const int sides[3][2] = {{0, 1}, {1, 0}, {-1, 0}};
     bool open[3];
+    float lower[3];
     int plateau = -1;
 
     if (!MetatileUV(builder, VoxelWorld_GetMetatileId(x, y), &u0, &v0, &u1, &v1))
@@ -1349,6 +1409,8 @@ static void EmitCaveRock(VoxelBuilder *builder, const VoxelMapInstance *inst, in
         int nx = x + sides[k][0], ny = y + sides[k][1];
 
         open[k] = !(VoxelWorld_GetInstanceAt(nx, ny) == inst && CaveRock(inst, nx, ny));
+        /* a step down to lower rock beside it: the face from there */
+        lower[k] = !open[k] ? CaveCellHeight(inst, nx, ny) : 0.0f;
     }
     /* the plateau: the nearest interior rock north or to the sides */
     if (!open[0] && !open[1] && !open[2])
@@ -1371,7 +1433,11 @@ static void EmitCaveRock(VoxelBuilder *builder, const VoxelMapInstance *inst, in
         float lo = VoxelWorld_GetInstanceAt(x + sides[k][0], y + sides[k][1]) == NULL ? -2.0f : 0.0f;
 
         if (!open[k])
-            continue;
+        {
+            if (lower[k] >= h - 0.01f)
+                continue;
+            lo = lower[k];
+        }
         if (k == 0)
             VoxelMesh_South(builder, (float)x, (float)y, lo, h, 0.0f, u0, v0, u1, v1);
         else if (k == 1)
