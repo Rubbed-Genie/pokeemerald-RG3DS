@@ -476,6 +476,49 @@ def canopy(x0, x1, back_row, top_row, hem_row, foot_row, posts, lift):
     return parts
 
 
+def trick_house():
+    """RG3DS: Route 110's Trick House (80 x 96): a storey of stone and
+    windows under a flat corrugated roof, and a second storey - a tower over
+    the middle three cells - standing on it.
+
+        rows  0- 52  the tower's roof: its back cap 0-13, corrugation 14-52
+        rows 53- 63  the tower's front, its windows
+        rows 64- 69  the lower roof in front of it
+        rows 16- 69  the wings' roof either side: cap 16-28, corrugation
+        rows 70- 71  the eave
+        rows 72- 95  the ground storey's front
+
+    Only as deep as drawn: the wings' roof ends at Z 42, the tower's at 37.
+    """
+    front, back, wall, roof = 96, 42, 24, 26
+    tower_front, tower_back, tower_top = 90, 37, 37
+    side = Tile(0, 72, 8, 96, top=wall)
+    body = Prism(
+        "body", 0, 80,
+        [(front, -1), (front, wall), (back, wall), (back, -1)],
+        edges={0: Proj(72, 96), 2: side}, skip=(1, 3),
+        caps=[Band(-1, wall + 1, side, front)])
+    parts = [body]
+
+    def slab(name, x0, x1, zb, strip):
+        return Prism(
+            name, x0, x1,
+            [(front, wall), (front, roof), (zb, roof), (zb, wall)],
+            edges={0: Proj(70, 72), 1: strip, 2: side}, skip=(3,),
+            caps=[Band(wall, roof + 1, side, front)], west=(x0 == 0), east=(x1 == 80))
+
+    parts.append(slab("roof_w", 0, 16, back, Strip((29, 70), repeat=(29, 45), tail=(16, 29))))
+    parts.append(slab("roof_m", 16, 64, tower_front, Strip((64, 70))))
+    parts.append(slab("roof_e", 64, 80, back, Strip((29, 70), repeat=(29, 45), tail=(16, 29))))
+    tside = Tile(16, 53, 24, 64, top=tower_top)
+    parts.append(Prism(
+        "tower", 16, 64,
+        [(tower_front, roof), (tower_front, tower_top), (tower_back, tower_top), (tower_back, roof)],
+        edges={0: Proj(53, 64), 1: Strip((14, 53), tail=(0, 14)), 2: tside}, skip=(3,),
+        caps=[Band(roof, tower_top + 1, tside, tower_front)]))
+    return parts
+
+
 def kit_house_exact(width):
     return [(2, 38, width - 2, 64), (8, 16, width - 8, 38)]
 
@@ -1677,6 +1720,25 @@ SPECS = [
         "ground": [GRASS],
         "parts": slateport_tent,
         "exact": [(0, 0, 80, 80)],
+    },
+    {
+        # RG3DS: Route 109's Seashore House, the same kit five cells wide.
+        "name": "seashore_house",
+        "lights": "auto",
+        "layout": "LAYOUT_ROUTE109",
+        "rect": (10, 2, 5, 4),
+        "ground": [0x124, 0x123],
+        "parts": lambda: kit_house(80),
+        "exact": kit_house_exact(80),
+    },
+    {
+        "name": "trick_house",
+        "lights": "auto",
+        "layout": "LAYOUT_ROUTE110",
+        "rect": (9, 61, 5, 6),
+        "ground": [GRASS, 0x170, 0x171, 0x01d, 0x0c6, 0x017, 0x190, 0x179],
+        "parts": trick_house,
+        "exact": [(0, 72, 80, 96), (1, 30, 15, 70), (65, 30, 79, 70), (17, 15, 63, 69)],
     },
     {
         # RG3DS: Slateport market's blue stalls (six, one drawing).
