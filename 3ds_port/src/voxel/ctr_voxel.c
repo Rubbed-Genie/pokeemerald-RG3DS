@@ -5513,6 +5513,7 @@ static void MoteVertex(VoxelGpuVertex *v, float x, float y, float z, float stren
  */
 #define VOXEL_HALOS_MAX 24u
 #define VOXEL_WINDOW_POOLS_MAX 64u
+#define VOXEL_LIGHT_NEAR 40.0f   /* tiles from the camera a light is drawn within */
 #define VOXEL_HALO_SEGMENTS 10u
 #define VOXEL_HALO_VERTICES (VOXEL_HALO_SEGMENTS * (3u + 9u))   /* the halo, then its pool */
 #define VOXEL_POOL_STRENGTH 0.55f
@@ -5558,6 +5559,30 @@ static void DrawHalos(const C3D_Mtx *view, float dark)
     for (unsigned m = 0; m < VoxelWorld_InstanceCount() && windowCount < VOXEL_WINDOW_POOLS_MAX; ++m)
         windowCount += VoxelBuildings_Windows(VoxelWorld_Instance(m), windows + windowCount * 4,
                                               VOXEL_WINDOW_POOLS_MAX - windowCount);
+    /* Only what is near enough to be seen: the vertices are 1/512 tile in a
+     * short, about 64 tiles either way of the camera's tile, and a window of
+     * a map farther off wrapped round into streaks across the screen. */
+    {
+        unsigned kept = 0;
+
+        for (unsigned i = 0; i < windowCount; ++i)
+            if (fabsf(windows[i * 4] - sCamera.targetX) < VOXEL_LIGHT_NEAR
+             && fabsf(windows[i * 4 + 1] - sCamera.targetZ) < VOXEL_LIGHT_NEAR)
+            {
+                memmove(&windows[kept * 4], &windows[i * 4], 4 * sizeof(float));
+                ++kept;
+            }
+        windowCount = kept;
+        kept = 0;
+        for (unsigned i = 0; i < count; ++i)
+            if (fabsf(lamps[i * 4] - sCamera.targetX) < VOXEL_LIGHT_NEAR
+             && fabsf(lamps[i * 4 + 2] - sCamera.targetZ) < VOXEL_LIGHT_NEAR)
+            {
+                memmove(&lamps[kept * 4], &lamps[i * 4], 4 * sizeof(float));
+                ++kept;
+            }
+        count = kept;
+    }
     if ((count == 0 && windowCount == 0) || dark <= 0.05f)
         return;
     if (sHalos == NULL)
