@@ -515,6 +515,18 @@ unsigned VoxelWorld_GetMetatileBehavior(int worldX, int worldY)
     return UNPACK_BEHAVIOR(GetMetatileAttribute(inst, block & MAPGRID_METATILE_ID_MASK));
 }
 
+/* RG3DS: is the border's metatile at a point water (the sea round a coast)? */
+bool VoxelWorld_BorderIsWater(int worldX, int worldY)
+{
+    int m = VoxelWorld_BorderMetatile(worldX, worldY);
+    unsigned behavior;
+
+    if (m < 0 || sInstanceCount == 0)
+        return false;
+    behavior = UNPACK_BEHAVIOR(GetMetatileAttribute(&sInstances[0], (unsigned)m));
+    return MetatileBehavior_IsSurfableWaterOrUnderwater(behavior) || MetatileBehavior_IsDeepOrOceanWater(behavior);
+}
+
 bool VoxelWorld_IsVisibleReflectiveSurface(int worldX, int worldY)
 {
     const VoxelMapInstance *inst = NULL;

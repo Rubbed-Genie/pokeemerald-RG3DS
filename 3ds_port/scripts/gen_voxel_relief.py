@@ -2594,9 +2594,49 @@ def layout_heights(layout_id):
     art = _ART.get(layout_id)
     if art is None:
         art = layout_art(layout_id)
+    sea_level(roles_layout, h)
     # a ledge's berm is read off its own drawing, never the analysis's twin
     ledges = ledge_berms(roles_layout, vb.LayoutArt(layout_id) if alias_of(layout_id) else art, h)
     return roles_layout, h, ledges
+
+
+def sea_level(layout, h):
+    """RG3DS: water is level. Each body of water (cells joined edge to edge)
+    lies at its own commonest height, at every lattice point the body has to
+    itself: round a rock at sea its mound took in the water beside it, and
+    the sea rose in bumps the boat climbed over. A pond above a waterfall is
+    its own body and keeps its level."""
+    W, H = layout.w, layout.h
+
+    def wet(x, y):
+        return 0 <= x < W and 0 <= y < H and layout.role_at(x, y) == "water"
+    body = {}
+    for y0 in range(H):
+        for x0 in range(W):
+            if not wet(x0, y0) or (x0, y0) in body:
+                continue
+            k = len(set(body.values()))
+            stack = [(x0, y0)]
+            body[(x0, y0)] = k
+            while stack:
+                x, y = stack.pop()
+                for q in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                    if wet(*q) and q not in body:
+                        body[q] = k
+                        stack.append(q)
+    points = collections.defaultdict(list)
+    for j in range(H * PER_CELL + 1):
+        for i in range(W * PER_CELL + 1):
+            xs = {i // PER_CELL, (i - 1) // PER_CELL} if i % PER_CELL == 0 else {i // PER_CELL}
+            ys = {j // PER_CELL, (j - 1) // PER_CELL} if j % PER_CELL == 0 else {j // PER_CELL}
+            cells = [(x, y) for x in xs for y in ys if 0 <= x < W and 0 <= y < H]
+            ks = {body.get(c) for c in cells}
+            if cells and None not in ks and len(ks) == 1 and h[j][i] is not None:
+                points[ks.pop()].append((i, j))
+    for pts in points.values():
+        level = collections.Counter(round(h[j][i]) for (i, j) in pts).most_common(1)[0][0]
+        for (i, j) in pts:
+            h[j][i] = level
 
 
 def ledge_layouts():

@@ -96,6 +96,8 @@ bool VoxelWorld_UsesTreeSprites(const VoxelMapInstance *inst);
 /* The metatile the 2D game tiles outside the map, or -1 if there is none.
  * Without it the view ends in the clear colour past the last map. */
 int VoxelWorld_BorderMetatile(int worldX, int worldY);
+/* RG3DS: the border there is water (lies flat, at the sea's level). */
+bool VoxelWorld_BorderIsWater(int worldX, int worldY);
 VoxelVisualShape VoxelWorld_ClassifyTile(int worldX, int worldY);
 
 void VoxelWorld_GetMapDimensions(int *width, int *height);

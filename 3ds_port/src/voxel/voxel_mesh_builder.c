@@ -1951,6 +1951,14 @@ void VoxelMesh_EmitBorder(VoxelBuilder *builder, int x0, int y0, int x1, int y1)
              && VoxelTree_Part(VoxelWorld_Instance(0)->secondaryTileset,
                                VoxelWorld_BorderMetatile(x, y)) >= 0)
                 continue; /* flat trunks and tilted crowns are appended later */
+            /* RG3DS: the sea round a coast lies flat, at the map's own
+             * water's level - stood up two courses it was a wall of water */
+            if (VoxelWorld_BorderIsWater(x, y))
+            {
+                if (MetatileUV(builder, VoxelWorld_BorderMetatile(x, y), &u0, &v0, &u1, &v1))
+                    VoxelMesh_Top(builder, wx, wz, 0.0f, 0.0f, u0, v0, u1, v1, SHADE_TOP);
+                continue;
+            }
             south = !BorderAt(x, y + 1);
             east = !BorderAt(x + 1, y);
             west = !BorderAt(x - 1, y);
