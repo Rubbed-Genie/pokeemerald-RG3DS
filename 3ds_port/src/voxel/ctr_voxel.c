@@ -1001,7 +1001,9 @@ static bool sPageNoRoomLogged[VOXEL_MAX_PAGES];
  */
 int CtrSettings_GetInt(const char *key, int fallback); /* 3ds_settings.c */
 static C3D_Tex sZeroMask;
-#define VOXEL_PAGE_MASK_RESERVE (256u * 1024u)
+/* linear memory a page's mask leaves free: at 256 KiB Rustboro's 512 x 512
+ * page (a 128 KiB mask) missed by 3 KiB, and its gym and blocks never lit */
+#define VOXEL_PAGE_MASK_RESERVE (192u * 1024u)
 static bool sGlow;                 /* this frame draws with the masks */
 static uint32_t sTimeTint;         /* night tint: 0 none, else ABGR constant */
 static uint32_t sTimeTintRaw;      /* the game's own, before the night's extra dark */
@@ -1368,6 +1370,8 @@ static void WantPage(int page, uint32_t keep, bool quiet)
         }
         else
         {
+            CtrLog_Write(CTR_LOG_VIDEO, "VOXEL glow: building page %d unmasked (linear free %u)",
+                         page, (unsigned)linearSpaceFree());
             memset(&victim->mask, 0, sizeof(victim->mask));
             victim->lights = false;
         }

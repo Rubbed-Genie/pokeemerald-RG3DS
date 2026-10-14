@@ -1910,6 +1910,8 @@ SPECS = [
     {
         # The gym again: Rustboro's copy has its own roof and flanks.
         "name": "gym_rustboro",
+        # RG3DS: the same windows and doors as the other gyms
+        "lights": [(10, 49, 21, 54), (25, 49, 38, 54), (74, 49, 88, 54), (49, 60, 63, 77)],
         "layout": "LAYOUT_RUSTBORO_CITY",
         "rect": (24, 15, 6, 5),
         "ground": [0x2BB, 0x2C3, GRASS],
