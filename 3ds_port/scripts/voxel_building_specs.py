@@ -2130,6 +2130,34 @@ SPECS = [
         "ground": [0x2BB, 0x2C3, GRASS],
     },
     {
+        # RG3DS: the General tileset's grey post-and-rail fence, read column by
+        # column like Rustboro's railings (Slateport).
+        "name": "fence_slateport",
+        "components": {
+            "secondary": "gTileset_Slateport",
+            "layouts": {"LAYOUT_SLATEPORT_CITY"},
+            # the post by the harbour's gate stands over the pavement's edge
+            "skip": {("LAYOUT_SLATEPORT_CITY", 39, 16)},
+            "tiles": {0x140, 0x141, 0x142, 0x148, 0x149, 0x14A, 0x150, 0x151, 0x158, 0x159},
+            "height": 12, "hull": 12, "bridge": 3, "block": 4,
+            "upper": True,
+            "flank": 0x149,
+        },
+        "ground": [GRASS, 0x202, 0x212, 0x189, 0x170, 0x004],
+    },
+    {
+        # RG3DS: Slateport's white kerb stones along the quays and walks, read
+        # column by column, their front the bottom rows of each.
+        "name": "kerb_slateport",
+        "components": {
+            "secondary": "gTileset_Slateport",
+            "layouts": {"LAYOUT_SLATEPORT_CITY"},
+            "tiles": {0x25D, 0x245, 0x23C, 0x2FE, 0x2FF, 0x2CF, 0x24D},
+            "height": 6, "hull": 6, "bridge": 3, "block": 4,
+        },
+        "ground": [0x202, 0x212, 0x211, 0x209, 0x189, 0x170, 0x190, 0x198, GRASS, 0x003],
+    },
+    {
         # The grey rock in the sea, found by its four tiles wherever they are
         # drawn (voxel_props.py): over the water round it, by a sandbank, by
         # a shore. A low dome, as deep as it is drawn tall below its crest.
@@ -2152,6 +2180,25 @@ SPECS = [
         # under the edition's lower camera
         "rise": 2.0,
         "step": 2,
+    },
+    {
+        # RG3DS: the beach's parasols: the canopy a shallow dome lifted on its
+        # pole high enough to walk under, the shadow left on the sand.
+        "name": "parasol_orange", "props": "parasol_orange", "ground": [0x124],
+        "rise": 0.5, "step": 2, "lift": 22, "canopy": 32, "pole": (14, 18),
+    },
+    {
+        "name": "parasol_blue", "props": "parasol_blue", "ground": [0x124],
+        "rise": 0.5, "step": 2, "lift": 22, "canopy": 32, "pole": (14, 18),
+    },
+    {
+        "name": "parasol_green", "props": "parasol_green", "ground": [0x124],
+        "rise": 0.5, "step": 2, "lift": 22, "canopy": 32, "pole": (14, 18),
+    },
+    {
+        # RG3DS: a lounger on the sand, a little rounded off it.
+        "name": "lounger", "props": "lounger", "ground": [0x124],
+        "rise": 0.35, "step": 2,
     },
     {
         # RG3DS: the cave's boulder, a rounded rock on the floor.

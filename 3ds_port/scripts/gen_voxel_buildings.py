@@ -55,6 +55,9 @@ def component_specs(spec, layouts):
     for entry in layouts_json:
         if entry.get("secondary_tileset") != comp["secondary"] or "blockdata_filepath" not in entry:
             continue
+        # RG3DS: only these layouts (the same tiles mean other things elsewhere)
+        if comp.get("layouts") and entry["id"] not in comp["layouts"]:
+            continue
         blocks = vb.read_u16(os.path.join(vb.ROOT, entry["blockdata_filepath"]))
         w, h = entry["width"], entry["height"]
         seen = set()
@@ -83,6 +86,9 @@ def component_specs(spec, layouts):
                         by.setdefault((cx // size, cy // size), []).append((cx, cy))
                     pieces = list(by.values())
                 for piece in pieces:
+                    # RG3DS: runs left drawn (`skip`: a cell of them)
+                    if any((entry["id"], cx, cy) in comp.get("skip", ()) for (cx, cy) in piece):
+                        continue
                     out.append(piece_spec(spec, comp, entry, blocks, w, h, piece, tiles, cells))
     # identical blocks: one model, placed at each
     if comp.get("block"):
@@ -96,6 +102,39 @@ def component_specs(spec, layouts):
                 merged[key] = sp
         out = list(merged.values())
     return out
+
+
+class _Lifted:
+    """RG3DS: a part moved up and back by `lift` (texels unchanged)."""
+
+    def __init__(self, part, lift):
+        self.part, self.lift = part, lift
+        self.name = part.name
+
+    def emit(self, mesh):
+        inner = vb.Mesh()
+        self.part.emit(inner)
+        for (pts, shade, tag) in inner.tris:
+            mesh.tri(*[(x, y + self.lift, z + self.lift, u, v) for (x, y, z, u, v) in pts],
+                     shade=shade, tag=tag)
+
+
+def lifted_mound(art, spec, ox, oy):
+    """RG3DS: a parasol: its canopy (the art's rows above `canopy`, relative
+    to the object's own corner at ox, oy) a dome lifted `lift`, and its pole
+    a square post from the ground to the canopy's middle, `pole` = (x0, x1)
+    columns, its texels the drawn pole's."""
+    canopy = oy + spec["canopy"]
+    lift = spec["lift"]
+    crop = art.crop((0, 0, art.size[0], canopy))
+    parts = [_Lifted(vb.Mound("canopy", crop, rise=spec["rise"], step=spec["step"]), lift)]
+    x0, x1 = ox + spec["pole"][0], ox + spec["pole"][1]
+    foot = canopy - 2 + lift
+    wood = vb.Tile(x0, canopy, x1, canopy + 6, top=lift)
+    parts.append(vb.Prism("pole", x0, x1, [(foot, 0), (foot, lift), (foot - (x1 - x0), lift),
+                                            (foot - (x1 - x0), 0)],
+                          edges={0: wood, 2: wood}, skip=(1, 3), caps=[vb.Band(0, lift + 1, wood, foot)]))
+    return parts
 
 
 def prop_specs(spec):
@@ -126,12 +165,18 @@ def prop_specs(spec):
         quads = {}
         for (i, j) in present:
             t = grid[j][i]
-            tile, pal = (t[0], t[2]) if isinstance(t, tuple) else (t, obj["palette"])
+            tile, _, pal, flip = voxel_props._entry(t, obj)
             data = layout.ts.subtile(tile, pal)
             X, Y = ox * 8 + i * 8, oy * 8 + j * 8
             for k, (rgb, index) in enumerate(data):
                 if index:
-                    apx[X + k % 8, Y + k // 8] = rgb + (255,)
+                    kx, ky = k % 8, k // 8
+                    # RG3DS: a mirrored subtile (a parasol's right half)
+                    if flip & 1:
+                        kx = 7 - kx
+                    if flip & 2:
+                        ky = 7 - ky
+                    apx[X + kx, Y + ky] = rgb + (255,)
             ci, cj = X // 16, Y // 16
             quads[(ci, cj)] = quads.get((ci, cj), 0) | 1 << ((Y % 16) // 8 * 2 + (X % 16) // 8)
         drawing = art
@@ -140,6 +185,16 @@ def prop_specs(spec):
         variant = spec["name"] if not out else "%s_%d" % (spec["name"], len(out))
         at = [(l, min(c[0] for c in voxel_props.cells_of(name, x, y)),
                min(c[1] for c in voxel_props.cells_of(name, x, y))) for (l, x, y) in where]
+        if "lift" in spec:
+            # RG3DS: a canopy on a pole (a parasol): the dome lifted and
+            # moved back as far, which the 45-degree view sees as the same
+            # drawing, on a pole standing under its middle
+            out.append({"name": variant, "layout": lid, "rect": (cx0, cy0, w, h),
+                        "ground": spec["ground"], "art": art,
+                        "parts": (lambda a, sp, oxp, oyp: (lambda: lifted_mound(a, sp, oxp, oyp)))(
+                            art, spec, ox * 8, oy * 8),
+                        "exact": [], "at": at, "quads": quads, "drawing": drawing})
+            continue
         out.append({"name": variant, "layout": lid, "rect": (cx0, cy0, w, h),
                     "ground": spec["ground"], "art": art,
                     "parts": (lambda a, k, st, rg, r: (lambda: [vb.Mound("mound", a, rise=k, step=st,

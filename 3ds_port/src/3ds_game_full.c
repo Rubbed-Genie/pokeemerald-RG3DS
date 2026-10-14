@@ -15,6 +15,7 @@
 #include "global.h"
 #include "main.h"
 #include "overworld.h"
+#include "field_weather.h"
 #include "gba/flash_internal.h"
 #include "gpu_regs.h"
 #include "cgb_audio.h"
@@ -375,26 +376,67 @@ static const struct { u8 id; const char *name; } sWeathers[] =
     {12, "DROUGHT"},
 };
 
-const char *CtrGame_WeatherName(void)
+/* RG3DS dev menu: the weather held over every map (settings weather_force,
+ * a WEATHER_ id), or -1: each map's own, as the game has it. */
+int CtrSettings_GetInt(const char *key, int fallback);
+void CtrSettings_SetInt(const char *key, int value);
+
+static const char *WeatherNameOf(u8 id)
 {
-    if (gSaveBlock1Ptr == NULL)
-        return "-";
     for (unsigned i = 0; i < ARRAY_COUNT(sWeathers); ++i)
-        if (sWeathers[i].id == gSaveBlock1Ptr->weather)
+        if (sWeathers[i].id == id)
             return sWeathers[i].name;
     return "OTHER";
 }
 
+const char *CtrGame_WeatherName(void)
+{
+    static char text[24];
+    int force = CtrSettings_GetInt("weather_force", -1);
+
+    if (gSaveBlock1Ptr == NULL)
+        return "-";
+    if (force < 0)
+    {
+        snprintf(text, sizeof(text), "DEFAULT %s", WeatherNameOf(gSaveBlock1Ptr->weather));
+        return text;
+    }
+    return WeatherNameOf((u8)force);
+}
+
 void CtrGame_StepWeather(int direction)
 {
-    unsigned i, n = ARRAY_COUNT(sWeathers);
+    int n = (int)ARRAY_COUNT(sWeathers), force = CtrSettings_GetInt("weather_force", -1), i;
 
     if (gSaveBlock1Ptr == NULL || gMain.callback2 != CB2_Overworld)
         return;
-    for (i = 0; i < n && sWeathers[i].id != gSaveBlock1Ptr->weather; ++i)
+    /* -1 (the map's own) first, then the list */
+    for (i = 0; i < n && sWeathers[i].id != force; ++i)
         ;
-    i = i == n ? 0 : (i + n + (direction > 0 ? 1 : n - 1)) % n;
-    SetWeather(sWeathers[i].id);
+    i = force < 0 ? -1 : i == n ? -1 : i;
+    i = (i + 1 + n + 1 + (direction > 0 ? 1 : -1)) % (n + 1) - 1;
+    CtrSettings_SetInt("weather_force", i < 0 ? -1 : sWeathers[i].id);
+    if (i < 0)
+    {
+        /* back to the map's own weather */
+        SetSavedWeatherFromCurrMapHeader();
+        SetNextWeather(GetSavedWeather());
+    }
+    else
+        SetWeather(sWeathers[i].id);
+}
+
+/* Held weather survives a map change: the new map sets its own, this sets
+ * it back. */
+static void HoldWeather(void)
+{
+    int force;
+
+    if (gSaveBlock1Ptr == NULL || gMain.callback2 != CB2_Overworld)
+        return;
+    force = CtrSettings_GetInt("weather_force", -1);
+    if (force >= 0 && gSaveBlock1Ptr->weather != force)
+        SetWeather((u32)force);
 }
 
 /* RG3DS debug driver (3ds_input.c): a warp asked for in drive.txt. */
@@ -404,6 +446,7 @@ void DoWarp(void);
 
 static void DriveWarp(void)
 {
+    HoldWeather();
     /* "lit": dark caves drawn lit, to look at them */
     if (gCtrDriveWarp[4] && gSaveBlock1Ptr != NULL)
         gSaveBlock1Ptr->flashLevel = 0;

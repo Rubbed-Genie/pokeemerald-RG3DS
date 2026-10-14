@@ -56,6 +56,29 @@ OBJECTS = {
     # left flat for now)
     "cave_column": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Cave",
                     "palette": 6, "grid": ((794, 795), (810, 811), (826, 827), (842, 843))},
+    # RG3DS: the beach's parasols (Route 109, Slateport): a canopy of four
+    # subtiles' width, its right half the left mirrored, over its pole - one
+    # per colour - and the loungers, two subtiles by four
+    "parasol_orange": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Slateport",
+                       "palette": 11, "grid": ((676, 677, (677, False, 11, 1), (676, False, 11, 1)),
+                                               (692, 693, (693, False, 11, 1), (692, False, 11, 1)),
+                                               (708, 709, (709, False, 11, 1), (708, False, 11, 1)),
+                                               (724, 725, (725, False, 11, 1), (724, False, 11, 1)),
+                                               (None, 684, 685, None))},
+    "parasol_blue": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Slateport",
+                     "palette": 11, "grid": ((672, 673, (673, False, 11, 1), (672, False, 11, 1)),
+                                             (688, 689, (689, False, 11, 1), (688, False, 11, 1)),
+                                             (704, 705, (705, False, 11, 1), (704, False, 11, 1)),
+                                             (720, 721, (721, False, 11, 1), (720, False, 11, 1)),
+                                             (None, 684, 685, None))},
+    "parasol_green": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Slateport",
+                      "palette": 11, "grid": ((674, 675, (675, False, 11, 1), (674, False, 11, 1)),
+                                              (690, 691, (691, False, 11, 1), (690, False, 11, 1)),
+                                              (706, 707, (707, False, 11, 1), (706, False, 11, 1)),
+                                              (722, 723, (723, False, 11, 1), (722, False, 11, 1)),
+                                              (None, 684, 685, None))},
+    "lounger": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Slateport",
+                "palette": 11, "grid": ((678, 679), (694, 695), (710, 711), (726, 727))},
     "sea_stack": {
         "tileset": "gTileset_General",
         "palette": 3,
@@ -211,9 +234,9 @@ def find(layout_entry, names=None):
                 for i, t in enumerate(row):
                     if t is None:
                         continue
-                    want, optional, pal = t if isinstance(t, tuple) else (t, False, obj["palette"])
+                    want, optional, pal, flip = _entry(t, obj)
                     got = sub_at(x0 + i, y0 + j)
-                    if got == (want, pal, 0):
+                    if got == (want, pal, flip):
                         present.add((i, j))
                     elif not optional:
                         ok = False
@@ -223,6 +246,15 @@ def find(layout_entry, names=None):
             if ok:
                 found.append((name, x0, y0, frozenset(present)))
     return sorted(found)
+
+
+def _entry(t, obj):
+    """(tile, optional, palette, flips) of a grid entry: a tile id, or
+    (tile, optional, palette) or (tile, optional, palette, flips) - flips
+    1 across, 2 down (RG3DS: a parasol's right half is its left mirrored)."""
+    if not isinstance(t, tuple):
+        return t, False, obj["palette"], 0
+    return (t + (0,))[:4]
 
 
 def cells_of(name, sx, sy):
