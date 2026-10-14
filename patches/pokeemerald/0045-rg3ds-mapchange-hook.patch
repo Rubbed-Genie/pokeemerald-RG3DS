@@ -2,6 +2,7 @@ RG3DS: CtrMapChange_Showing - the cave fade (fldeff_flash.c) is up, for the port
 lamp lights (event_object_movement.c) lit steadily instead of the GBA flicker;
 object events spawned over the edition camera's whole view (fieldmap.h);
 Flash with HMs without the move: dark caves lit with the Knuckle Badge (overworld.c).
+CHANGING WEATHER (OPTIONS): fair towns and routes now and then rainy, stormy or foggy (field_weather_effect.c).
 Applies over 0044.
 
 diff --git a/include/fieldmap.h b/include/fieldmap.h
@@ -51,6 +52,65 @@ index b644aed5f..d4823e11f 100644
          if (gPaletteFade.active) { // if palette fade is active, don't flicker since the timer won't be updated
              Weather_SetBlendCoeffs(7, 12);
              sprite->invisible = FALSE;
+diff --git a/src/field_weather_effect.c b/src/field_weather_effect.c
+index d47cf508f..b397c7815 100644
+--- a/src/field_weather_effect.c
++++ b/src/field_weather_effect.c
+@@ -15,6 +15,8 @@
+ #include "trig.h"
+ #include "gpu_regs.h"
+ #include "palette.h"
++#include "rtc.h"
++#include "constants/map_types.h"
+ 
+ EWRAM_DATA static u8 sCurrentAbnormalWeather = 0;
+ EWRAM_DATA static u16 sUnusedWeatherRelated = 0;
+@@ -2568,10 +2570,45 @@ u8 GetSavedWeather(void)
+     return gSaveBlock1Ptr->weather;
+ }
+ 
++#ifdef PORT_BRIDGE
++int CtrExtras_Get(const char *key); // 3ds_extras.c
++
++// RG3DS: CHANGING WEATHER (OPTIONS). A town or route whose own weather is
++// fair now and then has rain instead, a storm, or a morning's fog - the same
++// over the whole region for a few hours at a time (by the clock), so walking
++// from one map to the next keeps it. Every weather a map has of its own (the
++// rain of Route 119, the ash, the forests' shade) stays as it is.
++static u8 ChangingWeather(u8 weather)
++{
++    u32 period, roll;
++
++    if (!CtrExtras_Get("dyn_weather")
++     || (weather != WEATHER_SUNNY && weather != WEATHER_SUNNY_CLOUDS)
++     || (gMapHeader.mapType != MAP_TYPE_TOWN && gMapHeader.mapType != MAP_TYPE_CITY
++      && gMapHeader.mapType != MAP_TYPE_ROUTE && gMapHeader.mapType != MAP_TYPE_OCEAN_ROUTE))
++        return weather;
++    RtcCalcLocalTime();
++    period = (u32)gLocalTime.days * 6 + gLocalTime.hours / 4;
++    roll = period * 2654435761u;
++    roll = ((roll ^ (roll >> 15)) * 2246822519u) >> 16;
++    roll %= 100;
++    if (roll < 14)
++        return WEATHER_RAIN;
++    if (roll < 18 && gMapHeader.mapType != MAP_TYPE_TOWN)
++        return WEATHER_RAIN_THUNDERSTORM;
++    if (roll < 24 && gLocalTime.hours >= 5 && gLocalTime.hours < 9)
++        return WEATHER_FOG_HORIZONTAL;
++    return weather;
++}
++#endif
++
+ void SetSavedWeatherFromCurrMapHeader(void)
+ {
+     u8 oldWeather = gSaveBlock1Ptr->weather;
+     gSaveBlock1Ptr->weather = TranslateWeatherNum(gMapHeader.weather);
++#ifdef PORT_BRIDGE
++    gSaveBlock1Ptr->weather = ChangingWeather(gSaveBlock1Ptr->weather);
++#endif
+     UpdateRainCounter(gSaveBlock1Ptr->weather, oldWeather);
+ }
+ 
 diff --git a/src/fldeff_flash.c b/src/fldeff_flash.c
 index 643799de5..380fd8d72 100644
 --- a/src/fldeff_flash.c
