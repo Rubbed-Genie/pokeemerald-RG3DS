@@ -96,7 +96,25 @@ static void DrawText(const char *text, float x, float y, u32 colour)
 
 /* ── Rows ──────────────────────────────────────────────────────────────── */
 
-enum { ROW_TIME, ROW_GLOW, ROW_GLOW_DEBUG, ROW_FPS, ROW_SPEED, ROW_ZLZR, ROW_COUNT };
+enum { ROW_TIME, ROW_WEATHER, ROW_GLOW, ROW_GLOW_DEBUG, ROW_FPS, ROW_SPEED, ROW_ZLZR, ROW_COUNT };
+
+/* What L2/R2 do on their own (zlzr_mode): step the speed, hold for turbo A,
+ * or cycle the weather. */
+enum { ZLZR_SPEED, ZLZR_TURBO, ZLZR_TIME, ZLZR_WEATHER, ZLZR_MODES };
+static const char *const sZlzrNames[] = {"SPEED", "TURBO A", "TIME OF DAY", "WEATHER"};
+
+/* The game's weather (3ds_game_full.c): its name, and a step through them. */
+const char *CtrGame_WeatherName(void);
+void CtrGame_StepWeather(int direction);
+
+static int ZlzrMode(void)
+{
+    int mode = CtrSettings_GetInt("zlzr_mode", -1);
+
+    if (mode < 0)   /* the old on/off key */
+        mode = CtrSettings_GetInt("zlzr_auto_a", 0) ? ZLZR_TURBO : ZLZR_SPEED;
+    return mode >= 0 && mode < ZLZR_MODES ? mode : ZLZR_SPEED;
+}
 
 static const char *const sTimeNames[] = {"REAL CLOCK", "MORNING", "DAY", "EVENING", "NIGHT"};
 static const int sTimeHours[] = {-1, 8, 12, 19, 22};
@@ -135,9 +153,13 @@ static void RowText(int row, char *label, char *value, size_t size)
         strcpy(label, "SPEED");
         snprintf(value, size, "X%d", CtrSettings_Speed());
         break;
+    case ROW_WEATHER:
+        strcpy(label, "WEATHER");
+        snprintf(value, size, "%s", CtrGame_WeatherName());
+        break;
     default:
-        strcpy(label, "L2/R2 HELD");
-        snprintf(value, size, "%s", CtrSettings_GetInt("zlzr_auto_a", 0) ? "TURBO A" : "SPEED");
+        strcpy(label, "L2/R2");
+        snprintf(value, size, "%s", sZlzrNames[ZlzrMode()]);
         break;
     }
 }
@@ -168,8 +190,11 @@ static void ChangeRow(int row, int direction)
     case ROW_SPEED:
         CtrSettings_StepSpeed(direction, true);
         break;
+    case ROW_WEATHER:
+        CtrGame_StepWeather(direction);
+        break;
     default:
-        CtrSettings_SetInt("zlzr_auto_a", !CtrSettings_GetInt("zlzr_auto_a", 0));
+        CtrSettings_SetInt("zlzr_mode", (ZlzrMode() + direction + ZLZR_MODES) % ZLZR_MODES);
         break;
     }
 }
@@ -212,17 +237,20 @@ uint32_t CtrDevMenu_Input(uint32_t held, uint32_t down, bool *pressA)
         sChordUsed = true;
         sOpen = !sOpen;
     }
-    else if (sOpen && !sChordUsed && released && z == 0)
+    /* RG3DS: one of them alone does what the L2/R2 row says - open or not,
+     * the menu is the D-pad's */
+    else if (!sChordUsed && released && z == 0 && !sTurbo)
     {
-        /* one of them alone, open: change the row */
-        ChangeRow(sRow, (released & KEY_ZR) ? 1 : -1);
+        if (ZlzrMode() == ZLZR_SPEED)
+            CtrSettings_StepSpeed((released & KEY_ZR) ? 1 : -1, false);
+        else if (ZlzrMode() == ZLZR_TIME)
+            ChangeRow(ROW_TIME, (released & KEY_ZR) ? 1 : -1);
+        else if (ZlzrMode() == ZLZR_WEATHER)
+            CtrGame_StepWeather((released & KEY_ZR) ? 1 : -1);
     }
-    else if (!sOpen && !sChordUsed && released && z == 0 && !sTurbo)
-        CtrSettings_StepSpeed((released & KEY_ZR) ? 1 : -1, false);
-    /* RG3DS: L2/R2 held on its own as turbo A (the dev menu's choice) */
     *pressA = false;
     if (!sOpen && !sChordUsed && z != 0 && z != (KEY_ZL | KEY_ZR) && sChord > TURBO_DELAY
-     && CtrSettings_GetInt("zlzr_auto_a", 0))
+     && ZlzrMode() == ZLZR_TURBO)
     {
         sTurbo = true;
         *pressA = ((sChord - TURBO_DELAY) % TURBO_PERIOD) < TURBO_PERIOD / 2;
@@ -283,6 +311,6 @@ void CtrDevMenu_Draw(C3D_RenderTarget *target)
         DrawText(label, left + 8.0f, y, colour);
         DrawText(value, left + 192.0f - strlen(value) * ADVANCE, y, colour);
     }
-    DrawText("ZL/ZR CHANGE  B CLOSE", left + 8.0f, top + height - 12.0f, C2D_Color32(150, 150, 170, 255));
+    DrawText("DPAD CHANGE  B CLOSE", left + 8.0f, top + height - 12.0f, C2D_Color32(150, 150, 170, 255));
     C2D_Flush();
 }

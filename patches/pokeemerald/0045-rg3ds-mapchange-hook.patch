@@ -1,10 +1,11 @@
 RG3DS: CtrMapChange_Showing - the cave fade (fldeff_flash.c) is up, for the port to draw it whole;
 lamp lights (event_object_movement.c) lit steadily instead of the GBA flicker;
-object events spawned over the edition camera's whole view (fieldmap.h).
+object events spawned over the edition camera's whole view (fieldmap.h);
+Flash with HMs without the move: dark caves lit with the Knuckle Badge (overworld.c).
 Applies over 0044.
 
 diff --git a/include/fieldmap.h b/include/fieldmap.h
-index daee48a24..1ccb7dede 100644
+index daee48a24..a694e865f 100644
 --- a/include/fieldmap.h
 +++ b/include/fieldmap.h
 @@ -24,13 +24,20 @@
@@ -14,8 +15,8 @@ index daee48a24..1ccb7dede 100644
 +#if defined(CTR_VOXEL_ENABLED) && CTR_VOXEL_ENABLED
 +// RG3DS: the edition's lower camera sees further, and its view widens with
 +// the distance: people at the far corners appeared late, walking towards them.
-+#define OBJECT_EVENT_VIEW_LEFT   (FIELD_VIEW_OFFSET_X / 16 + 6)
-+#define OBJECT_EVENT_VIEW_RIGHT  ((DISPLAY_WIDTH - FIELD_VIEW_OFFSET_X) / 16 + 6)
++#define OBJECT_EVENT_VIEW_LEFT   (FIELD_VIEW_OFFSET_X / 16 + 10)
++#define OBJECT_EVENT_VIEW_RIGHT  ((DISPLAY_WIDTH - FIELD_VIEW_OFFSET_X) / 16 + 10)
 +#else
  #define OBJECT_EVENT_VIEW_LEFT   (FIELD_VIEW_OFFSET_X / 16 + 2)
  #define OBJECT_EVENT_VIEW_RIGHT  ((DISPLAY_WIDTH - FIELD_VIEW_OFFSET_X) / 16 + 2)
@@ -70,3 +71,26 @@ index 643799de5..380fd8d72 100644
  void CB2_DoChangeMap(void)
  {
      u16 ime;
+diff --git a/src/overworld.c b/src/overworld.c
+index 0faef4522..661e8d925 100644
+--- a/src/overworld.c
++++ b/src/overworld.c
+@@ -1102,8 +1102,18 @@ bool32 Overworld_IsBikingAllowed(void)
+ // Flash level of 1 is the largest flash radius
+ // Flash level of 7 is the smallest flash radius
+ // Flash level of 8 is fully black
++#ifdef PORT_BRIDGE
++int CtrExtras_Get(const char *key); // 3ds_extras.c
++#endif
++
+ void SetDefaultFlashLevel(void)
+ {
++#ifdef PORT_BRIDGE
++    // RG3DS: HMs without the move (OPTIONS) covers Flash too: with the
++    // Knuckle Badge a dark cave is lit on entry, as if Flash had been used.
++    if (gMapHeader.cave && CtrExtras_Get("field_hms") && FlagGet(FLAG_BADGE02_GET))
++        FlagSet(FLAG_SYS_USE_FLASH);
++#endif
+     if (!gMapHeader.cave)
+         gSaveBlock1Ptr->flashLevel = 0;
+     else if (FlagGet(FLAG_SYS_USE_FLASH))

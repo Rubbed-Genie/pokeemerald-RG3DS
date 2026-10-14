@@ -365,6 +365,38 @@ __attribute__((weak)) bool8 CtrMapNamePopup_Showing(void)
     return FALSE;
 }
 
+/* RG3DS dev menu: the field's weather, stepped through every kind there is.
+ * Only on the field; the map's own weather comes back on the next warp. */
+void SetWeather(u32 weather);
+static const struct { u8 id; const char *name; } sWeathers[] =
+{
+    {0, "NONE"}, {1, "CLOUDY"}, {2, "SUNNY"}, {3, "RAIN"}, {13, "DOWNPOUR"}, {5, "STORM"},
+    {4, "SNOW"}, {6, "FOG"}, {9, "FOG DIAG"}, {7, "ASH"}, {8, "SANDSTORM"}, {11, "SHADE"},
+    {12, "DROUGHT"},
+};
+
+const char *CtrGame_WeatherName(void)
+{
+    if (gSaveBlock1Ptr == NULL)
+        return "-";
+    for (unsigned i = 0; i < ARRAY_COUNT(sWeathers); ++i)
+        if (sWeathers[i].id == gSaveBlock1Ptr->weather)
+            return sWeathers[i].name;
+    return "OTHER";
+}
+
+void CtrGame_StepWeather(int direction)
+{
+    unsigned i, n = ARRAY_COUNT(sWeathers);
+
+    if (gSaveBlock1Ptr == NULL || gMain.callback2 != CB2_Overworld)
+        return;
+    for (i = 0; i < n && sWeathers[i].id != gSaveBlock1Ptr->weather; ++i)
+        ;
+    i = i == n ? 0 : (i + n + (direction > 0 ? 1 : n - 1)) % n;
+    SetWeather(sWeathers[i].id);
+}
+
 /* RG3DS debug driver (3ds_input.c): a warp asked for in drive.txt. */
 extern volatile int gCtrDriveWarp[4];
 void DoWarp(void);
