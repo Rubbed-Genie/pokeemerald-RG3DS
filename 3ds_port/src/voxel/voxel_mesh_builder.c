@@ -1417,7 +1417,7 @@ static void EmitCaveRock(VoxelBuilder *builder, const VoxelMapInstance *inst, in
     for (unsigned k = 0; k < 3; ++k)
         open[k] = !(VoxelWorld_GetInstanceAt(x + sides[k][0], y + sides[k][1]) == inst
                     && CaveRock(inst, x + sides[k][0], y + sides[k][1]));
-    if (!open[0] && !open[1] && !open[2])
+    if (!open[0] && !open[1] && !open[2] && !VoxelBuildings_CellAt(inst, x, y, NULL, NULL))
         plateau = VoxelWorld_GetMetatileId(x, y);
     else
     {
@@ -1435,7 +1435,9 @@ static void EmitCaveRock(VoxelBuilder *builder, const VoxelMapInstance *inst, in
     /* the face's own drawing on the slope where the cell is an edge, the
      * plateau where it is rock all round */
     {
-        bool edge = open[0] || open[1] || open[2];
+        /* a rock set in the wall stands as its model on the top: the top
+         * is plateau, not the rock's drawing again under it */
+        bool edge = (open[0] || open[1] || open[2]) && !VoxelBuildings_CellAt(inst, x, y, NULL, NULL);
         float a0 = edge ? u0 : t0, b0 = edge ? v0 : s0, a1 = edge ? u1 : t1, b1 = edge ? v1 : s1;
 
         VoxelBuilder_Quad(builder,
