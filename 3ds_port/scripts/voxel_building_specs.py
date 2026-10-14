@@ -1741,6 +1741,27 @@ SPECS = [
         "exact": [(0, 72, 80, 96), (1, 30, 15, 70), (65, 30, 79, 70), (17, 15, 63, 69)],
     },
     {
+        # RG3DS: the Seaside Cycling Road's gatehouses (Route 110): a yellow
+        # block under a flat, crenellated roof.
+        "name": "cycling_gate",
+        "lights": "auto",
+        "layout": "LAYOUT_ROUTE110",
+        "rect": (14, 12, 6, 5),
+        "ground": [GRASS, 0x121, 0x122, 0x12a, 0x003],
+        "parts": lambda: flat_block(96, 80, ((12, 32), (12, 20), (0, 12)), (32, 40), 40),
+        "exact": [(4, 40, 92, 78), (4, 12, 92, 40)],
+    },
+    {
+        # its south twin, the ramp's foot drawn into its top row and east side
+        "name": "cycling_gate_s",
+        "lights": "auto",
+        "layout": "LAYOUT_ROUTE110",
+        "rect": (15, 84, 6, 5),
+        "ground": [GRASS, 0x170, 0x134, 0x003],
+        "parts": lambda: flat_block(96, 80, ((12, 32), (12, 20), (0, 12)), (32, 40), 40),
+        "exact": [(4, 40, 92, 78), (4, 12, 92, 40)],
+    },
+    {
         # RG3DS: Slateport market's blue stalls (six, one drawing).
         "name": "slateport_stall",
         "layout": "LAYOUT_SLATEPORT_CITY",
