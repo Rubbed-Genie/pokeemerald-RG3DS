@@ -35,6 +35,7 @@
 #endif
 
 #include "voxel_relief.h"
+#include "voxel_mesh_builder.h"
 #include "voxel_file.h"
 
 #ifndef VOXEL_RELIEF_PATH
@@ -368,7 +369,9 @@ float VoxelRelief_LiftAt(float worldX, float worldZ)
     int x = FloorI(worldX), y = FloorI(worldZ);
     const VoxelMapInstance *inst = VoxelWorld_GetInstanceAt(x, y);
 
-    return VoxelRelief_Base(inst) + Sample(VoxelRelief_Cell(inst, x, y), worldX, worldZ);
+    /* RG3DS: plus a cave's upper floor (voxel_mesh_builder.c) */
+    return VoxelRelief_Base(inst) + Sample(VoxelRelief_Cell(inst, x, y), worldX, worldZ)
+         + VoxelMesh_CaveFloorAt(worldX, worldZ);
 }
 
 float VoxelRelief_ShiftAt(float worldX, float worldZ)

@@ -165,4 +165,7 @@ void VoxelMesh_EmitBorder(VoxelBuilder *builder, int x0, int y0, int x1, int y1)
 /* RG3DS: a model on this cave cell stands this much higher (the wall's top). */
 float VoxelMesh_CaveLift(const VoxelMapInstance *inst, int x, int y);
 
+/* RG3DS: the cave floor's height under a point (0 off a cave floor). */
+float VoxelMesh_CaveFloorAt(float worldX, float worldZ);
+
 #endif
