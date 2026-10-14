@@ -91,7 +91,9 @@
 #include "text.h"
 #include "text_window.h"
 #include "util.h"
+#include "constants/abilities.h"
 #include "constants/items.h"
+#include "constants/moves.h"
 #include "constants/map_types.h"
 #include "constants/party_menu.h"
 #include "constants/region_map_sections.h"
@@ -2446,8 +2448,13 @@ typedef struct
     u8 safariBalls;
     u8 partyBalls[PARTY_SIZE];        /* PARTY_BALL_*, as the game's party indicator */
     struct ChooseMoveStruct moves4;
+    /* RG3DS: each move against the foe (doubles: low nibble the left foe,
+     * high the right), MOVE_EFFECT_*. */
+    u8 moveEffect[MAX_MON_MOVES];
     u8 text[96];
 } ViewState;
+
+static void FillMoveEffects(ViewState *v, u8 battler);
 
 /* Which of the game's bag is on show. */
 enum { BAG_VIEW_NONE, BAG_VIEW_SECTION, BAG_VIEW_WHOLE };
@@ -3416,6 +3423,7 @@ static void Snapshot(ViewState *s, u8 mode, u8 pressed)
         s->battler = b;
         s->cursor = sMoveCancel ? MAX_MON_MOVES : gMoveSelectionCursor[b];
         memcpy(&s->moves4, &gBattleBufferA[b][4], sizeof(s->moves4));
+        FillMoveEffects(s, b);
         break;
     }
     case MODE_BATTLE_INFO:
@@ -4913,6 +4921,90 @@ static void PpColours(u8 pp, u8 maxPp, u16 *fg, u16 *shadow)
         *fg = TXT_DARK, *shadow = TXT_LIGHT;
 }
 
+/*
+ * RG3DS: how well each move would land, after TheXaman's battle info system
+ * (github.com/voloved/pokeemerald, tx_ui_battle_typing). Reckoned from the
+ * battlers as they stand - their types, Levitate, Wonder Guard, Foresight -
+ * through the game's own type chart. Status moves and an absent foe show
+ * nothing.
+ */
+enum { MOVE_EFFECT_NONE, MOVE_EFFECT_X0, MOVE_EFFECT_X025, MOVE_EFFECT_X05, MOVE_EFFECT_X1, MOVE_EFFECT_X2,
+       MOVE_EFFECT_X4 };
+
+static u8 MoveTypeFor(u8 attacker, u16 move)
+{
+    const struct BattlePokemon *mon = &gBattleMons[attacker];
+    u8 type;
+
+    if (move != MOVE_HIDDEN_POWER)
+        return gBattleMoves[move].type;
+    type = ((mon->hpIV & 1) | ((mon->attackIV & 1) << 1) | ((mon->defenseIV & 1) << 2) | ((mon->speedIV & 1) << 3)
+          | ((mon->spAttackIV & 1) << 4) | ((mon->spDefenseIV & 1) << 5)) * 15 / 63 + 1;
+    if (type >= TYPE_MYSTERY)
+        ++type;
+    return type;
+}
+
+static u8 MoveEffectOn(u8 attacker, u8 target, u16 move)
+{
+    const struct BattlePokemon *foe = &gBattleMons[target];
+    u8 type;
+    int power = 10, i;
+
+    if (move == MOVE_NONE || gBattleMoves[move].power == 0 || target >= gBattlersCount
+     || (gAbsentBattlerFlags & (1u << target)) || foe->hp == 0)
+        return MOVE_EFFECT_NONE;
+    type = MoveTypeFor(attacker, move);
+    if (foe->ability == ABILITY_LEVITATE && type == TYPE_GROUND)
+        return MOVE_EFFECT_X0;
+    for (i = 0; TYPE_EFFECT_ATK_TYPE(i) != TYPE_ENDTABLE; i += 3)
+    {
+        if (TYPE_EFFECT_ATK_TYPE(i) == TYPE_FORESIGHT)
+        {
+            if (foe->status2 & STATUS2_FORESIGHT)
+                break;
+            continue;
+        }
+        if (TYPE_EFFECT_ATK_TYPE(i) != type)
+            continue;
+        if (TYPE_EFFECT_DEF_TYPE(i) == foe->types[0])
+            power = power * TYPE_EFFECT_MULTIPLIER(i) / 10;
+        if (TYPE_EFFECT_DEF_TYPE(i) == foe->types[1] && foe->types[0] != foe->types[1])
+            power = power * TYPE_EFFECT_MULTIPLIER(i) / 10;
+    }
+    if (foe->ability == ABILITY_WONDER_GUARD && power <= 10)
+        power = 0;
+    if (power == 0) return MOVE_EFFECT_X0;
+    if (power < 5) return MOVE_EFFECT_X025;
+    if (power < 10) return MOVE_EFFECT_X05;
+    if (power == 10) return MOVE_EFFECT_X1;
+    if (power < 40) return MOVE_EFFECT_X2;
+    return MOVE_EFFECT_X4;
+}
+
+static void FillMoveEffects(ViewState *v, u8 battler)
+{
+    u8 left = GetBattlerAtPosition(B_POSITION_OPPONENT_LEFT);
+    u8 right = (gBattleTypeFlags & BATTLE_TYPE_DOUBLE) ? GetBattlerAtPosition(B_POSITION_OPPONENT_RIGHT) : MAX_BATTLERS_COUNT;
+
+    for (int i = 0; i < MAX_MON_MOVES; ++i)
+        v->moveEffect[i] = MoveEffectOn(battler, left, v->moves4.moves[i])
+                         | MoveEffectOn(battler, right, v->moves4.moves[i]) << 4;
+}
+
+static const u8 *MoveEffectText(u8 effect, u16 *fg, u16 *shadow)
+{
+    static const char *const text[] = {"", "x0", "x1/4", "x1/2", "x1", "x2", "x4"};
+
+    if (effect >= MOVE_EFFECT_X2)
+        *fg = PackRgb(24, 136, 48), *shadow = PackRgb(168, 232, 176);
+    else if (effect == MOVE_EFFECT_X1)
+        *fg = TXT_DARK, *shadow = TXT_LIGHT;
+    else
+        *fg = TXT_RED, *shadow = TXT_LRED;
+    return Ascii(text[effect < ARRAY_COUNT(text) ? effect : 0]);
+}
+
 #define MOVE_W 150
 #define MOVE_H 80
 
@@ -4946,12 +5038,33 @@ static void MoveBody(const ViewState *s, int i)
     DrawStrRight(&sNormal, text, x + MOVE_W - 12, oy + 32, fg, sh);
     {
         int tx = DrawStr(&sSmall, Ascii(CTR_TEXT("POW ", "POT. ")), x + 12, oy + 56, TXT_DARK, TXT_LIGHT);
+        int end = DrawStr(&sSmall, data->power > 1 ? Number(data->power, 3, STR_CONV_MODE_LEFT_ALIGN) : Ascii("---"),
+                          tx, oy + 56, TXT_DARK, TXT_LIGHT);
+        int accX;
 
-        DrawStr(&sSmall, data->power > 1 ? Number(data->power, 3, STR_CONV_MODE_LEFT_ALIGN) : Ascii("---"), tx,
-                oy + 56, TXT_DARK, TXT_LIGHT);
         StringCopy(text, Ascii(CTR_TEXT("ACC ", "PREC. ")));
         StringAppend(text, data->accuracy ? Number(data->accuracy, 3, STR_CONV_MODE_LEFT_ALIGN) : Ascii("---"));
-        DrawStrRight(&sSmall, text, x + MOVE_W - 12, oy + 56, TXT_DARK, TXT_LIGHT);
+        accX = x + MOVE_W - 12 - StrWidth(&sSmall, text);
+        DrawStr(&sSmall, text, accX, oy + 56, TXT_DARK, TXT_LIGHT);
+        /* RG3DS: the effectiveness between POW and ACC, the left foe first. */
+        if (s->moveEffect[i])
+        {
+            u8 a = s->moveEffect[i] & 0xF, b = s->moveEffect[i] >> 4;
+            u16 fgA, shA, fgB, shB;
+            u8 one[8], two[8];
+            int w, gap = 3;
+
+            StringCopy(one, MoveEffectText(a, &fgA, &shA));
+            StringCopy(two, MoveEffectText(b, &fgB, &shB));
+            w = StrWidth(&sSmall, one) + (b ? gap + StrWidth(&sSmall, two) : 0);
+            if (w <= accX - end - 4)
+            {
+                int ex = DrawStr(&sSmall, one, end + (accX - end - w) / 2, oy + 56, fgA, shA);
+
+                if (b)
+                    DrawStr(&sSmall, two, ex + gap, oy + 56, fgB, shB);
+            }
+        }
     }
 }
 
@@ -4959,7 +5072,7 @@ static void DrawMovePlate(const ViewState *s, int i)
 {
     int x = i & 1 ? 164 : 6, y = i & 2 ? 106 : 20;
     u16 move = s->moves4.moves[i];
-    u32 stamp = Mix(Mix(Mix(Mix(4, move), s->moves4.currentPp[i]), s->moves4.maxPp[i]), i);
+    u32 stamp = Mix(Mix(Mix(Mix(Mix(4, move), s->moves4.currentPp[i]), s->moves4.maxPp[i]), i), s->moveEffect[i]);
 
     if (move == MOVE_NONE)
         MoveBody(s, i);
@@ -5061,6 +5174,7 @@ static void WarmView(ViewState *v, u8 battler)
         v->moves4.currentPp[i] = gBattleMons[battler].pp[i];
         v->moves4.maxPp[i] = CalculatePPWithBonus(gBattleMons[battler].moves[i], gBattleMons[battler].ppBonuses, i);
     }
+    FillMoveEffects(v, battler);
     SnapshotPartyBalls(v);
 }
 
@@ -5086,6 +5200,7 @@ static void WarmBattleMenus(void)
         key = Mix(key, v.moves4.moves[i]);
         key = Mix(key, v.moves4.currentPp[i]);
         key = Mix(key, v.moves4.maxPp[i]);
+        key = Mix(key, v.moveEffect[i]);
     }
     for (int i = 0; i < PARTY_SIZE; ++i)
         key = Mix(key, v.partyBalls[i]);
