@@ -162,4 +162,7 @@ void VoxelMesh_DraftCell(VoxelBuilder *b, const VoxelMapInstance *inst, int x, i
  * Instance 0 only, and nothing indoors, where the filler is the clear colour. */
 void VoxelMesh_EmitBorder(VoxelBuilder *builder, int x0, int y0, int x1, int y1);
 
+/* RG3DS: a model on this cave cell stands this much higher (the wall's top). */
+float VoxelMesh_CaveLift(const VoxelMapInstance *inst, int x, int y);
+
 #endif
