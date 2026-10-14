@@ -205,6 +205,8 @@ static bool sHaveDapple;
 /* Where the current map's origin lies on the ground the dapples are laid
  * over: crossing into a connected map moves the origin, not the pattern. */
 static int sDappleAnchorX, sDappleAnchorZ;
+/* RG3DS: the sun's phase, for the rays' corner (DrawRays). */
+static unsigned sRayPhase = 1;   /* VOXEL_SUN_DAY */
 /* The sun rays' mesh over the screen, linear; see MakeRays. */
 static VoxelGpuVertex *sRays;
 static unsigned sRayCount;
@@ -4639,6 +4641,7 @@ bool CtrVoxel_Update(void)
                 cave = now;
             }
         }
+        sRayPhase = phase;
         if (VoxelLighting_SetSun(phase))
         {
             ++sEpoch;
@@ -5425,7 +5428,12 @@ static void DrawRays(const VoxelLight *light, const VoxelLight *unlit)
     C3D_Mtx ortho, identity;
     C3D_TexEnv *env;
 
-    Mtx_Ortho(&ortho, 0.0f, 1.0f, 0.0f, 1.0f, 0.1f, 10.0f, false);
+    /* RG3DS: the rays fall from the sun's side: the morning sun is on the
+     * right (its shadows fall left, voxel_lighting.c), so they are mirrored */
+    if (sRayPhase == VOXEL_SUN_MORNING)
+        Mtx_Ortho(&ortho, 1.0f, 0.0f, 0.0f, 1.0f, 0.1f, 10.0f, false);
+    else
+        Mtx_Ortho(&ortho, 0.0f, 1.0f, 0.0f, 1.0f, 0.1f, 10.0f, false);
     FitToLogicalSurface(&ortho);
     Mtx_Identity(&identity);
     C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, sUniProjection, &ortho);
@@ -6404,6 +6412,11 @@ void CtrVoxel_Draw(C3D_RenderTarget *target, float eyeOffset)
     /* RG3DS: no sun dapples, rays or dust at night; the lights keep lit
      * (glow, on unless settings.txt says glow=0). */
     PrepareTimeTint();
+    /* none underground: no sun there; a low sun's shafts fainter */
+    if (VoxelWorld_Underground())
+        light.rays = 0.0f;
+    if (sRayPhase != VOXEL_SUN_DAY)
+        light.rays *= 0.6f;
     sGlow = false;
     if (sTimeTint != 0)
     {
