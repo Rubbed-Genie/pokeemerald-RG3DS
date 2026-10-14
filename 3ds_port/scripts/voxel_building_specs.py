@@ -1597,7 +1597,7 @@ SPECS = [
         "name": "cave_boulder",
         "props": "cave_boulder",
         "ground": [0x211, 0x201],
-        "rise": 2.0,
+        "rise": 2.8,
         "step": 2,
     },
     {
@@ -1605,7 +1605,7 @@ SPECS = [
         "name": "cave_pebbles",
         "props": "cave_pebbles",
         "ground": [0x211, 0x201],
-        "rise": 1.2,
+        "rise": 1.8,
         "step": 2,
     },
     {
@@ -1613,7 +1613,7 @@ SPECS = [
         "name": "cave_rockpile",
         "props": "cave_rockpile",
         "ground": [0x211, 0x201],
-        "rise": 2.0,
+        "rise": 2.8,
         "step": 2,
     },
     {

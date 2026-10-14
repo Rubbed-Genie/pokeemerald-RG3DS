@@ -1485,8 +1485,15 @@ float VoxelMesh_CaveLift(const VoxelMapInstance *inst, int x, int y)
 {
     if (!CaveRock(inst, x, y) || !VoxelBuildings_CellAt(inst, x, y, NULL, NULL))
         return 0.0f;
-    return (CaveCorner(inst, x, y) + CaveCorner(inst, x + 1, y) + CaveCorner(inst, x + 1, y + 1)
-            + CaveCorner(inst, x, y + 1)) * 0.25f;
+    {
+        /* on its highest corner: on the ramp's mean it sank into the rock */
+        float a = CaveCorner(inst, x, y), b = CaveCorner(inst, x + 1, y);
+        float c = CaveCorner(inst, x + 1, y + 1), d = CaveCorner(inst, x, y + 1);
+        float m = a > b ? a : b;
+
+        m = m > c ? m : c;
+        return m > d ? m : d;
+    }
 }
 
 void VoxelMesh_EmitInstance(VoxelBuilder *builder, const VoxelMapInstance *inst,

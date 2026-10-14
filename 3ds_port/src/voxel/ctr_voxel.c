@@ -1002,6 +1002,8 @@ static C3D_Tex sZeroMask;
 #define VOXEL_PAGE_MASK_RESERVE (256u * 1024u)
 static bool sGlow;                 /* this frame draws with the masks */
 static uint32_t sTimeTint;         /* night tint: 0 none, else ABGR constant */
+static uint32_t sTimeTintRaw;      /* the game's own, before the night's extra dark */
+static unsigned sNightKeep = 255;  /* that extra, 255 none */
 static const C3D_Tex *sUnit1;      /* what texture unit 1 holds, for its release */
 static const void *sPageTilesets[256][2];
 
@@ -6172,14 +6174,37 @@ __attribute__((weak)) unsigned char CtrLighting_WorldTint(uint16_t *r, uint16_t 
 }
 
 
+/* RG3DS: the game's own tint as it came (the lights' strength reads it), and
+ * how much darker night is made on top of it, world and sprites alike - the
+ * game's night alone read as a storm's dusk (night_dark, percent kept). */
+
 static void PrepareTimeTint(void)
 {
     uint16_t r, g, b;
 
-    sTimeTint = 0;
+    sTimeTint = sTimeTintRaw = 0;
+    sNightKeep = 255;
     if (CtrLighting_WorldTint(&r, &g, &b))
-        sTimeTint = 0xFF000000u | (uint32_t)(b > 255 ? 255 : b) << 16
-                  | (uint32_t)(g > 255 ? 255 : g) << 8 | (r > 255 ? 255 : r);
+    {
+        float avg, keep = 1.0f;
+        int pct = CtrSettings_GetInt("night_dark", 72);
+
+        if (r > 255) r = 255;
+        if (g > 255) g = 255;
+        if (b > 255) b = 255;
+        sTimeTintRaw = 0xFF000000u | (uint32_t)b << 16 | (uint32_t)g << 8 | r;
+        /* the darkening comes in as the evening goes into night */
+        avg = (float)(r + g + b) / (3.0f * 255.0f);
+        if (avg < 0.75f && pct > 0 && pct < 100)
+        {
+            float t = avg <= 0.55f ? 1.0f : (0.75f - avg) / 0.20f;
+
+            keep = 1.0f - t * (1.0f - (float)pct / 100.0f);
+        }
+        sNightKeep = (unsigned)(keep * 255.0f + 0.5f);
+        r = (uint16_t)(r * keep); g = (uint16_t)(g * keep); b = (uint16_t)(b * keep);
+        sTimeTint = 0xFF000000u | (uint32_t)b << 16 | (uint32_t)g << 8 | r;
+    }
 }
 
 static void TimeTexEnv(bool sprites)
@@ -6187,6 +6212,16 @@ static void TimeTexEnv(bool sprites)
     C3D_TexEnv *env = C3D_GetTexEnv(5);
 
     C3D_TexEnvInit(env);
+    if (sprites && sTimeTint != 0 && sNightKeep < 255)
+    {
+        /* the sprites, tinted by the game already: only the night's extra */
+        C3D_TexEnvSrc(env, C3D_RGB, GPU_PREVIOUS, GPU_CONSTANT, GPU_PREVIOUS);
+        C3D_TexEnvFunc(env, C3D_RGB, GPU_MODULATE);
+        C3D_TexEnvSrc(env, C3D_Alpha, GPU_PREVIOUS, GPU_PREVIOUS, GPU_PREVIOUS);
+        C3D_TexEnvFunc(env, C3D_Alpha, GPU_REPLACE);
+        C3D_TexEnvColor(env, 0xFF000000u | sNightKeep << 16 | sNightKeep << 8 | sNightKeep);
+        return;
+    }
     if (sprites || sTimeTint == 0 || sGlow)
         return;
     /* previous x tint */
@@ -6216,7 +6251,7 @@ static uint32_t TintAbgr(uint32_t colour, uint32_t tint)
 static void GlowTexEnvs(void)
 {
     C3D_TexEnv *env;
-    float dark = 1.0f - (float)((sTimeTint & 0xFF) + ((sTimeTint >> 8) & 0xFF) + ((sTimeTint >> 16) & 0xFF))
+    float dark = 1.0f - (float)((sTimeTintRaw & 0xFF) + ((sTimeTintRaw >> 8) & 0xFF) + ((sTimeTintRaw >> 16) & 0xFF))
                       / (3.0f * 255.0f);
     float k = dark * 0.55f > 0.30f ? 0.30f : dark * 0.55f;   /* RG3DS: a third softer */
     unsigned r = (unsigned)(255.0f * k), g = (unsigned)(230.0f * k), b = (unsigned)(123.0f * k);
@@ -6372,7 +6407,7 @@ void CtrVoxel_Draw(C3D_RenderTarget *target, float eyeOffset)
     sGlow = false;
     if (sTimeTint != 0)
     {
-        float day = (float)((sTimeTint & 0xFF) + ((sTimeTint >> 8) & 0xFF) + ((sTimeTint >> 16) & 0xFF))
+        float day = (float)((sTimeTintRaw & 0xFF) + ((sTimeTintRaw >> 8) & 0xFF) + ((sTimeTintRaw >> 16) & 0xFF))
                   / (3.0f * 255.0f);
 
         day = day < 0.6f ? 0.0f : (day - 0.6f) / 0.4f;
@@ -6664,7 +6699,7 @@ void CtrVoxel_Draw(C3D_RenderTarget *target, float eyeOffset)
     /* RG3DS: the lamps, as dark as the night is */
     if (sTimeTint != 0)
     {
-        float dark = 1.0f - (float)((sTimeTint & 0xFF) + ((sTimeTint >> 8) & 0xFF) + ((sTimeTint >> 16) & 0xFF))
+        float dark = 1.0f - (float)((sTimeTintRaw & 0xFF) + ((sTimeTintRaw >> 8) & 0xFF) + ((sTimeTintRaw >> 16) & 0xFF))
                           / (3.0f * 255.0f);
 
         SetGrade(&unlit);
