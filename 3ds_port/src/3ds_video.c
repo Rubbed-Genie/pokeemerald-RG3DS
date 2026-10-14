@@ -10412,6 +10412,25 @@ void CtrVideo_Present(void)
         sStats.prepMs = (waitStart - entry) * 1000.0f / SYSCLOCK_ARM11;
         sPerfLastBegin = start;
     }
+    /* RG3DS debug driver: "shot" in drive.txt - the top screen as drawn. */
+    {
+        extern volatile int gCtrDriveShot;
+
+        if (gCtrDriveShot)
+        {
+            char name[48];
+            FILE *shot;
+
+            gCtrDriveShot = 0;
+            snprintf(name, sizeof(name), "shot-%06lu.raw", (unsigned long)sStats.frames);
+            shot = CtrFs_OpenData(name, "wb");
+            if (shot != NULL)
+            {
+                fwrite(sTop->frameBuf.colorBuf, 4, 240 * 400, shot);
+                fclose(shot);
+            }
+        }
+    }
 #ifdef CTR_FRAME_DUMP
     /* The GPU has finished the last frame: its screens, raw, at fixed frames. */
 #ifdef CTR_DUMP_OBJWIN

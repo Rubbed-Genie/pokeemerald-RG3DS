@@ -407,10 +407,25 @@ static void UpdateSet(StageSet *set, IntrCallback callback)
     set->on = on;
 }
 
+/* RG3DS debug driver (3ds_input.c): a warp asked for in drive.txt. */
+extern volatile int gCtrDriveWarp[4];
+void DoWarp(void);
+
+static void DriveWarp(void)
+{
+    if (gCtrDriveWarp[0] < 0 || gMain.callback2 != CB2_Overworld)
+        return;
+    SetWarpDestination(gCtrDriveWarp[0], gCtrDriveWarp[1], WARP_ID_NONE, gCtrDriveWarp[2], gCtrDriveWarp[3]);
+    DoWarp();
+    gCtrDriveWarp[0] = -1;
+}
+
 static void UpdateStage(void)
 {
     IntrCallback callback = gMain.vblankCallback;
     bool caughtMonPage = CtrPokedex_IsCaughtMonPage();
+
+    DriveWarp();
 
     if (callback)
     {
