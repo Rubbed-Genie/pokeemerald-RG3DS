@@ -432,6 +432,50 @@ def slateport_museum():
     return [body]
 
 
+def slateport_tent():
+    """RG3DS: Slateport's Battle Tent (80 x 80), a striped dome over its
+    porch: lifted pixel by pixel off its own drawing (Mound), a dome every
+    column of it, so the 45-degree view sees the drawing exactly."""
+    import voxel_building as vb
+
+    layout = vb.LayoutArt("LAYOUT_SLATEPORT_CITY")
+    cells = {(cx, cy) for cx in range(5) for cy in range(5)}
+    art = layout.building_art(8, 8, 5, 5, layout.ground_tiles([GRASS]), cells=cells,
+                              ground_px=layout.ground_pixels([GRASS]))
+    return [vb.Mound("dome", art, rise=0.9, step=4)]
+
+
+def canopy(x0, x1, back_row, top_row, hem_row, foot_row, posts, lift):
+    """RG3DS: a market awning on posts (Slateport): the cloth flat on top,
+    its valance hanging at the front, posts at its front corners.
+
+    Drawn: the top from `back_row` to `top_row`, the valance down to
+    `hem_row`, the posts down to their feet at `foot_row`. Read as drawn the
+    cloth would hang at the posts' height - lower than a walker under it - so
+    the cloth and valance are lifted `lift` and moved back as far, which the
+    45-degree view sees as the same drawing; the posts stand where the
+    valance now is, taller by `lift`. `posts`: (x0, x1) columns.
+    """
+    front = foot_row + lift
+    hem = foot_row - hem_row + lift
+    top = foot_row - top_row + lift
+    back = back_row + top
+    side = Tile(x0 + 4, top_row, x0 + 12, hem_row, top=top)
+    cloth = Prism(
+        "cloth", x0, x1,
+        [(front, hem), (front, top), (back, top), (back, hem)],
+        edges={0: Proj(top_row, hem_row), 1: Proj(back_row, top_row), 2: side},
+        skip=(3,), caps=[Band(hem, top + 1, side, front)])
+    parts = [cloth]
+    for i, (a, b) in enumerate(posts):
+        wood = Tile(a, hem_row + 2, b, foot_row, top=hem)
+        parts.append(Prism(
+            "post%d" % i, a, b,
+            [(front, 0), (front, hem), (front - (b - a), hem), (front - (b - a), 0)],
+            edges={0: wood, 2: wood}, skip=(1, 3), caps=[Band(0, hem + 1, wood, front)]))
+    return parts
+
+
 def kit_house_exact(width):
     return [(2, 38, width - 2, 64), (8, 16, width - 8, 38)]
 
@@ -1622,6 +1666,37 @@ SPECS = [
         "ground": [GRASS, 0x170, 0x158, 0x159, 0x243, 0x003, 0x2de, 0x2dd, 0x34c, 0x34d, 0x34b],
         "parts": slateport_museum,
         "exact": [(0, 56, 96, 80), (8, 10, 88, 48)],
+    },
+    {
+        # RG3DS: the Battle Tent.
+        "name": "slateport_tent",
+        "lights": "auto",
+        "layout": "LAYOUT_SLATEPORT_CITY",
+        "rect": (8, 8, 5, 5),
+        "owned": {(cx, cy) for cx in range(5) for cy in range(5)},
+        "ground": [GRASS],
+        "parts": slateport_tent,
+        "exact": [(0, 0, 80, 80)],
+    },
+    {
+        # RG3DS: Slateport market's blue stalls (six, one drawing).
+        "name": "slateport_stall",
+        "layout": "LAYOUT_SLATEPORT_CITY",
+        "rect": (2, 41, 5, 3),
+        "match_rows": (0, 2),
+        "ground": [0x210, 0x211, 0x212],
+        "parts": lambda: canopy(8, 72, 1, 25, 29, 47, [(9, 12), (66, 69)], 8),
+        "exact": [(12, 2, 68, 28)],
+    },
+    {
+        # RG3DS: the orange awnings (the Battle Tent's path, the market's top).
+        "name": "slateport_awning",
+        "layout": "LAYOUT_SLATEPORT_CITY",
+        "rect": (16, 7, 5, 3),
+        "match_rows": (0, 2),
+        "ground": [GRASS],
+        "parts": lambda: canopy(8, 72, 1, 24, 31, 46, [(10, 13), (68, 71)], 10),
+        "exact": [(12, 2, 68, 30)],
     },
     {
         # RG3DS: Stern's shipyard, a flat-roofed shed: corrugated roof rows
