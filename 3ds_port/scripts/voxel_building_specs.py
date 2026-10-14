@@ -432,6 +432,17 @@ def slateport_museum():
     return [body]
 
 
+def battle_tent(layout_id, x, y, ground):
+    """RG3DS: a Battle Tent (80 x 80), lifted off its own drawing (Mound)."""
+    import voxel_building as vb
+
+    layout = vb.LayoutArt(layout_id)
+    cells = {(cx, cy) for cx in range(5) for cy in range(5)}
+    art = layout.building_art(x, y, 5, 5, layout.ground_tiles(ground), cells=cells,
+                              ground_px=layout.ground_pixels(ground))
+    return [vb.Mound("dome", art, rise=0.9, step=4)]
+
+
 def slateport_tent():
     """RG3DS: Slateport's Battle Tent (80 x 80), a striped dome over its
     porch: lifted pixel by pixel off its own drawing (Mound), a dome every
@@ -519,34 +530,44 @@ def trick_house():
     return parts
 
 
-def mauville_house(width):
-    """RG3DS: Mauville's pink-roofed houses (the bike shop, the two houses),
-    the kit's shape in the town's own drawing, any width:
-
-        rows  0- 7  the ridge's cap
-        rows  8-13  its front
-        rows 14-37  the corrugated slope
-        rows 38-39  the fascia
-        rows 40-63  the facade
-    """
+def ridged_house(width, cap, teeth, slope, fascia, facade_top):
+    """RG3DS: a house the kit's shape in a town's own drawing (Mauville's pink
+    roofs, Verdanturf's green ones), any width, from its rows: the ridge's
+    `cap`, its `teeth` (front), the `slope`, the `fascia`, the facade from
+    `facade_top` to the foot (64). The pitch is what puts the ridge's front
+    on the row it is drawn: the roof's depth is the collision's, Z 16-64."""
     front_z, back_z = 64, 16
     overhang = 2
     columns = (8, width - 8)
+    wall_top = front_z - facade_top
+    zf, zb = front_z + overhang, back_z - overhang
+    y0 = zf - fascia[1]
+    ye = y0 + (fascia[1] - fascia[0])
+    z_rf = (zf + zb) / 2.0 + (cap[1] - cap[0]) / 2.0
+    rise = (z_rf - teeth[1]) - ye
     roof = HipRoof(
-        "roof", 0, width, zf=front_z + overhang, zb=back_z - overhang, y0=26,
-        fascia=Strip((38, 40), wrap=columns),
-        slope=Strip((14, 38), wrap=columns),
-        # the ridge's teeth end on row 14: 2 up over the 22 to the ridge
-        teeth=(8, 14), cap=(0, 8), pitch=math.degrees(math.atan2(2.0, 22.0)), run=6,
-        ridge_u=(6, width - 6), end_tile=Tile(8, 8, 16, 14))
-    wall_top = 26
-    boards = Tile(9, 40, 15, 64, top=24)
+        "roof", 0, width, zf=zf, zb=zb, y0=y0,
+        fascia=Strip(fascia, wrap=columns),
+        slope=Strip(slope, wrap=columns),
+        teeth=teeth, cap=cap, pitch=math.degrees(math.atan2(rise, zf - z_rf)), run=6,
+        ridge_u=(6, width - 6), end_tile=Tile(8, teeth[0], 16, teeth[1]))
+    boards = Tile(9, facade_top, 15, 64, top=wall_top)
     base = Prism(
         "ground_floor", 2, width - 2,
-        [(front_z, 0), (front_z, wall_top), (back_z, wall_top), (back_z, 0)],
-        edges={0: Proj(40, 64), 2: boards}, skip=(1, 3),
-        caps=[Band(0, wall_top + 1, boards, front_z)])
+        [(front_z, 0), (front_z, y0), (back_z, y0), (back_z, 0)],
+        edges={0: Proj(facade_top, 64), 2: boards}, skip=(1, 3),
+        caps=[Band(0, y0 + 1, boards, front_z)])
     return [base, roof]
+
+
+def mauville_house(width):
+    """RG3DS: Mauville's pink-roofed houses (the bike shop, the two houses)."""
+    return ridged_house(width, (0, 8), (8, 14), (14, 38), (38, 40), 40)
+
+
+def verdanturf_house(width):
+    """RG3DS: Verdanturf's green-roofed houses."""
+    return ridged_house(width, (0, 7), (7, 13), (13, 37), (37, 40), 40)
 
 
 def kit_house_exact(width):
@@ -1830,6 +1851,37 @@ SPECS = [
         "ground": [GRASS, 0x108, 0x111],
         "parts": lambda: flat_block(112, 64, ((5, 26), (7, 15), (0, 5)), (26, 32), 32),
         "exact": [(4, 32, 108, 64), (6, 5, 106, 26)],
+    },
+    {
+        # RG3DS: Verdanturf's green-roofed houses (Wanda's, the Friendship
+        # Rater's, the house by the Center).
+        "name": "verdanturf_house_4",
+        "lights": "auto",
+        "layout": "LAYOUT_VERDANTURF_TOWN",
+        "rect": (0, 11, 4, 4),
+        "ground": [GRASS, 0x204, 0x205],
+        "parts": lambda: verdanturf_house(64),
+        "exact": [(2, 40, 62, 64), (8, 1, 56, 40)],  # row 0: the cap's crenels
+    },
+    {
+        "name": "verdanturf_house_5",
+        "lights": "auto",
+        "layout": "LAYOUT_VERDANTURF_TOWN",
+        "rect": (8, 11, 5, 4),
+        "ground": [GRASS, 0x204, 0x205],
+        "parts": lambda: verdanturf_house(80),
+        "exact": [(2, 40, 78, 64), (8, 1, 72, 40)],  # row 0: the cap's crenels
+    },
+    {
+        # RG3DS: Verdanturf's Battle Tent, Slateport's dome in this town's tiles.
+        "name": "verdanturf_tent",
+        "lights": "glass",
+        "layout": "LAYOUT_VERDANTURF_TOWN",
+        "rect": (1, 3, 5, 5),
+        "owned": {(cx, cy) for cx in range(5) for cy in range(5)},
+        "ground": [GRASS, 0x204],
+        "parts": lambda: battle_tent("LAYOUT_VERDANTURF_TOWN", 1, 3, [GRASS, 0x204]),
+        "exact": [(0, 0, 80, 80)],
     },
     {
         # RG3DS: the yellow block by house 1, the Cycling Road's gatehouse
