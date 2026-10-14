@@ -11,6 +11,7 @@
 #include "fieldmap.h"
 #include "sprite.h"
 #include "event_object_movement.h"
+#include "constants/event_objects.h"
 #include "field_player_avatar.h"
 #include "constants/field_effects.h"
 #include "constants/event_object_movement.h"
@@ -26,6 +27,8 @@
 #include "voxel_lighting.h"
 
 int CtrSettings_GetInt(const char *key, int fallback); /* 3ds_settings.c */
+/* The lighting patch's lamp sprites (event_object_movement.c); absent without it. */
+extern void UpdateLightSprite(struct Sprite *sprite) __attribute__((weak));
 
 /*
  * How far the cards stand forward of their tile's centre, towards the camera
@@ -1261,6 +1264,10 @@ unsigned VoxelEntities_Emit(VoxelBuilder *builder, uint16_t *atlas, const VoxelC
 
         if (!sprite->inUse || sprite->invisible || !sprite->coordOffsetEnabled || objectSprite[id])
             continue;
+        /* RG3DS: the lighting patch's lamp glows are drawn by the voxel
+         * lights (VoxelEntities_Lamps, CtrVoxel's halos), at the lamps */
+        if (UpdateLightSprite != NULL && sprite->callback == UpdateLightSprite)
+            continue;
         if (IsTemplate(sprite->template, FLDEFFOBJ_SHADOW_S, FLDEFFOBJ_SHADOW_XL)
          || CtrSprite_IsVoxelWeather(sprite))
             continue;
@@ -1445,4 +1452,50 @@ unsigned VoxelEntities_Emit(VoxelBuilder *builder, uint16_t *atlas, const VoxelC
         }
     }
     return updates;
+}
+
+/*
+ * RG3DS: the current map's lamps - the lighting patch's light object events
+ * (OBJ_EVENT_GFX_LIGHT_SPRITE), all of them, not only those whose glow
+ * sprite the GBA's small window keeps alive. Each is x, y, z, kind: a
+ * lantern (kind 0) shines from the head over its post, the tile south; a
+ * Pokemon Center's or Mart's sign light (1, 2) from the building's front.
+ */
+unsigned VoxelEntities_Lamps(float *out, unsigned max)
+{
+    unsigned count = 0;
+#ifdef OBJ_EVENT_GFX_LIGHT_SPRITE
+    const VoxelMapInstance *inst = VoxelWorld_Instance(0);
+
+    if (inst == NULL || inst->indoor || gMapHeader.events == NULL)
+        return 0;
+    for (unsigned i = 0; i < gMapHeader.events->objectEventCount && count < max; ++i)
+    {
+        const struct ObjectEventTemplate *t = &gMapHeader.events->objectEvents[i];
+        float x, z;
+
+        if (t->graphicsId != OBJ_EVENT_GFX_LIGHT_SPRITE)
+            continue;
+        x = (float)(inst->originX + t->x) + 0.5f;
+        z = (float)(inst->originY + t->y);
+        if (t->trainerRange_berryTreeId == 0)
+        {
+            z += 1.5f;                      /* the post's tile */
+            out[count * 4 + 1] = VoxelRelief_LiftAt(x, z) + 1.35f;
+        }
+        else
+        {
+            z += 0.9f;
+            out[count * 4 + 1] = VoxelRelief_LiftAt(x, z) + 0.9f;
+        }
+        out[count * 4 + 0] = x;
+        out[count * 4 + 2] = z;
+        out[count * 4 + 3] = (float)t->trainerRange_berryTreeId;
+        ++count;
+    }
+#else
+    (void)out;
+    (void)max;
+#endif
+    return count;
 }

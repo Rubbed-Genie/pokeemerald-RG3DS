@@ -55,4 +55,7 @@ unsigned VoxelEntities_Emit(VoxelBuilder *builder, uint16_t *atlas,
                             const VoxelCamera *camera, VoxelBuilder *shadows,
                             VoxelBuilder *reflections);
 
+/* RG3DS: the current map's lamps, 4 floats each (x, y, z, kind); the count. */
+unsigned VoxelEntities_Lamps(float *out, unsigned max);
+
 #endif

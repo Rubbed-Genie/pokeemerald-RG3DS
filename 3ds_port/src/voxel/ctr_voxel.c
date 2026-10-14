@@ -5505,6 +5505,82 @@ static void MoteVertex(VoxelGpuVertex *v, float x, float y, float z, float stren
 }
 
 /*
+ * RG3DS: the lamps' halos at night - the lighting patch's lamps
+ * (VoxelEntities_Lamps), each a soft disc facing the camera, its centre at
+ * full strength and its rim at none, added over the scene in the warm light
+ * colour of the game's own (DEFAULT_LIGHT_COLOR). As bright as the night is
+ * dark; none by day.
+ */
+#define VOXEL_HALOS_MAX 24u
+#define VOXEL_HALO_SEGMENTS 10u
+#define VOXEL_HALO_VERTICES (VOXEL_HALO_SEGMENTS * 3u)
+static VoxelGpuVertex *sHalos;
+
+static void DrawHalos(const C3D_Mtx *view, float dark)
+{
+    float lamps[VOXEL_HALOS_MAX * 4];
+    unsigned count = VoxelEntities_Lamps(lamps, VOXEL_HALOS_MAX);
+    int originX = (int)floorf(sCamera.targetX), originZ = (int)floorf(sCamera.targetZ);
+    VoxelGpuVertex *v;
+    unsigned strength;
+    C3D_TexEnv *env;
+
+    if (count == 0 || dark <= 0.05f)
+        return;
+    if (sHalos == NULL)
+        sHalos = linearAlloc(VOXEL_HALOS_MAX * VOXEL_HALO_VERTICES * sizeof(VoxelGpuVertex));
+    if (sHalos == NULL)
+        return;
+    strength = (unsigned)((dark > 1.0f ? 1.0f : dark) * 200.0f);
+    v = sHalos;
+    for (unsigned i = 0; i < count; ++i)
+    {
+        float cx = lamps[i * 4 + 0] - (float)originX, cy = lamps[i * 4 + 1], cz = lamps[i * 4 + 2] - (float)originZ;
+        float radius = lamps[i * 4 + 3] == 0.0f ? 0.95f : 0.75f;
+        float rx = view->r[0].x * radius, ry = view->r[0].y * radius, rz = view->r[0].z * radius;
+        float ux = view->r[1].x * radius, uy = view->r[1].y * radius, uz = view->r[1].z * radius;
+
+        for (unsigned k = 0; k < VOXEL_HALO_SEGMENTS; ++k)
+        {
+            float a0 = 6.2831853f * (float)k / VOXEL_HALO_SEGMENTS;
+            float a1 = 6.2831853f * (float)(k + 1) / VOXEL_HALO_SEGMENTS;
+            float c0 = cosf(a0), s0 = sinf(a0), c1 = cosf(a1), s1 = sinf(a1);
+
+            MoteVertex(&v[0], cx, cy, cz, 1.0f);
+            MoteVertex(&v[1], cx + rx * c0 + ux * s0, cy + ry * c0 + uy * s0, cz + rz * c0 + uz * s0, 0.0f);
+            MoteVertex(&v[2], cx + rx * c1 + ux * s1, cy + ry * c1 + uy * s1, cz + rz * c1 + uz * s1, 0.0f);
+            v += 3;
+        }
+    }
+    GSPGPU_FlushDataCache(sHalos, count * VOXEL_HALO_VERTICES * sizeof(VoxelGpuVertex));
+
+    SetModelView(view, originX, originZ);
+    env = C3D_GetTexEnv(0);
+    C3D_TexEnvInit(env);
+    C3D_TexEnvSrc(env, C3D_RGB, GPU_CONSTANT, GPU_CONSTANT, GPU_CONSTANT);
+    C3D_TexEnvFunc(env, C3D_RGB, GPU_REPLACE);
+    C3D_TexEnvSrc(env, C3D_Alpha, GPU_PRIMARY_COLOR, GPU_CONSTANT, GPU_CONSTANT);
+    C3D_TexEnvOpAlpha(env, GPU_TEVOP_A_SRC_R, GPU_TEVOP_A_SRC_ALPHA, GPU_TEVOP_A_SRC_ALPHA);
+    C3D_TexEnvFunc(env, C3D_Alpha, GPU_MODULATE);
+    C3D_TexEnvScale(env, C3D_Alpha, GPU_TEVSCALE_2);
+    /* 0xAABBGGRR: DEFAULT_LIGHT_COLOR 0x3F9F, a warm yellow */
+    C3D_TexEnvColor(env, (strength << 24) | 0x7BE6FFu);
+    C3D_TexEnvInit(C3D_GetTexEnv(1));
+    C3D_TexEnvInit(C3D_GetTexEnv(2));
+    FadeFor(false);
+    C3D_TexEnvInit(C3D_GetTexEnv(5));     /* the halo is the light: no night tint */
+
+    C3D_AlphaTest(false, GPU_ALWAYS, 0);
+    C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_COLOR);
+    C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, GPU_SRC_ALPHA, GPU_ONE, GPU_ZERO, GPU_ONE);
+    BindVertices(sHalos);
+    C3D_DrawArrays(GPU_TRIANGLES, 0, (int)(count * VOXEL_HALO_VERTICES));
+    C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_ALL);
+    C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD,
+                   GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA, GPU_ZERO, GPU_ONE);
+}
+
+/*
  * Colour is the constant warm white; alpha is the vertex's strength (the
  * twinkle, gone at the corners) x the light's. Added over what is behind.
  */
@@ -6480,6 +6556,15 @@ void CtrVoxel_Draw(C3D_RenderTarget *target, float eyeOffset)
     /* Before the rays, which leave the orthographic projection behind. */
     if (sMotes != NULL && light.motes > 0.005f)
         DrawMotes(&view, &light, &unlit);
+    /* RG3DS: the lamps, as dark as the night is */
+    if (sTimeTint != 0)
+    {
+        float dark = 1.0f - (float)((sTimeTint & 0xFF) + ((sTimeTint >> 8) & 0xFF) + ((sTimeTint >> 16) & 0xFF))
+                          / (3.0f * 255.0f);
+
+        SetGrade(&unlit);
+        DrawHalos(&view, dark * 2.5f - 0.25f);
+    }
 #endif
 #if CTR_VOXEL_LIGHTING
     {
