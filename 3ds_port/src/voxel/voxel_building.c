@@ -42,6 +42,7 @@
 
 #ifndef VOXEL_BUILDINGS_PATH
 #define VOXEL_BUILDINGS_PATH "voxel/buildings.bin"
+#define VOXEL_LIGHTS_PATH "voxel/lights.bin"   /* RG3DS: the windows' spill */
 #endif
 
 typedef struct
@@ -744,4 +745,68 @@ void VoxelBuildings_EmitInstance(VoxelBuilder *builder, const VoxelMapInstance *
     VoxelBuildingCursor cursor = { 0, 0, 0 };
 
     VoxelBuildings_EmitSome(builder, inst, x0, y0, x1, y1, &cursor, UINT32_MAX);
+}
+
+/* ── RG3DS: the windows' light on the ground ────────────────────────────── */
+
+typedef struct
+{
+    uint16_t layout;
+    int16_t x, z;       /* sixteenths of a tile, the layout's own */
+    uint8_t width, strength;
+} WindowSpill;
+
+static WindowSpill *sSpill;
+static unsigned sSpillCount;
+static bool sSpillTried;
+
+static void LoadSpill(void)
+{
+    FILE *file;
+    uint8_t head[8], row[8];
+
+    sSpillTried = true;
+    file = VoxelFile_Open(VOXEL_LIGHTS_PATH);
+    if (file == NULL)
+        return;
+    if (fread(head, 1, 8, file) == 8 && memcmp(head, "VXL1", 4) == 0)
+    {
+        unsigned n = U32(head + 4);
+
+        sSpill = malloc(n * sizeof(*sSpill) + 1);
+        for (unsigned i = 0; sSpill != NULL && i < n && fread(row, 1, 8, file) == 8; ++i)
+        {
+            sSpill[i].layout = (uint16_t)U16(row);
+            sSpill[i].x = (int16_t)U16(row + 2);
+            sSpill[i].z = (int16_t)U16(row + 4);
+            sSpill[i].width = row[6];
+            sSpill[i].strength = row[7];
+            sSpillCount = i + 1;
+        }
+        PORT_LOG("[VIDEO] VOXEL lights: %u windows\n", sSpillCount);
+    }
+    fclose(file);
+}
+
+/* The lit windows of a map on screen: x, z (world tiles, the ground in front
+ * of the building), width (tiles), strength (0-1), four floats each. */
+unsigned VoxelBuildings_Windows(const VoxelMapInstance *inst, float *out, unsigned max)
+{
+    unsigned count = 0;
+
+    if (!sSpillTried)
+        LoadSpill();
+    if (inst == NULL || inst->indoor)
+        return 0;
+    for (unsigned i = 0; i < sSpillCount && count < max; ++i)
+    {
+        if (sSpill[i].layout != (unsigned)inst->layoutId)
+            continue;
+        out[count * 4 + 0] = (float)inst->originX + sSpill[i].x / 16.0f;
+        out[count * 4 + 1] = (float)inst->originY + sSpill[i].z / 16.0f;
+        out[count * 4 + 2] = sSpill[i].width / 16.0f;
+        out[count * 4 + 3] = sSpill[i].strength / 255.0f;
+        ++count;
+    }
+    return count;
 }

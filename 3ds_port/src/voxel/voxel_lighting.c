@@ -142,8 +142,10 @@ static unsigned sSunPhase = VOXEL_SUN_DAY;
 bool VoxelLighting_SetSun(unsigned phase)
 {
     /* shadows per tile of height: morning's long to the west, evening's
-     * long to the east, the moon's short */
-    static const float sun[4][2] = {{-1.30f, 0.60f}, {0.85f, 0.55f}, {1.45f, 0.60f}, {0.35f, 0.45f}};
+     * long to the east; the night's straight down - no long shadows, the
+     * lamps and windows are its light, only overhangs shade and a walker
+     * keeps a shadow at its feet */
+    static const float sun[4][2] = {{-1.30f, 0.60f}, {0.85f, 0.55f}, {1.45f, 0.60f}, {0.05f, 0.12f}};
 
     if (phase > VOXEL_SUN_NIGHT || phase == sSunPhase)
         return false;

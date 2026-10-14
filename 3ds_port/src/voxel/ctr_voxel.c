@@ -5512,8 +5512,10 @@ static void MoteVertex(VoxelGpuVertex *v, float x, float y, float z, float stren
  * dark; none by day.
  */
 #define VOXEL_HALOS_MAX 24u
+#define VOXEL_WINDOW_POOLS_MAX 64u
 #define VOXEL_HALO_SEGMENTS 10u
-#define VOXEL_HALO_VERTICES (VOXEL_HALO_SEGMENTS * 3u)
+#define VOXEL_HALO_VERTICES (VOXEL_HALO_SEGMENTS * 6u)   /* the halo, then its pool */
+#define VOXEL_POOL_STRENGTH 0.55f
 static VoxelGpuVertex *sHalos;
 
 static void DrawHalos(const C3D_Mtx *view, float dark)
@@ -5525,10 +5527,19 @@ static void DrawHalos(const C3D_Mtx *view, float dark)
     unsigned strength;
     C3D_TexEnv *env;
 
-    if (count == 0 || dark <= 0.05f)
+    float windows[VOXEL_WINDOW_POOLS_MAX * 4];
+    unsigned windowCount = 0, vertices;
+
+    /* RG3DS: and the light of the lit windows on the ground in front of
+     * them, every map on screen's (VoxelBuildings_Windows) */
+    for (unsigned m = 0; m < VoxelWorld_InstanceCount() && windowCount < VOXEL_WINDOW_POOLS_MAX; ++m)
+        windowCount += VoxelBuildings_Windows(VoxelWorld_Instance(m), windows + windowCount * 4,
+                                              VOXEL_WINDOW_POOLS_MAX - windowCount);
+    if ((count == 0 && windowCount == 0) || dark <= 0.05f)
         return;
     if (sHalos == NULL)
-        sHalos = linearAlloc(VOXEL_HALOS_MAX * VOXEL_HALO_VERTICES * sizeof(VoxelGpuVertex));
+        sHalos = linearAlloc((VOXEL_HALOS_MAX * VOXEL_HALO_VERTICES
+                              + VOXEL_WINDOW_POOLS_MAX * VOXEL_HALO_SEGMENTS * 3u) * sizeof(VoxelGpuVertex));
     if (sHalos == NULL)
         return;
     strength = (unsigned)((dark > 1.0f ? 1.0f : dark) * 200.0f);
@@ -5551,8 +5562,45 @@ static void DrawHalos(const C3D_Mtx *view, float dark)
             MoteVertex(&v[2], cx + rx * c1 + ux * s1, cy + ry * c1 + uy * s1, cz + rz * c1 + uz * s1, 0.0f);
             v += 3;
         }
+        /* and the pool it lays on the ground under it: flat, wider, fainter
+         * (VOXEL_POOL_STRENGTH of the halo's) */
+        {
+            float gy = cy - (lamps[i * 4 + 3] == 0.0f ? 1.35f : 0.9f) + 0.03f;
+            float pr = lamps[i * 4 + 3] == 0.0f ? 2.2f : 1.6f;
+            float pz = cz + (lamps[i * 4 + 3] == 0.0f ? 0.0f : 0.6f);
+
+            for (unsigned k = 0; k < VOXEL_HALO_SEGMENTS; ++k)
+            {
+                float a0 = 6.2831853f * (float)k / VOXEL_HALO_SEGMENTS;
+                float a1 = 6.2831853f * (float)(k + 1) / VOXEL_HALO_SEGMENTS;
+
+                MoteVertex(&v[0], cx, gy, pz, VOXEL_POOL_STRENGTH);
+                MoteVertex(&v[1], cx + pr * cosf(a0), gy, pz + pr * sinf(a0), 0.0f);
+                MoteVertex(&v[2], cx + pr * cosf(a1), gy, pz + pr * sinf(a1), 0.0f);
+                v += 3;
+            }
+        }
     }
-    GSPGPU_FlushDataCache(sHalos, count * VOXEL_HALO_VERTICES * sizeof(VoxelGpuVertex));
+    for (unsigned i = 0; i < windowCount; ++i)
+    {
+        float wx = windows[i * 4 + 0], wz = windows[i * 4 + 1] + 0.55f;
+        float gy = VoxelRelief_LiftAt(wx, wz) + 0.03f;
+        float rx = 0.35f + windows[i * 4 + 2] * 0.6f, rz = 0.9f;
+        float cx = wx - (float)originX, cz = wz - (float)originZ;
+
+        for (unsigned k = 0; k < VOXEL_HALO_SEGMENTS; ++k)
+        {
+            float a0 = 6.2831853f * (float)k / VOXEL_HALO_SEGMENTS;
+            float a1 = 6.2831853f * (float)(k + 1) / VOXEL_HALO_SEGMENTS;
+
+            MoteVertex(&v[0], cx, gy, cz, VOXEL_POOL_STRENGTH * windows[i * 4 + 3]);
+            MoteVertex(&v[1], cx + rx * cosf(a0), gy, cz + rz * sinf(a0), 0.0f);
+            MoteVertex(&v[2], cx + rx * cosf(a1), gy, cz + rz * sinf(a1), 0.0f);
+            v += 3;
+        }
+    }
+    vertices = count * VOXEL_HALO_VERTICES + windowCount * VOXEL_HALO_SEGMENTS * 3u;
+    GSPGPU_FlushDataCache(sHalos, vertices * sizeof(VoxelGpuVertex));
 
     SetModelView(view, originX, originZ);
     env = C3D_GetTexEnv(0);
@@ -5574,7 +5622,7 @@ static void DrawHalos(const C3D_Mtx *view, float dark)
     C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_COLOR);
     C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, GPU_SRC_ALPHA, GPU_ONE, GPU_ZERO, GPU_ONE);
     BindVertices(sHalos);
-    C3D_DrawArrays(GPU_TRIANGLES, 0, (int)(count * VOXEL_HALO_VERTICES));
+    C3D_DrawArrays(GPU_TRIANGLES, 0, (int)vertices);
     C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_ALL);
     C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD,
                    GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA, GPU_ZERO, GPU_ONE);

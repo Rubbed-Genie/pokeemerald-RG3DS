@@ -1637,6 +1637,28 @@ def export(models, path):
     lit_pages = sum(1 for o in offsets if o)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     open(path, "wb").write(blob)
+    # RG3DS: lights.bin - where each placed building's lit windows spill on
+    # the ground at night: per window, its layout, x of its middle and z
+    # of the ground in front of the building (sixteenths of a tile), its
+    # width (sixteenths) and its strength (0-255, fainter higher up).
+    spill = []
+    for (lid_, index, px, py, ground, cells, name) in found:
+        m = models[index]
+        w, h = m.cells
+        H = m.art.size[1]
+        for rect in model_lights(m):
+            x0, y0, x1, y1 = rect[:4]
+            above = (H - y1) / 16.0          # how high the pane is off the ground
+            strength = max(60, int(230 - 55 * max(0.0, above - 0.2)))
+            spill.append((lid_, int(round((px + (x0 + x1) / 32.0) * 16)), int(round((py + h) * 16)),
+                          max(1, x1 - x0), strength))
+    spill.sort()
+    lights_path = os.path.join(os.path.dirname(path), "lights.bin")
+    with open(lights_path, "wb") as f:
+        f.write(b"VXL1" + struct.pack("<I", len(spill)))
+        for (lid_, x, z, width, strength) in spill:
+            f.write(struct.pack("<HhhBB", lid_, x, z, width, strength))
+    print("voxel lights: %d windows -> %s" % (len(spill), lights_path))
     print("voxel buildings: %d models, %d pages (%d with lights), %d placements, %d vertices, "
           "%d footprints, %.1f KiB -> %s" % (len(models), len(pages), lit_pages, len(placements),
                                              nverts, len(masks), len(blob) / 1024.0, path))

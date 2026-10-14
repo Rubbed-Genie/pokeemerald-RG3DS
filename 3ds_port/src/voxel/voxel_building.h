@@ -106,4 +106,8 @@ bool VoxelBuildings_EmitSome(VoxelBuilder *builder, const VoxelMapInstance *inst
                              int x0, int y0, int x1, int y1, VoxelBuildingCursor *cursor,
                              unsigned triangles);
 
+/* RG3DS: the lit windows of a map on screen, 4 floats each (x, z of the
+ * ground in front, width, strength); the count. */
+unsigned VoxelBuildings_Windows(const VoxelMapInstance *inst, float *out, unsigned max);
+
 #endif
