@@ -1208,6 +1208,33 @@ def house1():
     ])
 
 
+# RG3DS: the Seashore House (Route 109): its mats and their stripes, and
+# its back wall's planks, swim rings and trim
+SEASHORE_FLOOR = ("e6e6b4", "c5cd94", "f6f6cd", "b4b48b", "7bc5b4", "52ac94")
+SEASHORE_WALL = ("e6c562", "bd9c4a", "c5c57b", "ffffff", "414a6a")
+
+
+def seashore_house():
+    fl, wl = SEASHORE_FLOOR, SEASHORE_WALL
+    return [
+        # the benches, three rows of them
+        piece("bench_1", [(0, 64, 32, 80), (48, 64, 96, 80), (128, 64, 176, 80), (208, 64, 240, 80)],
+              8, leave=fl, solid=True),
+        piece("bench_2", [(0, 96, 32, 112), (48, 96, 96, 112), (128, 96, 176, 112), (208, 96, 240, 112)],
+              8, leave=fl, solid=True),
+        piece("bench_3", [(0, 128, 32, 144), (208, 128, 240, 144)], 8, leave=fl, solid=True),
+        # the drinks fridges either side, against the back wall
+        piece("fridge_w", [(16, 16, 48, 48)], 20, leave=wl + fl, back=32),
+        piece("fridge_e", [(192, 16, 224, 48)], 20, leave=wl + fl, back=32),
+        # the owner's little table (his stool is another room's chair, found
+        # there by its tiles)
+        piece("counter", [(112, 32, 128, 48)], 10, leave=wl + fl, solid=True),
+        piece("wall", [(0, 0, 240, 32)], 32, fill=16, foot=32, side=(64, 0, 80, 32)),
+        piece("side_w", [], 32, side=(64, 0, 80, 32), walls=[((0, 160), (0, 32))]),
+        piece("side_e", [], 32, side=(64, 0, 80, 32), walls=[((240, 32), (240, 160))]),
+    ]
+
+
 def house2():
     fl = GENERIC_FLOOR
     # the east chairs' seats and the plant are the first house's, pixel for
@@ -2199,6 +2226,47 @@ SPECS = [
         # RG3DS: a lounger on the sand, a little rounded off it.
         "name": "lounger", "props": "lounger", "ground": [0x124],
         "rise": 0.35, "step": 2,
+    },
+    # RG3DS: Slateport market's goods, rounded off their drawings
+    {
+        "name": "goods_550", "props": "goods_550", "ground": [0x211, 0x210, 0x212, 0x202],
+        "rise": 1.3, "step": 2,
+    },
+    {
+        "name": "goods_614", "props": "goods_614", "ground": [0x211, 0x210, 0x212, 0x202],
+        "rise": 1.3, "step": 2,
+    },
+    {
+        "name": "goods_548", "props": "goods_548", "ground": [0x211, 0x210, 0x212, 0x202],
+        "rise": 1.3, "step": 2,
+    },
+    {
+        "name": "goods_518", "props": "goods_518", "ground": [0x211, 0x210, 0x212, 0x202],
+        "rise": 1.3, "step": 2,
+    },
+    {
+        "name": "goods_514", "props": "goods_514", "ground": [0x211, 0x210, 0x212, 0x202],
+        "rise": 1.3, "step": 2,
+    },
+    {
+        "name": "goods_516", "props": "goods_516", "ground": [0x211, 0x210, 0x212, 0x202],
+        "rise": 1.3, "step": 2,
+    },
+    {
+        "name": "goods_650", "props": "goods_650", "ground": [0x211, 0x210, 0x212, 0x202],
+        "rise": 1.3, "step": 2,
+    },
+    {
+        "name": "goods_648", "props": "goods_648", "ground": [0x211, 0x210, 0x212, 0x202],
+        "rise": 1.3, "step": 2,
+    },
+    {
+        "name": "goods_736", "props": "goods_736", "ground": [0x211, 0x210, 0x212, 0x202],
+        "rise": 1.3, "step": 2,
+    },
+    {
+        "name": "goods_889", "props": "goods_889", "ground": [0x211, 0x210, 0x212, 0x202],
+        "rise": 1.3, "step": 2,
     },
     {
         # RG3DS: the cave's boulder, a rounded rock on the floor.
