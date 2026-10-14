@@ -96,7 +96,7 @@ static void DrawText(const char *text, float x, float y, u32 colour)
 
 /* ── Rows ──────────────────────────────────────────────────────────────── */
 
-enum { ROW_TIME, ROW_GLOW, ROW_GLOW_DEBUG, ROW_FPS, ROW_SPEED, ROW_COUNT };
+enum { ROW_TIME, ROW_GLOW, ROW_GLOW_DEBUG, ROW_FPS, ROW_SPEED, ROW_ZLZR, ROW_COUNT };
 
 static const char *const sTimeNames[] = {"REAL CLOCK", "MORNING", "DAY", "EVENING", "NIGHT"};
 static const int sTimeHours[] = {-1, 8, 12, 19, 22};
@@ -131,9 +131,13 @@ static void RowText(int row, char *label, char *value, size_t size)
         strcpy(label, "FPS COUNTER");
         snprintf(value, size, "%s", CtrSettings_ShowFps() ? "ON" : "OFF");
         break;
-    default:
+    case ROW_SPEED:
         strcpy(label, "SPEED");
         snprintf(value, size, "X%d", CtrSettings_Speed());
+        break;
+    default:
+        strcpy(label, "L2/R2 HELD");
+        snprintf(value, size, "%s", CtrSettings_GetInt("zlzr_auto_a", 0) ? "TURBO A" : "SPEED");
         break;
     }
 }
@@ -161,8 +165,11 @@ static void ChangeRow(int row, int direction)
     case ROW_FPS:
         CtrSettings_SetShowFps(!CtrSettings_ShowFps());
         break;
-    default:
+    case ROW_SPEED:
         CtrSettings_StepSpeed(direction, true);
+        break;
+    default:
+        CtrSettings_SetInt("zlzr_auto_a", !CtrSettings_GetInt("zlzr_auto_a", 0));
         break;
     }
 }
@@ -175,14 +182,22 @@ static float sDrop;      /* 0 hidden .. 1 fully down */
 static int sChord;       /* frames since the first of ZL/ZR went down, 0 none */
 static bool sChordUsed;  /* both went down: no speed step on release */
 static uint32_t sLast;   /* last frame's held ZL/ZR */
+static bool sTurbo;      /* this hold was turbo A: no speed step on release */
 
 bool CtrDevMenu_Open(void)
 {
     return sOpen;
 }
 
-/* held/down: hidKeysHeld/hidKeysDown. Returns the game buttons to clear. */
-uint32_t CtrDevMenu_Input(uint32_t held, uint32_t down)
+/* Frames ZL/ZR alone must be held before turbo A starts: time for the
+ * other to join it (the menu's chord). */
+#define TURBO_DELAY 8
+/* A pressed this many frames of every TURBO_PERIOD while held. */
+#define TURBO_PERIOD 6
+
+/* held/down: hidKeysHeld/hidKeysDown. Returns the game buttons to clear;
+ * *pressA set when the game should see A this frame (turbo). */
+uint32_t CtrDevMenu_Input(uint32_t held, uint32_t down, bool *pressA)
 {
     uint32_t z = held & (KEY_ZL | KEY_ZR);
     uint32_t released = sLast & ~z;
@@ -202,8 +217,18 @@ uint32_t CtrDevMenu_Input(uint32_t held, uint32_t down)
         /* one of them alone, open: change the row */
         ChangeRow(sRow, (released & KEY_ZR) ? 1 : -1);
     }
-    else if (!sOpen && !sChordUsed && released && z == 0)
+    else if (!sOpen && !sChordUsed && released && z == 0 && !sTurbo)
         CtrSettings_StepSpeed((released & KEY_ZR) ? 1 : -1, false);
+    /* RG3DS: L2/R2 held on its own as turbo A (the dev menu's choice) */
+    *pressA = false;
+    if (!sOpen && !sChordUsed && z != 0 && z != (KEY_ZL | KEY_ZR) && sChord > TURBO_DELAY
+     && CtrSettings_GetInt("zlzr_auto_a", 0))
+    {
+        sTurbo = true;
+        *pressA = ((sChord - TURBO_DELAY) % TURBO_PERIOD) < TURBO_PERIOD / 2;
+    }
+    if (z == 0 && !released)
+        sTurbo = false;
     if (z == 0)
         sChord = 0;
     else if (sChord)
