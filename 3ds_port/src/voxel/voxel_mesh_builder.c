@@ -1427,22 +1427,29 @@ static float CaveNearFloorAdjacent(const VoxelMapInstance *inst, int x, int y)
     return best;
 }
 
-/* The highest floor beside a rock cell, side by side: the level a cliff
- * between two floors stands up to. */
+/* The highest floor round a rock cell: the level a cliff between two
+ * floors stands up to. */
 static float CaveRockBase(const VoxelMapInstance *inst, int x, int y)
 {
-    static const int n4[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
-    float best = 0.0f;
+    return CaveNearFloorAdjacent(inst, x, y);
+}
 
-    for (unsigned k = 0; k < 4; ++k)
-        if (CaveFloorCell(inst, x + n4[k][0], y + n4[k][1]))
-        {
-            float f = CaveFloorLevel(inst, x + n4[k][0], y + n4[k][1]);
+/* Rock between an upper floor and a lower one, touching both: a cliff,
+ * standing flush with the upper floor, its turns and ends with it. */
+static bool CaveCliff(const VoxelMapInstance *inst, int x, int y)
+{
+    float hi = 0.0f, lo = 1e9f;
 
-            if (f > best)
-                best = f;
-        }
-    return best;
+    for (int dy = -1; dy <= 1; ++dy)
+        for (int dx = -1; dx <= 1; ++dx)
+            if ((dx || dy) && CaveFloorCell(inst, x + dx, y + dy))
+            {
+                float f = CaveFloorLevel(inst, x + dx, y + dy);
+
+                if (f > hi) hi = f;
+                if (f < lo) lo = f;
+            }
+    return hi > 0.0f && lo < hi;
 }
 
 /* Rock that stands as rock: a modelled rock (cave_boulder ...) only when it
@@ -1509,6 +1516,8 @@ static float CaveCellHeight(const VoxelMapInstance *inst, int x, int y)
         if (edge && d >= 2)
             d = 5;
     }
+    if (CaveCliff(inst, x, y))
+        return CaveRockBase(inst, x, y);
     return CaveNearFloor(inst, x, y) + rise[d] * top;
 }
 
@@ -1611,9 +1620,7 @@ static void EmitCaveRock(VoxelBuilder *builder, const VoxelMapInstance *inst, in
 
         /* RG3DS: a cliff up to an upper floor shows its band on its face;
          * its top is that floor's */
-        if (edge && open[0] && CaveFloorCell(inst, x, y + 1)
-            && CaveFloorLevel(inst, x, y + 1) < CaveRockBase(inst, x, y)
-            && MetatileUV(builder, 0x211, &t0, &s0, &t1, &s1))
+        if (edge && CaveCliff(inst, x, y) && MetatileUV(builder, 0x211, &t0, &s0, &t1, &s1))
             edge = false;
         float a0 = edge ? u0 : t0, b0 = edge ? v0 : s0, a1 = edge ? u1 : t1, b1 = edge ? v1 : s1;
 
@@ -1639,6 +1646,35 @@ static void EmitCaveRock(VoxelBuilder *builder, const VoxelMapInstance *inst, in
          * own edge, a step into the dark) */
         if ((k == 0 ? se + sw : k == 1 ? ne + se : nw + sw) < 0.01f && lo == 0.0f)
             continue;
+        /* RG3DS: a tall face (a cliff between floors) rounded: its foot
+         * pushed out and its lip curving in, not a box's side */
+        if (lo >= 0.0f && (k == 0 ? (se < sw ? se : sw) : k == 1 ? (ne < se ? ne : se) : (nw < sw ? nw : sw)) - lo > 0.45f)
+        {
+            static const float prof[4][2] = {{0.0f, 0.28f}, {0.5f, 0.24f}, {0.8f, 0.13f}, {1.0f, 0.0f}};
+            /* the edge's two ends (bottom-left, bottom-right seen from
+             * outside), their heights, and outward */
+            float ax = k == 0 ? x0 : k == 1 ? x1 : x0, az = k == 0 ? z1 : k == 1 ? z1 : z0;
+            float bx = k == 0 ? x1 : k == 1 ? x1 : x0, bz = k == 0 ? z1 : k == 1 ? z0 : z1;
+            float ha = k == 0 ? sw : k == 1 ? se : nw, hb = k == 0 ? se : k == 1 ? ne : sw;
+            float ox = k == 0 ? 0.0f : k == 1 ? 1.0f : -1.0f, oz = k == 0 ? 1.0f : 0.0f;
+            /* along the edge: a south face runs on past an open end, round
+             * the corner */
+            float ex = k == 0 ? 1.0f : 0.0f;
+            float ea = k == 0 && open[2] ? 1.0f : 0.0f, eb = k == 0 && open[1] ? 1.0f : 0.0f;
+
+            for (unsigned r = 0; r < 3; ++r)
+            {
+                float t0 = prof[r][0], t1 = prof[r + 1][0], o0 = prof[r][1], o1 = prof[r + 1][1];
+                float va = v1 + (v0 - v1) * t0, vb = v1 + (v0 - v1) * t1;
+
+                VoxelBuilder_Quad(builder,
+                    &(VoxelVertex){ax + ox * o0 - ex * ea * o0, lo + (ha - lo) * t0, az + oz * o0, u0, va, faceShade},
+                    &(VoxelVertex){bx + ox * o0 + ex * eb * o0, lo + (hb - lo) * t0, bz + oz * o0, u1, va, faceShade},
+                    &(VoxelVertex){bx + ox * o1 + ex * eb * o1, lo + (hb - lo) * t1, bz + oz * o1, u1, vb, faceShade},
+                    &(VoxelVertex){ax + ox * o1 - ex * ea * o1, lo + (ha - lo) * t1, az + oz * o1, u0, vb, faceShade});
+            }
+            continue;
+        }
         if (k == 0)
             VoxelBuilder_Quad(builder,
                 &(VoxelVertex){x0, lo, z1, u0, v1, faceShade}, &(VoxelVertex){x1, lo, z1, u1, v1, faceShade},
