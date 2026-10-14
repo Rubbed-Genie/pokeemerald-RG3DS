@@ -33,6 +33,15 @@ int VoxelTree_Part(const void *secondaryTileset, int metatileId)
     /* A large tree's lower row under a small tree's canopy top. */
     case 0x1EC: return 2;
     case 0x1ED: return 3;
+    /* RG DS branch: a staggered wood (Petalburg Woods, Petalburg City,
+     * Rustboro, Route 117, the Safari Zone): the trunks with the next row's
+     * crowns at their sides (1F3 left, 1F2 right), and the crown top over the
+     * dark canopy (1FC/1FD). Unlisted, the crowns stood on nothing and the
+     * trunks were walls that cut the crowns behind them off square. */
+    case 0x1FC: return 0;
+    case 0x1FD: return 1;
+    case 0x1F3: return 2;
+    case 0x1F2: return 3;
     /* Small trees: the edge of a wood, and inside it where the next crown
      * overlaps the trunk. 1F4-1F5 also carry a neighbour's leaves. */
     case 0x016: case 0x017: case 0x0C6: case 0x0C7:
