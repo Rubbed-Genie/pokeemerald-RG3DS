@@ -101,6 +101,11 @@ OBJECTS = {
                   "palette": 7, "grid": ((736, 737), (738, 739))},
     "goods_889": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Slateport",
                   "palette": 11, "grid": ((889, 890), (891, 892))},
+    # the pots by the beach's rail, their lower halves drawn twice
+    "goods_664b": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Slateport",
+                   "palette": 7, "grid": ((664, 665), (664, 665))},
+    "goods_666b": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Slateport",
+                   "palette": 7, "grid": ((666, 667), (666, 667))},
     "sea_stack": {
         "tileset": "gTileset_General",
         "palette": 3,

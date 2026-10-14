@@ -2068,6 +2068,16 @@ SPECS = [
         "exact": [(12, 2, 68, 28)],
     },
     {
+        # RG3DS: the market's east stalls, a cell narrower.
+        "name": "slateport_stall_e",
+        "layout": "LAYOUT_SLATEPORT_CITY",
+        "rect": (10, 41, 4, 3),
+        "match_rows": (0, 2),
+        "ground": [0x210, 0x211, 0x212],
+        "parts": lambda: canopy(8, 56, 1, 25, 29, 47, [(9, 12), (52, 55)], 8),
+        "exact": [(12, 2, 52, 28)],
+    },
+    {
         # RG3DS: the orange awnings (the Battle Tent's path, the market's top).
         "name": "slateport_awning",
         "layout": "LAYOUT_SLATEPORT_CITY",
@@ -2179,10 +2189,25 @@ SPECS = [
         "components": {
             "secondary": "gTileset_Slateport",
             "layouts": {"LAYOUT_SLATEPORT_CITY"},
-            "tiles": {0x25D, 0x245, 0x23C, 0x2FE, 0x2FF, 0x2CF, 0x24D},
+            # (and the white walls down the sand's sides)
+            "tiles": {0x25D, 0x245, 0x23C, 0x2FE, 0x2FF, 0x2CF, 0x24D, 0x255, 0x234, 0x045, 0x047},
             "height": 6, "hull": 6, "bridge": 3, "block": 4,
         },
         "ground": [0x202, 0x212, 0x211, 0x209, 0x189, 0x170, 0x190, 0x198, GRASS, 0x003],
+    },
+    {
+        # RG3DS: the white rail round Slateport's beach, drawn on the upper
+        # layer over the sand's edge: it stands as tall as the kerbs by the
+        # steps.
+        "name": "beach_rail_slateport",
+        "components": {
+            "secondary": "gTileset_Slateport",
+            "layouts": {"LAYOUT_SLATEPORT_CITY"},
+            "tiles": {0x2B8, 0x2B9, 0x2BA, 0x2BB, 0x27E},
+            "height": 8, "hull": 8, "bridge": 3, "block": 4,
+            "upper": True,
+        },
+        "ground": [0x124, 0x125, 0x123, 0x2C4, 0x275, 0x276, 0x210, 0x211, 0x212, 0x202, GRASS],
     },
     {
         # The grey rock in the sea, found by its four tiles wherever they are
@@ -2228,6 +2253,14 @@ SPECS = [
         "rise": 0.35, "step": 2,
     },
     # RG3DS: Slateport market's goods, rounded off their drawings
+    {
+        "name": "goods_664b", "props": "goods_664b", "ground": [0x211, 0x210, 0x212, 0x202, 0x001],
+        "rise": 1.3, "step": 2,
+    },
+    {
+        "name": "goods_666b", "props": "goods_666b", "ground": [0x211, 0x210, 0x212, 0x202, 0x001],
+        "rise": 1.3, "step": 2,
+    },
     {
         "name": "goods_550", "props": "goods_550", "ground": [0x211, 0x210, 0x212, 0x202],
         "rise": 1.3, "step": 2,
