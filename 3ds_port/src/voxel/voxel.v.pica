@@ -19,10 +19,14 @@
 ; position, slid along the sun by its height, rotated and scaled into the
 ; pattern, which the world and sprites sample (and the rays, turned).
 ;   dapple = (dappleU . position, dappleV . position)
+; RG3DS: at night the dapples are off and texcoord1 reads the light masks
+; instead, over the same texels as texcoord0: texSel (1, 1, 0, 0) with the
+; dapple rows zeroed; (0, 0, 0, 0) by day.
+;   texcoord1 = dapple + texSel * texcoord0
 
 .fvec projection[4], modelView[4]
 .fvec shadeTint, tintDiff, grade, fog
-.fvec dappleU, dappleV
+.fvec dappleU, dappleV, texSel
 
 ; x: position scale, y: shade scale, z: 0, w: 1
 .constf ctrVoxelConst(0.001953125, 0.00006103515625, 0.0, 1.0)
@@ -59,6 +63,8 @@
 	mov r6, zeros
 	dp4 r6.x, dappleU, r0
 	dp4 r6.y, dappleV, r0
+	mul r7, texSel, intex
+	add r6, r6, r7
 	mov outtc1, r6
 
 	; r2 = shade, r3 = t

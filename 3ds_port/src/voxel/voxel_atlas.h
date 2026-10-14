@@ -182,4 +182,12 @@ unsigned VoxelAtlas_AnimatedSlots(const VoxelMapInstance *inst, const VoxelAtlas
  * the first row in memory. U includes page*2, stripped by the chunk packer. */
 void VoxelAtlas_SlotUV(unsigned slot, float *u0, float *v0, float *u1, float *v1);
 
+/* RG3DS: the pair's night light colours as building pages hold them, a bit
+ * per raw RGBA5551 >> 1. Job steps mark the page's light texels in the mask
+ * set here (VOXEL_ATLAS_PIXELS / 2 bytes, 4 bits a texel, cleared by the
+ * caller; NULL: none); fresh starts the lit flag over. */
+void VoxelAtlas_SetLightMask(uint8_t *mask, bool fresh);
+bool VoxelAtlas_LightMaskLit(void);
+bool VoxelAtlas_LightColours(const void *primary, const void *secondary, uint32_t bits[1024]);
+
 #endif

@@ -155,7 +155,12 @@ typedef struct
     bool extendPending;
     bool valid;
     VoxelAtlasMap map;
+    /* RG3DS: each page's night lights (MaskTexels), no data if it has none. */
+    C3D_Tex mask[VOXEL_ATLAS_PAGES];
 } VoxelAtlasSlot;
+
+/* RG3DS: the mask an atlas job is marking lights in (TargetJobMask). */
+static const C3D_Tex *sMaskTarget;
 
 static C3D_Tex *AtlasTex(VoxelAtlasSlot *slot, unsigned page)
 {
@@ -170,6 +175,14 @@ static void FreeAtlasTextures(VoxelAtlasSlot *slot)
         if (tex->data != NULL)
             C3D_TexDelete(tex);
         memset(tex, 0, sizeof(*tex));
+        if (sMaskTarget == &slot->mask[page])
+        {
+            VoxelAtlas_SetLightMask(NULL, true);
+            sMaskTarget = NULL;
+        }
+        if (slot->mask[page].data != NULL)
+            C3D_TexDelete(&slot->mask[page]);
+        memset(&slot->mask[page], 0, sizeof(slot->mask[page]));
     }
     slot->valid = false;
     ++slot->generation;
@@ -181,7 +194,7 @@ static DVLB_s *sDvlb;
 static shaderProgram_s sProgram;
 static int sUniProjection = -1, sUniModelView = -1;
 static int sUniShadeTint = -1, sUniTintDiff = -1, sUniGrade = -1, sUniFog = -1;
-static int sUniDappleU = -1, sUniDappleV = -1;
+static int sUniDappleU = -1, sUniDappleV = -1, sUniTexSel = -1;
 /* The tree crowns' brightness against the rest of the art, applied once as
  * the tree texture loads (BrightenCrowns). */
 #define VOXEL_TREE_BRIGHTNESS 1.12f
@@ -929,6 +942,10 @@ typedef struct
     C3D_Tex tex;
     uint32_t used;      /* frame last needed */
     uint64_t requested; /* tick it was asked for, for the log */
+    /* RG3DS: the night lights of its map's tilesets, and its mask of them. */
+    bool lights;
+    uint32_t lightBits[1024];
+    C3D_Tex mask;
 } BuildingPageSlot;
 static BuildingPageSlot sPageSlots[VOXEL_BUILDING_PAGES];
 
@@ -947,6 +964,9 @@ static struct
     uint16_t *buffer;   /* linear, VOXEL_PAGE_SLICE texels */
     bool copyQueued;    /* the buffer is the source of this frame's copy */
     bool systemCore;    /* the worker runs on the system core */
+    /* RG3DS: the request's night lights and mask (NULL: none). */
+    const uint32_t *lightBits;
+    uint8_t *mask;
 } sStream;
 
 /* Pages that failed to read are not asked for again: retrying one every
@@ -969,6 +989,36 @@ static uint32_t sPageRetry[VOXEL_MAX_PAGES];
 static uint32_t sPageRingRetry[VOXEL_MAX_PAGES];
 static bool sPageNoRoomLogged[VOXEL_MAX_PAGES];
 
+/*
+ * RG3DS night glow. The lighting patch marks the colours that stay lit at
+ * night (windows, lamps, signs) with bit 15 of their palette entry; the 2D
+ * screen keeps them out of the night's palette blend. The world's textures
+ * lose the bit, so every page gets a mask - 4 bits a texel, 15 where the
+ * texel is one of its tilesets' light colours - and at night the world's
+ * texture environment tints by the night colour only where the mask is 0.
+ * The mask is in the same swizzled order as its page, texel for texel.
+ */
+int CtrSettings_GetInt(const char *key, int fallback); /* 3ds_settings.c */
+static C3D_Tex sZeroMask;
+#define VOXEL_PAGE_MASK_RESERVE (256u * 1024u)
+static bool sGlow;                 /* this frame draws with the masks */
+static uint32_t sTimeTint;         /* night tint: 0 none, else ABGR constant */
+static const C3D_Tex *sUnit1;      /* what texture unit 1 holds, for its release */
+static const void *sPageTilesets[256][2];
+
+/* The map's building page, its tilesets noted for the page's mask. */
+static int PageFor(const VoxelMapInstance *inst)
+{
+    int page = VoxelBuildings_PageOf(inst);
+
+    if (page >= 0 && page < 256 && inst != NULL)
+    {
+        sPageTilesets[page][0] = inst->primaryTileset;
+        sPageTilesets[page][1] = inst->secondaryTileset;
+    }
+    return page;
+}
+
 /* A page texture over a piece of the arena. Never C3D_TexDelete'd: that
  * would hand the piece to the console's allocator, which never gave it. */
 static void PageTexInit(C3D_Tex *tex, void *data, unsigned w, unsigned h)
@@ -988,6 +1038,9 @@ static void PageFree(BuildingPageSlot *slot)
 {
     VoxelArena_Free(&sPageArena, slot->tex.data);
     memset(&slot->tex, 0, sizeof(slot->tex));
+    if (slot->mask.data != NULL)
+        C3D_TexDelete(&slot->mask);
+    memset(&slot->mask, 0, sizeof(slot->mask));
     slot->page = -1;
     slot->loaded = 0;
 }
@@ -1027,12 +1080,15 @@ static void StreamWorker(void *arg)
         if (sStream.state == STREAM_READING)
         {
             bool ok = VoxelBuildings_ReadPage((unsigned)sStream.page, sStream.first,
-                                              sStream.count, sStream.buffer);
+                                              sStream.count, sStream.buffer, sStream.lightBits,
+                                              sStream.mask);
 
             /* Written from this core's cache: out to memory for the GPU's
              * copy before the render thread is told. */
             if (ok)
                 GSPGPU_FlushDataCache(sStream.buffer, sStream.count * sizeof(uint16_t));
+            if (ok && sStream.mask != NULL)
+                GSPGPU_FlushDataCache(sStream.mask + sStream.first / 2u, (sStream.count + 1u) / 2u + 1u);
             __sync_synchronize();
             sStream.state = ok ? STREAM_DONE : STREAM_FAILED;
         }
@@ -1295,6 +1351,27 @@ static void WantPage(int page, uint32_t keep, bool quiet)
     victim->page = page;
     victim->loaded = 0;
     victim->used = ring ? FramesAgo(keep / 2u) : sFrame;
+    if (victim->mask.data != NULL)
+        C3D_TexDelete(&victim->mask);
+    memset(&victim->mask, 0, sizeof(victim->mask));
+    victim->lights = sPageTilesets[page][0] != NULL
+                  && VoxelAtlas_LightColours(sPageTilesets[page][0], sPageTilesets[page][1],
+                                             victim->lightBits);
+    if (victim->lights)
+    {
+        if (linearSpaceFree() > w * h / 2u + VOXEL_PAGE_MASK_RESERVE
+         && C3D_TexInit(&victim->mask, (u16)w, (u16)h, GPU_L4))
+        {
+            memset(victim->mask.data, 0, victim->mask.size);
+            C3D_TexSetFilter(&victim->mask, GPU_NEAREST, GPU_NEAREST);
+            C3D_TexSetWrap(&victim->mask, GPU_CLAMP_TO_EDGE, GPU_CLAMP_TO_EDGE);
+        }
+        else
+        {
+            memset(&victim->mask, 0, sizeof(victim->mask));
+            victim->lights = false;
+        }
+    }
     victim->requested = svcGetSystemTick();
 }
 
@@ -1331,6 +1408,10 @@ static unsigned SliceOf(const BuildingPageSlot *slot)
 
 static void QueuePageCopy(BuildingPageSlot *slot, uint16_t *source, unsigned count)
 {
+    if (slot->mask.data != NULL)
+        C3D_TexFlush(&slot->mask);
+    if (slot->mask.data != NULL && slot->loaded == 0)
+        CtrLog_Write(CTR_LOG_VIDEO, "VOXEL glow: building page %d (%ux%u) masked", slot->page, slot->w, slot->h);
     GSPGPU_FlushDataCache(source, count * sizeof(uint16_t));
     C3D_SyncTextureCopy((u32 *)source, 0,
                         (u32 *)((uint16_t *)slot->tex.data + slot->loaded), 0,
@@ -1357,7 +1438,8 @@ static void StreamPages(void)
          || (next = NextPageSlot()) == NULL || !CtrVideo_TryVoxelUpload())
             return;
         if (!VoxelBuildings_ReadPage((unsigned)next->page, next->loaded, SliceOf(next),
-                                     sAtlasStaging))
+                                     sAtlasStaging, next->lights ? next->lightBits : NULL,
+                                     (uint8_t *)next->mask.data))
         {
             MarkBadPage(next->page);
             next->page = -1;
@@ -1395,6 +1477,8 @@ static void StreamPages(void)
     sStream.page = next->page;
     sStream.first = next->loaded;
     sStream.count = SliceOf(next);
+    sStream.lightBits = next->lights ? next->lightBits : NULL;
+    sStream.mask = (uint8_t *)next->mask.data;
     if (sStream.thread != NULL)
     {
         sStream.state = STREAM_READING;
@@ -1405,7 +1489,8 @@ static void StreamPages(void)
     {
         /* Picked up at the top of the next frame, like the worker's result. */
         sStream.state = VoxelBuildings_ReadPage((unsigned)sStream.page, sStream.first,
-                                                sStream.count, sStream.buffer)
+                                                sStream.count, sStream.buffer, sStream.lightBits,
+                                                sStream.mask)
                       ? STREAM_DONE : STREAM_FAILED;
     }
 }
@@ -1628,6 +1713,7 @@ bool CtrVoxel_Init(void)
     sUniFog = shaderInstanceGetUniformLocation(sProgram.vertexShader, "fog");
     sUniDappleU = shaderInstanceGetUniformLocation(sProgram.vertexShader, "dappleU");
     sUniDappleV = shaderInstanceGetUniformLocation(sProgram.vertexShader, "dappleV");
+    sUniTexSel = shaderInstanceGetUniformLocation(sProgram.vertexShader, "texSel");
     if (sUniProjection < 0 || sUniModelView < 0 || sUniShadeTint < 0
      || sUniTintDiff < 0 || sUniGrade < 0 || sUniFog < 0
      || sUniDappleU < 0 || sUniDappleV < 0)
@@ -1707,6 +1793,15 @@ bool CtrVoxel_Init(void)
     }
     C3D_TexSetFilter(&sTreeAtlas, GPU_NEAREST, GPU_NEAREST);
     C3D_TexSetWrap(&sTreeAtlas, GPU_CLAMP_TO_EDGE, GPU_CLAMP_TO_EDGE);
+    /* RG3DS: what a draw with no lights masks with. */
+    if (C3D_TexInit(&sZeroMask, 8, 8, GPU_L4))
+    {
+        memset(sZeroMask.data, 0, sZeroMask.size);
+        C3D_TexFlush(&sZeroMask);
+        C3D_TexSetFilter(&sZeroMask, GPU_NEAREST, GPU_NEAREST);
+    }
+    else
+        memset(&sZeroMask, 0, sizeof(sZeroMask));
 #if CTR_VOXEL_LIGHTING
     MakeDapple();
     MakeRays();
@@ -1780,6 +1875,11 @@ void CtrVoxel_Shutdown(void)
     {
         C3D_TexDelete(&sSpriteAtlas);
         memset(&sSpriteAtlas, 0, sizeof(sSpriteAtlas));
+    }
+    if (sZeroMask.data != NULL)
+    {
+        C3D_TexDelete(&sZeroMask);
+        memset(&sZeroMask, 0, sizeof(sZeroMask));
     }
     if (sTreeAtlas.data != NULL)
     {
@@ -1935,6 +2035,8 @@ static bool AtlasJobBusy(void)
 
 static void AtlasJobCancel(void)
 {
+    VoxelAtlas_SetLightMask(NULL, true);
+    sMaskTarget = NULL;
     if (sAtlasJob.job.active)
         VoxelAtlas_JobCancel(&sAtlasJob.job);
     sAtlasJob.slot = NULL;
@@ -2019,6 +2121,7 @@ static VoxelAtlasSlot *AcquireAtlas(const VoxelMapInstance *inst, bool mayEvict)
          && sAtlasStaging != NULL)
         {
             hit->extendPending = false;
+            sMaskTarget = NULL;
             if (VoxelAtlas_JobBegin(&sAtlasJob.job, inst, sAtlasStaging, &hit->map))
             {
                 sAtlasJob.slot = hit;
@@ -2143,6 +2246,7 @@ static VoxelAtlasSlot *AcquireAtlas(const VoxelMapInstance *inst, bool mayEvict)
     victim->primaryTileset = inst->primaryTileset;
     victim->secondaryTileset = inst->secondaryTileset;
     victim->stamp = ++sAtlasStamp;
+    sMaskTarget = NULL;
     if (!VoxelAtlas_JobBegin(&sAtlasJob.job, inst, sAtlasStaging, NULL))
     {
         AtlasFailed(inst->mapGroup, inst->mapNum, inst->primaryTileset, inst->secondaryTileset);
@@ -2182,6 +2286,36 @@ static uint32_t sAtlasProgressFrame;
 static uint32_t sAfterStarvedFrames;
 #define VOXEL_AFTER_STARVED_MS 1.0f
 
+/*
+ * RG3DS: where the job marks the night lights of the page it composes - the
+ * page's own mask texture, made for a tileset pair that has lights while
+ * linear memory has room to spare (else the page goes without: no glow).
+ */
+#define VOXEL_MASK_RESERVE (256u * 1024u)
+
+static void TargetJobMask(VoxelAtlasSlot *slot, const VoxelAtlasJob *job)
+{
+    static uint32_t bits[1024];
+    C3D_Tex *mask = &slot->mask[job->page];
+
+    if (sMaskTarget == mask)
+    {
+        VoxelAtlas_SetLightMask((uint8_t *)mask->data, false);
+        return;
+    }
+    sMaskTarget = mask;
+    if (mask->data == NULL && VoxelAtlas_LightColours(job->primary, job->secondary, bits)
+     && linearSpaceFree() > VOXEL_ATLAS_PIXELS / 2u + VOXEL_MASK_RESERVE
+     && C3D_TexInit(mask, VOXEL_ATLAS_W, VOXEL_ATLAS_H, GPU_L4))
+    {
+        C3D_TexSetFilter(mask, GPU_NEAREST, GPU_NEAREST);
+        C3D_TexSetWrap(mask, GPU_CLAMP_TO_EDGE, GPU_CLAMP_TO_EDGE);
+    }
+    if (mask->data != NULL)
+        memset(mask->data, 0, mask->size);
+    VoxelAtlas_SetLightMask((uint8_t *)mask->data, true);
+}
+
 static void RunAtlasJob(uint64_t started, float budget, bool inFrame)
 {
     VoxelAtlasJob *job = &sAtlasJob.job;
@@ -2199,6 +2333,8 @@ static void RunAtlasJob(uint64_t started, float budget, bool inFrame)
     }
     if (!sAtlasJob.ready && job->pageReady)
         VoxelAtlas_JobNextPage(job);
+    if (!sAtlasJob.ready)
+        TargetJobMask(slot, job);
     while (!sAtlasJob.ready)
     {
         if (MsSince(started) >= budget && !(sAtlasJob.forView && steps == 0 && budget > 0.0f))
@@ -2244,6 +2380,23 @@ static void RunAtlasJob(uint64_t started, float budget, bool inFrame)
      * ahead of this frame's draws, so the table installed with it is never
      * drawn with the pixels it replaced.
      */
+    {
+        /* RG3DS: the page's night lights, as the job composed them. */
+        C3D_Tex *mask = &slot->mask[job->page];
+
+        VoxelAtlas_SetLightMask(NULL, false);
+        sMaskTarget = NULL;
+        if (mask->data != NULL && !VoxelAtlas_LightMaskLit())
+        {
+            C3D_TexDelete(mask);
+            memset(mask, 0, sizeof(*mask));
+        }
+        else if (mask->data != NULL)
+        {
+            C3D_TexFlush(mask);
+            CtrLog_Write(CTR_LOG_VIDEO, "VOXEL glow: atlas page %u has lights", job->page);
+        }
+    }
     GSPGPU_FlushDataCache(sAtlasStaging, VOXEL_ATLAS_PIXELS * sizeof(uint16_t));
     C3D_SyncTextureCopy((u32 *)sAtlasStaging, 0, (u32 *)AtlasTex(slot, job->page)->data, 0,
                         VOXEL_ATLAS_PIXELS * sizeof(uint16_t), 8);
@@ -2720,7 +2873,7 @@ static BuildResult JobFinish(VoxelChunk *chunk)
     chunk->gz1 = sJob.gz1;
     chunk->gy0 = sJob.gy0;
     chunk->gy1 = sJob.gy1;
-    chunk->buildingPage = sHaveBuildings && !site->border ? VoxelBuildings_PageOf(inst) : -1;
+    chunk->buildingPage = sHaveBuildings && !site->border ? PageFor(inst) : -1;
     chunk->stamp = sFrame;
     if (sJob.forView)
         chunk->viewStamp = sFrame;
@@ -4580,7 +4733,7 @@ bool CtrVoxel_Update(void)
 
                 if (!near || (ring != 0) == inView)
                     continue;
-                WantPage(VoxelBuildings_PageOf(map), ring ? VOXEL_PAGE_KEEP_RING : VOXEL_PAGE_KEEP_VIEW,
+                WantPage(PageFor(map), ring ? VOXEL_PAGE_KEEP_RING : VOXEL_PAGE_KEEP_VIEW,
                          true);
             }
     {
@@ -5121,13 +5274,13 @@ extern uint8_t __C3D_Context[];
 #define C3DI_CONTEXT_TEX 0x118u
 #define C3DI_FLAG_TEX(unit) (1u << (23 + (unit)))
 
-static void ReleaseDappleUnit(void)
+static void ReleaseUnit1(const C3D_Tex *expected)
 {
     static bool warned;
     uint32_t *flags = (uint32_t *)(void *)(__C3D_Context + C3DI_CONTEXT_FLAGS);
     C3D_Tex **bound = (C3D_Tex **)(void *)(__C3D_Context + C3DI_CONTEXT_TEX);
 
-    if (bound[1] != &sDappleTex)
+    if (bound[1] != expected)
     {
         if (!warned)
             CtrLog_Write(CTR_LOG_ERROR, "VOXEL: unknown citro3d layout, texture unit 1 left on");
@@ -5136,6 +5289,11 @@ static void ReleaseDappleUnit(void)
     }
     bound[1] = NULL;
     *flags |= C3DI_FLAG_TEX(1);
+}
+
+static void ReleaseDappleUnit(void)
+{
+    ReleaseUnit1(&sDappleTex);
 }
 
 /*
@@ -5615,6 +5773,34 @@ static void TerrainTexEnv(const VoxelLight *dapples)
     C3D_TexEnv *env = C3D_GetTexEnv(0);
 
     C3D_TexEnvInit(env);
+#if CTR_VOXEL_LIGHTING
+    if (dapples == NULL && sGlow)
+    {
+        /* RG3DS night: f = mask + (1 - mask) tint, then texture0 x f x the
+         * graded colour (doubled, as below); environment 5 adds nothing. */
+        C3D_TexEnvSrc(env, C3D_RGB, GPU_TEXTURE1, GPU_CONSTANT, GPU_TEXTURE1);
+        C3D_TexEnvFunc(env, C3D_RGB, GPU_INTERPOLATE);
+        C3D_TexEnvSrc(env, C3D_Alpha, GPU_TEXTURE0, GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR);
+        C3D_TexEnvFunc(env, C3D_Alpha, GPU_REPLACE);
+        C3D_TexEnvColor(env, sTimeTint);
+
+        env = C3D_GetTexEnv(1);
+        C3D_TexEnvInit(env);
+        C3D_TexEnvSrc(env, C3D_RGB, GPU_TEXTURE0, GPU_PREVIOUS, GPU_PREVIOUS);
+        C3D_TexEnvFunc(env, C3D_RGB, GPU_MODULATE);
+        C3D_TexEnvSrc(env, C3D_Alpha, GPU_PREVIOUS, GPU_PREVIOUS, GPU_PREVIOUS);
+        C3D_TexEnvFunc(env, C3D_Alpha, GPU_REPLACE);
+
+        env = C3D_GetTexEnv(2);
+        C3D_TexEnvInit(env);
+        C3D_TexEnvSrc(env, C3D_RGB, GPU_PREVIOUS, GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR);
+        C3D_TexEnvFunc(env, C3D_RGB, GPU_MODULATE);
+        C3D_TexEnvScale(env, C3D_RGB, GPU_TEVSCALE_2);
+        C3D_TexEnvSrc(env, C3D_Alpha, GPU_PREVIOUS, GPU_PREVIOUS, GPU_PREVIOUS);
+        C3D_TexEnvFunc(env, C3D_Alpha, GPU_REPLACE);
+        return;
+    }
+#endif
     if (dapples == NULL)
     {
         C3D_TexEnvSrc(env, C3D_RGB, GPU_TEXTURE0, GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR);
@@ -5744,9 +5930,9 @@ static uint32_t SpriteHaze(void)
     return FadeColour(1.0f, rgb);
 }
 
-static void FadeTexEnv(const VoxelFade *fade)
+static void FadeTexEnvAt(const VoxelFade *fade, int stage)
 {
-    C3D_TexEnv *env = C3D_GetTexEnv(4);
+    C3D_TexEnv *env = C3D_GetTexEnv(stage);
 
     C3D_TexEnvInit(env);
     if (fade->amount <= 0.0f)
@@ -5759,6 +5945,11 @@ static void FadeTexEnv(const VoxelFade *fade)
     C3D_TexEnvSrc(env, C3D_Alpha, GPU_PREVIOUS, GPU_PREVIOUS, GPU_PREVIOUS);
     C3D_TexEnvFunc(env, C3D_Alpha, GPU_REPLACE);
     C3D_TexEnvColor(env, FadeColour(fade->amount, fade->rgb));
+}
+
+static void FadeTexEnv(const VoxelFade *fade)
+{
+    FadeTexEnvAt(fade, 4);
 }
 
 /*
@@ -5774,7 +5965,6 @@ __attribute__((weak)) unsigned char CtrLighting_WorldTint(uint16_t *r, uint16_t 
     return 0;
 }
 
-static uint32_t sTimeTint;   /* 0: none, else ABGR constant */
 
 static void PrepareTimeTint(void)
 {
@@ -5791,7 +5981,7 @@ static void TimeTexEnv(bool sprites)
     C3D_TexEnv *env = C3D_GetTexEnv(5);
 
     C3D_TexEnvInit(env);
-    if (sprites || sTimeTint == 0)
+    if (sprites || sTimeTint == 0 || sGlow)
         return;
     /* previous x tint */
     C3D_TexEnvSrc(env, C3D_RGB, GPU_PREVIOUS, GPU_CONSTANT, GPU_PREVIOUS);
@@ -5801,9 +5991,50 @@ static void TimeTexEnv(bool sprites)
     C3D_TexEnvColor(env, sTimeTint);
 }
 
+/*
+ * RG3DS night glow, environments 3 to 5 (0 to 2: TerrainTexEnv). The haze
+ * takes the night too; then the lights get the game's light colour
+ * (DEFAULT_LIGHT_COLOR, palette.c: 0x3F9F, a warm yellow) added where the
+ * mask is lit - after the haze, so they shine through it - and the fade comes
+ * last, so a fade to black takes the lights with it.
+ */
+static uint32_t TintAbgr(uint32_t colour, uint32_t tint)
+{
+    uint32_t out = colour & 0xFF000000u;
+
+    for (int shift = 0; shift < 24; shift += 8)
+        out |= ((((colour >> shift) & 0xFFu) * ((tint >> shift) & 0xFFu)) / 255u) << shift;
+    return out;
+}
+
+static void GlowTexEnvs(void)
+{
+    C3D_TexEnv *env;
+    float dark = 1.0f - (float)((sTimeTint & 0xFF) + ((sTimeTint >> 8) & 0xFF) + ((sTimeTint >> 16) & 0xFF))
+                      / (3.0f * 255.0f);
+    float k = dark * 0.8f > 0.45f ? 0.45f : dark * 0.8f;
+    unsigned r = (unsigned)(255.0f * k), g = (unsigned)(230.0f * k), b = (unsigned)(123.0f * k);
+
+    HazeTexEnv(TintAbgr(FadeColour(1.0f, sHazeRgb), sTimeTint));
+    env = C3D_GetTexEnv(4);
+    C3D_TexEnvInit(env);
+    /* mask x light + previous */
+    C3D_TexEnvSrc(env, C3D_RGB, GPU_TEXTURE1, GPU_CONSTANT, GPU_PREVIOUS);
+    C3D_TexEnvFunc(env, C3D_RGB, GPU_MULTIPLY_ADD);
+    C3D_TexEnvSrc(env, C3D_Alpha, GPU_PREVIOUS, GPU_PREVIOUS, GPU_PREVIOUS);
+    C3D_TexEnvFunc(env, C3D_Alpha, GPU_REPLACE);
+    C3D_TexEnvColor(env, CtrSettings_GetInt("glow_debug", 0) ? 0xFFFF00FFu : 0xFF000000u | b << 16 | g << 8 | r);
+    FadeTexEnvAt(&sWorldFade, 5);
+}
+
 /* Environments 3, 4 and 5 for what is drawn next: the world's or a sprite's. */
 static void FadeFor(bool sprites)
 {
+    if (!sprites && sGlow)
+    {
+        GlowTexEnvs();
+        return;
+    }
     HazeTexEnv(sprites ? SpriteHaze() : FadeColour(1.0f, sHazeRgb));
     FadeTexEnv(sprites ? &sSpriteFade : &sWorldFade);
     TimeTexEnv(sprites);
@@ -5925,9 +6156,36 @@ void CtrVoxel_Draw(C3D_RenderTarget *target, float eyeOffset)
     const VoxelMapInstance *current = VoxelWorld_Instance(0);
     bool indoor = current != NULL && current->indoor;
     VoxelLight light = LightFor(indoor), unlit = LightFor(true);
-    bool dapples = DapplesOn(&light);
+    bool dapples = DapplesOn(&light), glowed = false;
 #if CTR_VOXEL_LIGHTING
-    float fog = !indoor && sHaveFog ? VoxelWorld_FogDensity() : 0.0f;
+    float fog;
+
+    /* RG3DS: no sun dapples, rays or dust at night; the lights keep lit
+     * (glow, on unless settings.txt says glow=0). */
+    PrepareTimeTint();
+    sGlow = false;
+    if (sTimeTint != 0)
+    {
+        float day = (float)((sTimeTint & 0xFF) + ((sTimeTint >> 8) & 0xFF) + ((sTimeTint >> 16) & 0xFF))
+                  / (3.0f * 255.0f);
+
+        day = day < 0.6f ? 0.0f : (day - 0.6f) / 0.4f;
+        light.rays *= day;
+        light.motes *= day;
+        dapples = dapples && day > 0.5f;
+        sGlow = !dapples && sZeroMask.data != NULL && sUniTexSel >= 0 && CtrSettings_GetInt("glow", 1) != 0;
+    }
+    {
+        static uint32_t loggedTint = 1;
+        static bool loggedGlow;
+
+        if (loggedTint != sTimeTint || loggedGlow != sGlow)
+            CtrLog_Write(CTR_LOG_VIDEO, "VOXEL night: tint %08lx glow %d (dapples %d, zero %d, texSel %d)",
+                         (unsigned long)sTimeTint, sGlow, dapples, sZeroMask.data != NULL, sUniTexSel);
+        loggedTint = sTimeTint;
+        loggedGlow = sGlow;
+    }
+    fog = !indoor && sHaveFog ? VoxelWorld_FogDensity() : 0.0f;
     bool cave = fog > 0.0f && VoxelWorld_Underground();
 #endif
 
@@ -5939,7 +6197,10 @@ void CtrVoxel_Draw(C3D_RenderTarget *target, float eyeOffset)
     sGloomAmount = 0.0f;
     sOwnsFog = false;
     if (!sReady || sDrawCount == 0)
+    {
+        sGlow = false;
         return;
+    }
 #if CTR_VOXEL_LIGHTING
     sOwnsFog = !indoor && sHaveFog;
 #endif
@@ -5988,6 +6249,14 @@ void CtrVoxel_Draw(C3D_RenderTarget *target, float eyeOffset)
 
     C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, sUniProjection, &projection);
     SetGrade(&light);
+    if (sUniTexSel >= 0)
+        C3D_FVUnifSet(GPU_VERTEX_SHADER, sUniTexSel, sGlow ? 1.0f : 0.0f, sGlow ? 1.0f : 0.0f, 0.0f, 0.0f);
+    if (sGlow)
+    {
+        C3D_FVUnifSet(GPU_VERTEX_SHADER, sUniDappleU, 0.0f, 0.0f, 0.0f, 0.0f);
+        C3D_FVUnifSet(GPU_VERTEX_SHADER, sUniDappleV, 0.0f, 0.0f, 0.0f, 0.0f);
+    }
+    sUnit1 = NULL;
 
     /*
      * Ordinary terrain first, then the tree material, then the modelled
@@ -6000,6 +6269,7 @@ void CtrVoxel_Draw(C3D_RenderTarget *target, float eyeOffset)
     for (unsigned pass = 0; pass < VOXEL_ATLAS_PAGES + 2u; ++pass)
     {
         const C3D_Tex *boundTex = NULL;
+        BuildingPageSlot *pageSlot;
 
         C3D_AlphaTest(true, GPU_GREATER, 0);
 
@@ -6030,6 +6300,22 @@ void CtrVoxel_Draw(C3D_RenderTarget *target, float eyeOffset)
                 boundTex = tex;
                 C3D_TexBind(0, tex);
             }
+            if (sGlow)
+            {
+                /* the lights of what this draw samples, texel for texel */
+                const C3D_Tex *mask = &sZeroMask;
+
+                if (pass < VOXEL_ATLAS_PAGES && chunk->atlas->mask[pass].data != NULL)
+                    mask = &chunk->atlas->mask[pass];
+                else if (pass > VOXEL_ATLAS_PAGES && (pageSlot = FindPage(chunk->buildingPage)) != NULL
+                      && pageSlot->mask.data != NULL)
+                    mask = &pageSlot->mask;
+                if (mask != sUnit1)
+                {
+                    C3D_TexBind(1, (C3D_Tex *)mask);
+                    sUnit1 = mask;
+                }
+            }
             BindVertices(chunk->vram);
             C3D_DrawArrays(GPU_TRIANGLES, (int)first, (int)count);
         }
@@ -6041,6 +6327,16 @@ void CtrVoxel_Draw(C3D_RenderTarget *target, float eyeOffset)
      * which reads address 0xC on the console). */
     if (dapples)
         TerrainTexEnv(NULL);
+    glowed = sGlow;
+    if (sGlow)
+    {
+        /* Sprites, shadows and the rest take the night as before. */
+        sGlow = false;
+        TerrainTexEnv(NULL);
+        FadeFor(false);
+        if (sUniTexSel >= 0)
+            C3D_FVUnifSet(GPU_VERTEX_SHADER, sUniTexSel, 0.0f, 0.0f, 0.0f, 0.0f);
+    }
 
     /* Billboards and shadows: the linear buffer, around the camera's tile. */
     SetModelView(&view, sDynamicX, sDynamicZ);
@@ -6172,6 +6468,8 @@ void CtrVoxel_Draw(C3D_RenderTarget *target, float eyeOffset)
         }
         if (dapples || rays)
             ReleaseDappleUnit();
+        else if (glowed && sUnit1 != NULL)
+            ReleaseUnit1(sUnit1);
     }
 #endif
     C3D_AlphaTest(false, GPU_ALWAYS, 0);

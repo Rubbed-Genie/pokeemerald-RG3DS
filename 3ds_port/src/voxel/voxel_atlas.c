@@ -93,7 +93,14 @@ struct AtlasSource
      * palette is the opaque backdrop layer 0 draws with. */
     uint16_t texel[16][16];
     bool black[16][16];
+    bool light[16][16]; /* RG3DS: bit 15, the lighting patch's night lights */
 };
+
+/* RG3DS: the night-light mask of the page a job is composing, 4 bits a texel
+ * in the page's order (VoxelAtlas_SetLightMask); only job steps write it. */
+static uint8_t *sLightMask;
+static bool sLightMaskLit;
+static bool sLightMaskOn;
 
 static uint16_t LookupColor(const struct AtlasSource *src, unsigned paletteId, unsigned colorIdx)
 {
@@ -116,7 +123,54 @@ static void BuildColorTable(struct AtlasSource *src)
 
             src->texel[p][c] = VoxelGrade_RGBA5551(bgr15);
             src->black[p][c] = (bgr15 & 0x7FFF) == 0;
+            src->light[p][c] = c != 0 && (bgr15 & 0x8000) != 0;
         }
+}
+
+/*
+ * RG3DS: the light colours of a tileset pair - those the lighting patch's .pla
+ * palettes mark with bit 15, which keep lit at night - as a building page
+ * holds them before grading (gen_voxel_buildings.py writes the palette's own
+ * 5 bits): one bit per RGBA5551 colour, the texel without its alpha bit.
+ * False if the pair has none.
+ */
+bool VoxelAtlas_LightColours(const void *primary, const void *secondary, uint32_t bits[1024])
+{
+    const uint16_t *pals[2] = {Voxel_ResolvePalettes(primary), Voxel_ResolvePalettes(secondary)};
+    bool any = false;
+
+    memset(bits, 0, 1024 * sizeof(uint32_t));
+    for (unsigned p = 0; p < 13; ++p)
+    {
+        const uint16_t *palette = pals[p < NUM_PALS_IN_PRIMARY ? 0 : 1];
+
+        if (palette == NULL)
+            continue;
+        for (unsigned c = 1; c < 16; ++c)
+        {
+            uint16_t colour = palette[p * 16 + c];
+            unsigned t;
+
+            if (!(colour & 0x8000))
+                continue;
+            t = (colour & 31u) << 10 | ((colour >> 5) & 31u) << 5 | ((colour >> 10) & 31u);
+            bits[t >> 5] |= 1u << (t & 31);
+            any = true;
+        }
+    }
+    return any;
+}
+
+void VoxelAtlas_SetLightMask(uint8_t *mask, bool fresh)
+{
+    sLightMask = mask;
+    if (fresh)
+        sLightMaskLit = false;
+}
+
+bool VoxelAtlas_LightMaskLit(void)
+{
+    return sLightMaskLit;
 }
 
 /*
@@ -251,7 +305,8 @@ static bool ComposeAt(const struct AtlasSource *src, const uint16_t *entries,
                       uint16_t *dest, unsigned baseX, unsigned baseY, unsigned width,
                       unsigned hidden, const uint8_t *cut)
 {
-    bool black = true;
+    bool black = true, masked;
+    unsigned blockAt;
 
     for (unsigned layer = 0; layer < 2; ++layer)
     {
@@ -264,6 +319,7 @@ static bool ComposeAt(const struct AtlasSource *src, const uint16_t *entries,
             unsigned flipY = (entry >> 11) & 1 ? SUBTILE_PX - 1 : 0;
             const uint16_t *texels = src->texel[paletteId];
             const bool *blacks = src->black[paletteId];
+            const bool *lights = src->light[paletteId];
             const uint8_t *tile;
             uint16_t *block;
 
@@ -281,6 +337,8 @@ static bool ComposeAt(const struct AtlasSource *src, const uint16_t *entries,
                 continue;
             block = dest + CtrVideo_Texel(baseX + (quadrant % 2) * SUBTILE_PX,
                                           baseY + (quadrant / 2) * SUBTILE_PX, width);
+            masked = sLightMaskOn && sLightMask != NULL && width == VOXEL_ATLAS_W;
+            blockAt = (unsigned)(block - dest);
 
             for (unsigned py = 0; py < SUBTILE_PX; ++py)
             {
@@ -305,6 +363,19 @@ static bool ComposeAt(const struct AtlasSource *src, const uint16_t *entries,
                     {
                         block[morton[px]] = texels[colorIdx];
                         black = black && blacks[colorIdx];
+                    }
+                    if (masked)
+                    {
+                        unsigned i = blockAt + morton[px];
+                        uint8_t nibble = (i & 1u) ? 0xF0u : 0x0Fu;
+
+                        if (colorIdx != 0 && lights[colorIdx])
+                        {
+                            sLightMask[i >> 1] |= nibble;
+                            sLightMaskLit = true;
+                        }
+                        else
+                            sLightMask[i >> 1] &= (uint8_t)~nibble;
                     }
                 }
             }
@@ -563,9 +634,11 @@ bool VoxelAtlas_JobStep(VoxelAtlasJob *job, unsigned metatiles)
             map->tileMask[job->page][tile >> 3] |= (uint8_t)(1u << (tile & 7));
         }
         voidBits[m >> 3] &= (uint8_t)~(1u << (m & 7));
+        sLightMaskOn = true;
         if (ComposeMetatile(&src, entries, job->dest,
                             (slot - 1u) % VOXEL_ATLAS_MAX_SLOTS, hidden, cut))
             voidBits[m >> 3] |= (uint8_t)(1u << (m & 7));
+        sLightMaskOn = false;
     }
     if (job->next < VOXEL_METATILE_IDS)
         return false;

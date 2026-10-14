@@ -324,7 +324,8 @@ bool VoxelBuildings_PageSize(unsigned page, unsigned *width, unsigned *height)
     return true;
 }
 
-bool VoxelBuildings_ReadPage(unsigned page, unsigned first, unsigned count, uint16_t *dest)
+bool VoxelBuildings_ReadPage(unsigned page, unsigned first, unsigned count, uint16_t *dest,
+                             const uint32_t *lightBits, uint8_t *mask)
 {
     if (page >= sPageCount || first + count > (unsigned)sPages[page].w * sPages[page].h)
         return false;
@@ -339,6 +340,14 @@ bool VoxelBuildings_ReadPage(unsigned page, unsigned first, unsigned count, uint
     if (fseek(sPageFile, (long)(sPages[page].offset + first * sizeof(uint16_t)), SEEK_SET) != 0
      || fread(dest, sizeof(uint16_t), count, sPageFile) != count)
         return false;
+    /* RG3DS: the night lights, by their colour before the grading. */
+    for (unsigned k = 0; lightBits != NULL && mask != NULL && k < count; ++k)
+    {
+        unsigned t = dest[k] >> 1, i = first + k;
+
+        if ((dest[k] & 1u) && (lightBits[t >> 5] & (1u << (t & 31))))
+            mask[i >> 1] |= (i & 1u) ? 0xF0u : 0x0Fu;
+    }
     /* On the reading thread, off the render thread's frame. */
     VoxelGrade_Texels(dest, count);
     return true;
