@@ -1364,7 +1364,20 @@ def light_colours(layout_id):
     return out
 
 
-def auto_lights(art, colours, max_w=40, max_h=32):
+def glass_colours(art):
+    """RG3DS: the window glass of a drawing whose town marks no lights: its
+    pale blues (blue well over red, bright)."""
+    out = set()
+    px = art.load()
+    for y in range(art.size[1]):
+        for x in range(art.size[0]):
+            r, g, b, a = px[x, y]
+            if a >= 128 and b >= 150 and b > r + 30 and g >= 110:
+                out.add((r, g, b))
+    return out
+
+
+def auto_lights(art, colours, max_w=40, max_h=32, below=0.0):
     """RG3DS: a building's windows, found in its drawing: solid patches of the
     town's light colours, at least 3x3, window-sized and pane-shaped (no long
     strips), clear of the drawing's outer edge (outlines and trim), mostly
@@ -1399,6 +1412,8 @@ def auto_lights(art, colours, max_w=40, max_h=32):
                 continue
             if bx0 <= 1 or by0 <= 1 or bx1 >= W - 1 or by1 >= H - 1:
                 continue
+            if by0 < below * H:
+                continue  # a glass blue up in the roof is its tiles
             if len(cells) < 0.6 * w * h:
                 continue
             if not any(all(lit[y + j][x + i] for j in range(3) for i in range(3))
@@ -1428,6 +1443,9 @@ def model_lights(m):
     lights = m.spec.get("lights", ())
     if lights == "auto":
         return auto_lights(m.art, light_colours(m.spec["layout"]))
+    if lights == "glass":
+        # the front wall only: under the roof, the lower 45% of the drawing
+        return auto_lights(m.art, glass_colours(m.art), below=0.55)
     return list(lights)
 
 

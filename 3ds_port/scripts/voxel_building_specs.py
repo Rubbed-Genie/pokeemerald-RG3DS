@@ -1371,7 +1371,8 @@ SPECS = [
     },
     {
         "name": "littleroot_lab",
-        "lights": "auto",   # RG3DS: its windows glow at night
+        "lights": [(18, 64, 23, 67), (25, 64, 30, 67), (34, 64, 39, 67), (41, 64, 46, 67),
+                   (74, 64, 76, 75)],  # RG3DS: its windows and the door's glass slit
         "layout": "LAYOUT_LITTLEROOT_TOWN",
         "rect": (3, 12, 7, 5),
         "ground": [GRASS],
@@ -1381,7 +1382,7 @@ SPECS = [
     {
         # The canonical copy: Oldale paints its path into the top row.
         "name": "pokemon_center",
-        "lights": "auto",   # RG3DS: its windows glow at night
+        "lights": [(17, 45, 31, 56)],  # RG3DS: its windows, read off the drawing
         "layout": "LAYOUT_PETALBURG_CITY",
         "rect": (19, 13, 4, 4),
         "match_rows": (1, 4),
@@ -1430,7 +1431,7 @@ SPECS = [
     },
     {
         "name": "kit_house_4",
-        "lights": "auto",   # RG3DS: its windows glow at night
+        "lights": [(20, 48, 28, 52), (34, 43, 46, 53)],  # RG3DS: its windows, read off the drawing
         "layout": "LAYOUT_PETALBURG_CITY",
         "rect": (9, 16, 4, 4),
         "ground": [GRASS],
@@ -1439,7 +1440,7 @@ SPECS = [
     },
     {
         "name": "kit_house_5",
-        "lights": "auto",   # RG3DS: its windows glow at night
+        "lights": [(18, 43, 30, 53), (36, 48, 44, 52), (50, 43, 62, 53)],  # RG3DS: its windows, read off the drawing
         "layout": "LAYOUT_PETALBURG_CITY",
         "rect": (5, 2, 5, 4),
         "ground": [GRASS],
@@ -1448,7 +1449,7 @@ SPECS = [
     },
     {
         "name": "gym",
-        "lights": "auto",   # RG3DS: its windows glow at night
+        "lights": [(10, 49, 21, 54), (25, 49, 38, 54), (74, 49, 88, 54), (49, 60, 63, 77)],  # RG3DS: its windows, read off the drawing
         "layout": "LAYOUT_PETALBURG_CITY",
         "rect": (12, 4, 6, 5),
         # the bottom row is porch and the town's own ground
@@ -1463,7 +1464,7 @@ SPECS = [
         # the middle house has trees over its ridge, so the ridge row is not
         # matched.
         "name": "dewford_house",
-        "lights": "auto",   # RG3DS: its windows glow at night
+        "lights": [(33, 45, 47, 52)],  # RG3DS: its windows, read off the drawing
         "layout": "LAYOUT_DEWFORD_TOWN",
         "rect": (16, 11, 4, 4),
         "match_rows": (1, 4),
@@ -1474,7 +1475,7 @@ SPECS = [
     {
         # RG3DS: Dewford Hall, the same kit five cells wide.
         "name": "dewford_hall",
-        "lights": "auto",   # RG3DS: its windows glow at night
+        "lights": [(49, 45, 63, 52)],  # RG3DS: its windows, read off the drawing
         "layout": "LAYOUT_DEWFORD_TOWN",
         "rect": (1, 0, 5, 4),
         "ground": [0x124],
@@ -1484,7 +1485,7 @@ SPECS = [
     {
         # RG3DS: Dewford's gym, Petalburg's drawn in the town's own tiles.
         "name": "dewford_gym",
-        "lights": "auto",   # RG3DS: its windows glow at night
+        "lights": [(10, 49, 21, 54), (25, 49, 38, 54), (74, 49, 88, 54), (49, 60, 63, 77)],  # RG3DS: its windows, read off the drawing
         "layout": "LAYOUT_DEWFORD_TOWN",
         "rect": (5, 13, 6, 5),
         "match_rows": (0, 4),
