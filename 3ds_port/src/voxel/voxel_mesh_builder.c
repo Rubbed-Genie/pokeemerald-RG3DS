@@ -1358,8 +1358,10 @@ static float CaveFloorLevel(const VoxelMapInstance *inst, int x, int y)
 
     if (!CaveFloorCell(inst, x, y) || CaveRockHeight() <= 0.0f)
         return 0.0f;
+    /* two levels up: the camera looks down steeply, and a cliff one level
+     * tall read as a ledge to hop */
     if (m == 0x211)
-        return CaveRockHeight();
+        return CaveRockHeight() * 2.0f;
     if (m == 0x201)
         return 0.0f;
     for (unsigned k = 0; k < 4; ++k)
@@ -1372,7 +1374,7 @@ static float CaveFloorLevel(const VoxelMapInstance *inst, int x, int y)
         high = high || n == 0x211;
         low = low || n == 0x201;
     }
-    return high && low ? CaveRockHeight() * 0.5f : high ? CaveRockHeight() : 0.0f;
+    return high && low ? CaveRockHeight() : high ? CaveRockHeight() * 2.0f : 0.0f;
 }
 
 /* A floor corner: the mean of the floor cells meeting there. */
@@ -1418,6 +1420,24 @@ static float CaveNearFloorAdjacent(const VoxelMapInstance *inst, int x, int y)
         if (CaveFloorCell(inst, x + n8[k][0], y + n8[k][1]))
         {
             float f = CaveFloorLevel(inst, x + n8[k][0], y + n8[k][1]);
+
+            if (f > best)
+                best = f;
+        }
+    return best;
+}
+
+/* The highest floor beside a rock cell, side by side: the level a cliff
+ * between two floors stands up to. */
+static float CaveRockBase(const VoxelMapInstance *inst, int x, int y)
+{
+    static const int n4[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+    float best = 0.0f;
+
+    for (unsigned k = 0; k < 4; ++k)
+        if (CaveFloorCell(inst, x + n4[k][0], y + n4[k][1]))
+        {
+            float f = CaveFloorLevel(inst, x + n4[k][0], y + n4[k][1]);
 
             if (f > best)
                 best = f;
@@ -1517,7 +1537,23 @@ static float CaveCorner(const VoxelMapInstance *inst, int cx, int cz)
              * from there, its band drawn on the ramp once - a face under a
              * raised edge drew the band twice, with a seam */
             if (!CaveRock(inst, cx + dx, cz + dz))
-                return CaveFloorCorner(inst, cx, cz);
+            {
+                /* RG3DS: but the rock between an upper floor and a lower
+                 * stands up to the upper floor, a cliff, not a slope down
+                 * it (a slope read as a ledge to hop) */
+                float floor = CaveFloorCorner(inst, cx, cz), base = 0.0f;
+
+                for (int ez = -1; ez <= 0; ++ez)
+                    for (int ex = -1; ex <= 0; ++ex)
+                        if (VoxelWorld_GetInstanceAt(cx + ex, cz + ez) == inst && CaveRock(inst, cx + ex, cz + ez))
+                        {
+                            float b = CaveRockBase(inst, cx + ex, cz + ez);
+
+                            if (b > base)
+                                base = b;
+                        }
+                return base > floor ? base : floor;
+            }
             sum += CaveCellHeight(inst, cx + dx, cz + dz);
             ++n;
         }
@@ -1572,6 +1608,13 @@ static void EmitCaveRock(VoxelBuilder *builder, const VoxelMapInstance *inst, in
         /* a rock set in the wall stands as its model on the top: the top
          * is plateau, not the rock's drawing again under it */
         bool edge = (open[0] || open[1] || open[2]) && !VoxelBuildings_CellAt(inst, x, y, NULL, NULL);
+
+        /* RG3DS: a cliff up to an upper floor shows its band on its face;
+         * its top is that floor's */
+        if (edge && open[0] && CaveFloorCell(inst, x, y + 1)
+            && CaveFloorLevel(inst, x, y + 1) < CaveRockBase(inst, x, y)
+            && MetatileUV(builder, 0x211, &t0, &s0, &t1, &s1))
+            edge = false;
         float a0 = edge ? u0 : t0, b0 = edge ? v0 : s0, a1 = edge ? u1 : t1, b1 = edge ? v1 : s1;
 
         VoxelBuilder_Quad(builder,
@@ -1582,7 +1625,8 @@ static void EmitCaveRock(VoxelBuilder *builder, const VoxelMapInstance *inst, in
     }
     for (unsigned k = 0; k < 3; ++k)
     {
-        float lo = VoxelWorld_GetInstanceAt(x + sides[k][0], y + sides[k][1]) == NULL ? -2.0f : 0.0f;
+        float lo = VoxelWorld_GetInstanceAt(x + sides[k][0], y + sides[k][1]) == NULL ? -2.0f
+                 : CaveFloorLevel(inst, x + sides[k][0], y + sides[k][1]);
         float x0 = wx, x1 = wx + 1.0f, z0 = wz, z1 = wz + 1.0f;
 
         if (!open[k])
