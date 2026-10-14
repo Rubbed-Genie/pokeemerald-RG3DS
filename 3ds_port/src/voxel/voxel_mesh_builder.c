@@ -1358,10 +1358,10 @@ static float CaveFloorLevel(const VoxelMapInstance *inst, int x, int y)
 
     if (!CaveFloorCell(inst, x, y) || CaveRockHeight() <= 0.0f)
         return 0.0f;
-    /* two levels up: the camera looks down steeply, and a cliff one level
+    /* well up (1.4 levels): the camera looks down steeply, and a cliff one level
      * tall read as a ledge to hop */
     if (m == 0x211)
-        return CaveRockHeight() * 2.0f;
+        return CaveRockHeight() * 1.4f;
     if (m == 0x201)
         return 0.0f;
     for (unsigned k = 0; k < 4; ++k)
@@ -1374,7 +1374,7 @@ static float CaveFloorLevel(const VoxelMapInstance *inst, int x, int y)
         high = high || n == 0x211;
         low = low || n == 0x201;
     }
-    return high && low ? CaveRockHeight() : high ? CaveRockHeight() * 2.0f : 0.0f;
+    return high && low ? CaveRockHeight() * 0.7f : high ? CaveRockHeight() * 1.4f : 0.0f;
 }
 
 /* A floor corner: the mean of the floor cells meeting there. */
