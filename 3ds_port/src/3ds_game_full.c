@@ -352,6 +352,13 @@ static void UpdateSet(StageSet *set, IntrCallback callback)
     set->on = on;
 }
 
+/* Whether a map change's own picture - the cave fade - is up (fldeff_flash.c,
+ * patch 0045). */
+__attribute__((weak)) bool8 CtrMapChange_Showing(void)
+{
+    return FALSE;
+}
+
 /* Whether the map name pop-up is up (map_name_popup.c, patch 0044). */
 __attribute__((weak)) bool8 CtrMapNamePopup_Showing(void)
 {
@@ -389,6 +396,10 @@ static void UpdateStage(void)
      * callback; drawn as the battle it was magnified and cut off (over the
      * world in the 3D battle). Centred on the top screen, as the maps are. */
     if (gMain.inBattle && CtrPokedex_CaughtPageShown())
+        CtrVideo_SetCentred(CTR_CENTRED_PLAIN);
+    /* RG3DS: the cave fade is a picture of the GBA's screen; drawn as the
+     * field it filled a corner of the view. Centred, as the maps are. */
+    else if (CtrMapChange_Showing())
         CtrVideo_SetCentred(CTR_CENTRED_PLAIN);
     else
         CtrVideo_SetCentred(sCentred.on ? sCentred.screen : CTR_CENTRED_NONE);
