@@ -2862,6 +2862,25 @@ def placement_ground(model, entry, blocks, path, px, py, ring, patched):
     return max(sorted(candidates), key=score.get)
 
 
+# RG3DS: which buildings' doors pour light on the ground at night (Matt
+# 2026-10-15: "the gyms, the mart and centre and simple small houses"). A
+# spec's own "light_pool" (True / False) wins over the name.
+LIGHT_POOL_NAMES = ("pokemon_center", "poke_mart", "gym")
+LIGHT_POOL_HOUSES = ("house",)
+NO_LIGHT_POOL = ("motel", "seashore", "trick", "harbor", "museum", "hall", "fan_club",
+                 "cozmo", "fossil", "winstrate", "briney")
+
+
+def light_pool(model):
+    spec = getattr(model, "spec", {}) or {}
+    if "light_pool" in spec:
+        return bool(spec["light_pool"])
+    name = model.name
+    if any(word in name for word in NO_LIGHT_POOL):
+        return False
+    return name.startswith(LIGHT_POOL_NAMES) or "_gym" in name or any(word in name for word in LIGHT_POOL_HOUSES)
+
+
 def report_grounds(models, found):
     """The cells where a placement's ground is not what the map shows, into
     GROUND_REPORT. In each map the first placement that owns a cell lays its
@@ -3879,6 +3898,7 @@ def export(models, path):
     for rec in found:
         by_layout.setdefault(rec[0], []).append(rec)
     pages, page_models, placements, texels, anims = [], [], [], [], []
+    door_lights = []
     glows = []
     for lid in sorted(by_layout):
         recs = by_layout[lid]
@@ -3946,6 +3966,10 @@ def export(models, path):
                 d = [i, 0.01, j + 1, ox, oy + 16, 1.0]
                 verts += a + b + c + a + c + d
             placements.append((lid, pm_of[index], px, py, ground, len(verts) // 6 - first, first))
+            # RG3DS: a building whose door lights the ground at night
+            if light_pool(models[index]):
+                rect = models[index].spec.get("rect") or (0, 0, 1, 1)
+                door_lights.append((lid, px, py, rect[2], rect[3]))
     placements.sort()
     nverts = len(verts) // 6
     # ctr_voxel.c keeps a flag a page (VOXEL_MAX_PAGES), and a page larger
@@ -3994,6 +4018,13 @@ def export(models, path):
     blob += anim_table(anims, len(blob))
     os.makedirs(os.path.dirname(path), exist_ok=True)
     open(path, "wb").write(blob)
+    # RG3DS: the buildings tagged for door light (light_pool): u16 count, then
+    # per building u16 layout, u16 x, u16 y, u8 w, u8 h - its cells.
+    door_lights.sort()
+    open(os.path.join(os.path.dirname(path), "door_lights.bin"), "wb").write(
+        struct.pack("<H", len(door_lights))
+        + b"".join(struct.pack("<HHHBB", *d) for d in door_lights))
+    print("voxel buildings: %d placements light their doors at night (door_lights.bin)" % len(door_lights))
     print("voxel buildings: %d models, %d pages, %d placements, %d vertices, %d footprints, "
           "%.1f KiB -> %s" % (len(models), len(pages), len(placements), nverts, len(masks),
                               len(blob) / 1024.0, path))

@@ -6100,9 +6100,9 @@ static VoxelLight LightFor(bool indoor)
             light.hazeRgb[channel] += (moon.rgb[channel] - light.hazeRgb[channel]) * moon.amount;
         }
         /* RG3DS: a clear night keeps an atmosphere of its own (Matt
-         * 2026-10-15: "a lil moon beam thing like the sun has", the
-         * particles): faint moonbeams, moonlit motes, faces turned from the
-         * moon in deeper shade. Rain and fog, which have none by day, keep
+         * 2026-10-15, the particles): moonlit motes, and the faces turned
+         * from the light a little darker - depth, without the moon's
+         * shadows ("I don't really want shadows at night"). Rain and fog, which have none by day, keep
          * none. sNightAmount tints the beams and motes towards the moon. */
         float rays = light.rays, motes = light.motes, night = cycle->glow;
 
@@ -6110,10 +6110,11 @@ static VoxelLight LightFor(bool indoor)
         light.motes *= cycle->daylight;
         if (night > 0.0f && rays > 0.0f)
         {
-            light.rays = fmaxf(light.rays, rays * 0.8f * night);
+            /* no moonbeams (Matt: "a lil eh"), the motes stay */
+            (void)rays;
             light.motes = fmaxf(light.motes, motes * 0.6f * night);
             for (unsigned channel = 0; channel < 3; ++channel)
-                light.shade[channel] *= 1.0f - 0.30f * night;
+                light.shade[channel] *= 1.0f - 0.18f * night;
         }
         sNightAmount = night;
         light.dappleLow = 1.0f + (light.dappleLow - 1.0f) * cycle->daylight;
@@ -6861,7 +6862,9 @@ static void BuildingGlowEnv(C3D_Tex *mask, float strength)
  * ground x (1 + light), light = the warm colour x the pool's falloff), so the
  * paving shows through brighter and warmer instead of under a flat orange.
  */
-#define VOXEL_LAMP_POOL_GAIN 0.5f
+/* RG3DS: 1.1 - on the deeper nights (night_dark) a pool of 0.5 was lost: it
+ * brightens the ground it lies on, and that ground is dark */
+#define VOXEL_LAMP_POOL_GAIN 1.1f
 static void LampTexEnv(float strength, bool ground)
 {
     C3D_TexEnv *env;

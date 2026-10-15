@@ -190,15 +190,6 @@ void CtrDayNight_Update(void)
         }
         sSun = previousSun.key == SunKey(sClock.timeMs)
              ? previousSun : CtrDayNight_SunAt(sClock.timeMs);
-        /* RG3DS: at night the moon casts the shadows - softer, from the
-         * upper left, as strong as the night is deep (its key steps with
-         * that strength, so the casters relight as it comes in). */
-        if (sSun.strength <= 0.0f && sLight.glow > 0.0f)
-        {
-            unsigned step = (unsigned)(sLight.glow * 4.0f + 0.5f);
-
-            sSun = (CtrDayNightSun){0.90f, 0.45f, 0.45f * (float)step / 4.0f, 500u + step};
-        }
     }
 }
 
