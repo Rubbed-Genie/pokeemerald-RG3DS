@@ -108,21 +108,6 @@ bool VoxelSign_IsLantern(const uint16_t head[16])
     return top != 0 && (top & (top - 1u)) == 0 && width >= 7;
 }
 
-/* The ground a lamp's light may fall on: what is walked or seen between
- * things - floor, water, the foot of a post, fence or prop. Not a building,
- * tree, cliff, ledge or stair, whose ground is not where the pool lies. */
-static bool LampLit(const VoxelMapInstance *inst, int x, int z)
-{
-    int localX = x - inst->originX, localZ = z - inst->originY;
-    unsigned role;
-
-    if (localX < 0 || localZ < 0 || localX >= inst->width || localZ >= inst->height)
-        return false;
-    role = VoxelRegions_RoleAt(inst->layoutId, localX, localZ);
-    return role == VOXEL_ROLE_FLOOR || role == VOXEL_ROLE_WATER || role == VOXEL_ROLE_SIGNPOST
-        || role == VOXEL_ROLE_FENCE || role == VOXEL_ROLE_PROP;
-}
-
 /* A rectangle of the pool on one ground, its texture (the round falloff of
  * VOXEL_LAMP_POOL_RADIUS) mapped from the lamp's centre. */
 static void LampPoolQuad(VoxelBuilder *b, float x0, float z0, float x1, float z1,
@@ -141,62 +126,24 @@ static void LampPoolQuad(VoxelBuilder *b, float x0, float z0, float x1, float z1
 
 /*
  * The pool of light under a lamp: a textured disc on the ground, its falloff
- * per pixel. Where every cell it covers is lit ground at one height - a city
- * street - it is one quad; elsewhere a quad a cell, on the cells it may light.
- * It used to be four quads a cell with the falloff in the vertices, which drew
- * it in visible squares, and it left out the lamp's own cell (a signpost) and
- * any fence beside it: dark squares where the light is brightest.
+ * per pixel, one quad at its centre's ground. RG3DS: always one, as our own
+ * pools were (Matt 2026-10-15: "square shadows, sharp edges with the
+ * lights") - cut into the cells it might light wherever the ground was not
+ * one even street, it stopped dead at every kerb and road edge. A wall in
+ * front of it hides it by depth, as it hides the ground.
  */
 static void LampGround(VoxelBuilder *builder, const VoxelMapInstance *inst,
                        float centerX, float centerZ)
 {
     const float r = VOXEL_LAMP_POOL_RADIUS;
-    int firstX = (int)floorf(centerX - r), lastX = (int)floorf(centerX + r);
-    int firstZ = (int)floorf(centerZ - r), lastZ = (int)floorf(centerZ + r);
-    float lift = 0.0f, shift = 0.0f;
-    bool flat = true;
+    int cellX = (int)floorf(centerX), cellZ = (int)floorf(centerZ);
 
-    if (builder == NULL)
+    if (builder == NULL || builder->capacity - builder->count < 6u)
         return;
     builder->base = VoxelRelief_Base(inst);
-    for (int zpos = firstZ; zpos <= lastZ && flat; ++zpos)
-        for (int xpos = firstX; xpos <= lastX && flat; ++xpos)
-        {
-            float l = VoxelRelief_CellLift(inst, xpos, zpos), s = VoxelRelief_CellShift(inst, xpos, zpos);
-
-            if (zpos == firstZ && xpos == firstX)
-            {
-                lift = l;
-                shift = s;
-            }
-            flat = LampLit(inst, xpos, zpos) && l == lift && s == shift;
-        }
-    if (flat)
-    {
-        if (builder->capacity - builder->count < 6u)
-            return;
-        builder->lift = lift;
-        builder->shift = shift;
-        LampPoolQuad(builder, centerX - r, centerZ - r, centerX + r, centerZ + r, centerX, centerZ);
-        return;
-    }
-    for (int zpos = firstZ; zpos <= lastZ; ++zpos)
-        for (int xpos = firstX; xpos <= lastX; ++xpos)
-        {
-            /* the cell's nearest point to the centre: is any of it lit? */
-            float nx = centerX < xpos ? xpos : centerX > xpos + 1 ? xpos + 1 : centerX;
-            float nz = centerZ < zpos ? zpos : centerZ > zpos + 1 ? zpos + 1 : centerZ;
-
-            if ((nx - centerX) * (nx - centerX) + (nz - centerZ) * (nz - centerZ) >= r * r
-             || !LampLit(inst, xpos, zpos))
-                continue;
-            if (builder->capacity - builder->count < 6u)
-                return;
-            builder->lift = VoxelRelief_CellLift(inst, xpos, zpos);
-            builder->shift = VoxelRelief_CellShift(inst, xpos, zpos);
-            LampPoolQuad(builder, (float)xpos, (float)zpos, (float)(xpos + 1), (float)(zpos + 1),
-                         centerX, centerZ);
-        }
+    builder->lift = VoxelRelief_CellLift(inst, cellX, cellZ);
+    builder->shift = VoxelRelief_CellShift(inst, cellX, cellZ);
+    LampPoolQuad(builder, centerX - r, centerZ - r, centerX + r, centerZ + r, centerX, centerZ);
 }
 
 /* RG3DS: the buildings tagged for light pools (gen_voxel_buildings.py

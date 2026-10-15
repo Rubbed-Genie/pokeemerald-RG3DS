@@ -6890,6 +6890,11 @@ static void LampTexEnv(float strength, bool ground)
     {
         float k = strength * VOXEL_LAMP_POOL_GAIN;
 
+        /* RG3DS: each channel within its byte - past 1 the red ran over into
+         * green and a bright pool came out green */
+        if (k > 1.0f)
+            k = 1.0f;
+
         C3D_TexEnvSrc(env, C3D_RGB, GPU_TEXTURE0, GPU_CONSTANT, GPU_CONSTANT);
         C3D_TexEnvFunc(env, C3D_RGB, GPU_MODULATE);
         C3D_TexEnvSrc(env, C3D_Alpha, GPU_CONSTANT, GPU_CONSTANT, GPU_CONSTANT);
