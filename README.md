@@ -9,6 +9,12 @@
 - The top screen laid out at 4:3 (320×240), shown at an exact 2× on the RG DS; larger title, naming, map, PC, mart,
   bag, party, summary and battle-text screens; tuned camera defaults (`sEditionDefaults` in `3ds_port/src/3ds_settings.c`).
 
+**Battles and text boxes**
+- The GBA's own battle boxes and text box (`battle_hd=0`, the 4:3 build's default; `battle_hd=1` for dev's HD
+  interface), the scene lifted above the zoomed text box and zoomed 4/3 so a double battle's four boxes fit the screen;
+  the foes stay on their platform.
+- The field's text box centred, 3 px over the screen's bottom edge (`box_margin`), with no line under it.
+
 **Night** (OPTIONS > ENHANCEMENTS > DAY/NIGHT on)
 - Deeper nights (`night_dark`, 45% of the light kept at full night) on the world, sprites and 2D layers alike.
 - Window glow for every town building: the authored windows reach buildings drawn alike, other glass is found by colour.
