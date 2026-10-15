@@ -39,6 +39,9 @@
 int CtrBattleSideShift(unsigned char battler);
 /* The same for a side (B_SIDE_PLAYER, B_SIDE_OPPONENT). */
 int CtrBattleSideShiftOf(unsigned char side);
+/* RG3DS: the GBA's own battle boxes and text box (battle_hd=0, the 4:3
+ * edition's default): no side shifts, the scene above the zoomed GBA box. */
+int CtrBattleClassic(void);
 #endif
 
 #endif

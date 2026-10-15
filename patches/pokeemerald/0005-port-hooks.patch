@@ -979,7 +979,7 @@ index dff3a71fa1ce879bd624a7f003e944d56857635e..0878c4f415f528bddfcabba29a1d03c8
 +// the animations aimed at them move together. Contests keep their places.
 +int CtrBattleSideShiftOf(u8 side)
 +{
-+    if (IsContest())
++    if (IsContest() || CtrBattleClassic())
 +        return 0;
 +    return side == B_SIDE_PLAYER ? CTR_BATTLE_PLAYER_DROP : -CTR_BATTLE_ENEMY_RISE;
 +}

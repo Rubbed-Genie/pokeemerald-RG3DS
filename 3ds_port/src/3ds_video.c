@@ -291,7 +291,9 @@ static int sSurfaceH = 256;
  * picture ends; below that, behind the box's margins, the scene's last line
  * is carried down (ScenePlaceFrom).
  */
-#define BATTLE_SCENE_BOX_BOTTOM (112 + (int)ceilf((CTR_BATTLE_BOX_TOP - (CTR_GAME_HEIGHT - 48)) / CTR_BATTLE_ZOOM))
+#define BATTLE_SCENE_BOX_BOTTOM (CtrBattleClassic() \
+    ? 112 + (int)ceilf((48.0f - CtrVideo_BattleBoxHeight()) / CTR_BATTLE_ZOOM) \
+    : 112 + (int)ceilf((CTR_BATTLE_BOX_TOP - (CTR_GAME_HEIGHT - 48)) / CTR_BATTLE_ZOOM))
 /* Or the whole picture, with no text box to go behind (BattleSceneBottom). */
 static int BattleSceneBottom(void);
 #define BATTLE_SCENE_BOTTOM BattleSceneBottom()
@@ -3131,6 +3133,10 @@ static float BattleTextZoom(void)
 
     return pct > 100 && pct <= 140 ? (float)pct / 100.0f : 1.0f;
 }
+
+/* RG3DS: the battle text box's height on screen (bat_zoom): with the GBA's
+ * box (CtrBattleClassic) the scene stands above it. */
+float CtrVideo_BattleBoxHeight(void) { return 48.0f * BattleTextZoom(); }
 
 static void DrawBattleTextLayer(unsigned bg)
 {

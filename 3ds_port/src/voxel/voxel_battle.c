@@ -64,7 +64,9 @@ static void ViewInit(BattleView *v)
 }
 
 static float GbaToScreenX(float x) { return CTR_GAME_WIDTH / 2 + (x - 120.0f) * CTR_BATTLE_ZOOM; }
-static float GbaToScreenY(float y) { return CTR_GAME_HEIGHT - 48 + (y - 112.0f) * CTR_BATTLE_ZOOM; }
+/* RG3DS: over the zoomed GBA box when it is the one shown (CtrBattleClassic) */
+static float BoxTop(void) { return CTR_GAME_HEIGHT - (CtrBattleClassic() ? CtrVideo_BattleBoxHeight() : 48.0f); }
+static float GbaToScreenY(float y) { return BoxTop() + (y - 112.0f) * CTR_BATTLE_ZOOM; }
 
 /* The ground under a screen point, from the target. */
 static void ScreenToGround(const BattleView *v, float sx, float sy, float *x, float *z)
@@ -339,7 +341,7 @@ static float StageScore(const StageSearch *s, float tx, float tz, float distance
             if (CellAt(cx, cz)->kind != GROUND_VOID)
                 continue;
             if (!Project(v, cx - tx, 0.0f, cz - tz, &sx, &sy) || sx < 0.0f || sx > CTR_GAME_WIDTH
-             || sy < 0.0f || sy > CTR_GAME_HEIGHT - 48)
+             || sy < 0.0f || sy > BoxTop())
                 continue;
             score -= sy > 90.0f ? 1.2f : 0.5f;
         }

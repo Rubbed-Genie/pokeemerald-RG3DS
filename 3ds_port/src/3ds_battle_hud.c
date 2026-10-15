@@ -34,6 +34,7 @@
 #include "constants/characters.h"
 
 #include "3ds_battle_hud.h"
+#include "ctr_battle_layout.h"
 #include "3ds_log.h"
 #include "3ds_video.h"
 #include "../compat/port_platform.h"
@@ -188,9 +189,20 @@ static void LoadArt(void)
 }
 
 static void MakeLabels(const uint16_t *boxTileVram);
+int CtrSettings_GetInt(const char *key, int fallback);
+
+int CtrBattleClassic(void)
+{
+    return CtrSettings_GetInt("battle_hd", 1) == 0;
+}
 
 bool CtrBattleHud_Ready(void)
 {
+    /* RG3DS: the GBA's own boxes and text box unless battle_hd=1 - the
+     * edition's battle screens are laid out and zoomed for them (Matt
+     * 2026-10-15: "I like what we had"). */
+    if (CtrBattleClassic())
+        return false;
     LoadArt();
     return sArtReady;
 }
