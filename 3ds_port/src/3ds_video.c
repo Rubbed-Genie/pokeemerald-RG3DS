@@ -3193,11 +3193,13 @@ static bool BattleRowShown(unsigned map, unsigned size, unsigned chars, bool col
  * the opponent's half above it drawn CTR_BATTLE_ENEMY_RISE lines higher, the
  * player's half below it CTR_BATTLE_PLAYER_DROP lower, as the game moves the
  * two sides' sprites. Only while BG3 holds the terrain, not a move's
- * background, which is drawn for the whole screen.
+ * background, which is drawn for the whole screen. RG3DS: not with the GBA's
+ * box (CtrBattleClassic), whose sprites keep the GBA's places, so the
+ * terrain keeps its own and each foe stands on its platform.
  */
 static bool BattleTerrainSplit(unsigned bg)
 {
-    return sBattle && bg == 3 && !CtrBattleBg_MoveBgShown();
+    return sBattle && bg == 3 && !CtrBattleBg_MoveBgShown() && !CtrBattleClassic();
 }
 
 /*
