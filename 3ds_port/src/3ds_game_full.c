@@ -55,7 +55,6 @@
 #include "field_weather.h"
 #include "event_object_movement.h"
 #include "constants/field_weather.h"
-#include "constants/heal_locations.h"
 #include "constants/pokemon_icon.h"
 #include "constants/species.h"
 #include "constants/maps.h"
@@ -63,6 +62,11 @@
 #include "field_screen_effect.h"
 #include "script_pokemon_util.h"
 #endif
+/* RG3DS dev menu: the weather row and the town warp */
+#include "field_weather.h"
+#include "script.h"
+#include "constants/field_weather.h"
+#include "constants/heal_locations.h"
 #include "librfu.h"
 #include "port_platform.h"
 #include "port_log.h"
