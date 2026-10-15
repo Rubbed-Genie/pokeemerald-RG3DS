@@ -77,7 +77,12 @@ void CtrPlatform_NoteBottom(float ms) { sTiming.bottomMs = ms; }
 
 bool CtrPlatform_Init(void)
 {
-    gfxInitDefault();
+    /* The bottom screen at RGB565 from the start: its frame buffers live in
+     * the linear heap, and gfxInitDefault made them BGR8 (450 KiB) before
+     * CtrLog_Init turned the screen to 565, which never shrinks them. The
+     * top screen stays BGR8: at 565 the top screen came out garbled on a
+     * New 3DS from the first frame (Azahar showed it fine). */
+    gfxInit(GSP_BGR8_OES, GSP_RGB565_OES, false);
     /* A New 3DS runs the application core at 804 MHz with its L2 cache when
      * asked; an Old 3DS ignores this. */
     osSetSpeedupEnable(true);
@@ -210,7 +215,8 @@ bool CtrPlatform_BeginFrame(void)
  * been earned, the others run back to back: at 2x one frame in two is shown,
  * at 1.5x two in three. Only
  * a presented frame ticks the sound engine (CtrPlatform_SoundTick), so music
- * and effects keep their speed while the game runs faster. A frame is also
+ * and effects keep their speed while the game runs faster; a frame hidden by
+ * real-time pacing (below) ticks it too, as it stands for real time. A frame is also
  * presented as soon as one more hidden frame and the present would no longer
  * fit in the display's frame: the game then runs as fast as the console
  * allows (an Old 3DS less than a New 3DS at 804 MHz) and the picture and the
@@ -242,6 +248,10 @@ static float sPresentMs = 4.0f;
 static bool sPace;
 static uint64_t sPaceStart;
 static float sPaceFrames;
+/* This frame went through pacing, not fast-forward (FrameShown): a frame it
+ * hides still ticks the sound engine, which otherwise (no worker on the DSP's
+ * clock) would slow by exactly the frames pacing hides. */
+static bool sPacedFrame;
 
 /* Whether the game is a frame behind the clock, counting this frame as run. */
 static bool PaceBehind(uint64_t now)
@@ -287,7 +297,8 @@ static bool FrameShown(uint64_t now)
     unsigned speed = LocalLink_InSession() ? 2 : CtrSettings_SpeedHalves();
     float since = sShownTick ? (now - sShownTick) * 1000.0f / SYSCLOCK_ARM11 : FRAME_MS;
 
-    if (sPace && speed <= 2)
+    sPacedFrame = sPace && speed <= 2;
+    if (sPacedFrame)
     {
         bool behind = PaceBehind(now);
 
@@ -347,7 +358,7 @@ void CtrPlatform_EndFrame(void)
     sTiming.gameMs = (endStart - sWorkStart) * 1000.0f / SYSCLOCK_ARM11;
     PaceUpdate();
     bool shown = FrameShown(endStart);
-    sSoundTick = shown;
+    sSoundTick = shown || sPacedFrame;
     if (sHooks.audioFrame)
         sHooks.audioFrame();
     /* Latch the logical frame BEFORE GPU reads its registers/OAM/palette.

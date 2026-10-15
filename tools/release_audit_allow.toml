@@ -33,6 +33,7 @@ paths = [
 "3ds_port/assets/artwork/bottom/shoe_on.png" = "bottom screen RUN button icon (on), original pixel art by the Pokémon Emerald 3Ds Dual Screen author"
 "3ds_port/assets/artwork/bottom/badge_y.png" = "bottom screen Y button badge, original pixel art by the Pokémon Emerald 3Ds Dual Screen author"
 "3ds_port/assets/artwork/rg3ds/avatar.png" = "RG3DS edition credit icon under the title screen: the RG3DS edition author's (Rubbed-Genie) own avatar"
+"3ds_port/assets/artwork/bottom/pokedex.png" = "bottom screen Pokédex column icon: Pokémon Platinum's menu Pokédex art, mastered to 24x24 by luksgrin (public PR #91)"
 
 [local_paths]
 # Files allowed to mention a local path (documentation of the audit itself).
