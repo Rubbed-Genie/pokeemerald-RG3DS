@@ -127,7 +127,8 @@ OBJECTS += $(FULL_OBJECTS)
 # the build options. Its own object, rewritten only when one of them changes,
 # so a commit relinks without recompiling anything else.
 BUILDINFO_PATHS := . ../src ../include ../data ../constants ':!*.md'
-BUILDINFO_DEFINES := $(sort $(filter -D%,$(CPPFLAGS) $(GAMEFLAGS)))
+# RG3DS: the edition version is a quoted string, which the stamp cannot hold.
+BUILDINFO_DEFINES := $(sort $(filter-out -DCTR_RG3DS_VERSION=%,$(filter -D%,$(CPPFLAGS) $(GAMEFLAGS))))
 OBJECTS += build/buildinfo.o
 build/buildinfo.c: FORCE
 	@mkdir -p build
