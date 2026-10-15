@@ -1075,6 +1075,7 @@ typedef struct
     uint32_t glowRetry;   /* no piece asked for again before this frame */
     uint32_t glowDropped; /* frame it stopped being drawn from */
     bool glowDropping;    /* no longer drawn from: freed two frames on */
+    bool glowLinear;      /* RG3DS: the mask in linear memory, not the arena */
     uint64_t requested; /* tick it was asked for, for the log */
 } BuildingPageSlot;
 static BuildingPageSlot sPageSlots[VOXEL_BUILDING_PAGES];
@@ -1231,8 +1232,11 @@ static bool StreamHolds(const BuildingPageSlot *slot)
 
 static void GlowFree(BuildingPageSlot *slot)
 {
-    if (slot->glow.data != NULL)
+    if (slot->glow.data != NULL && slot->glowLinear)
+        linearFree(slot->glow.data);
+    else if (slot->glow.data != NULL)
         VoxelArena_Free(&sPageArena, slot->glow.data);
+    slot->glowLinear = false;
     memset(&slot->glow, 0, sizeof(slot->glow));
     slot->glowLoaded = 0;
     slot->glowDropping = false;
@@ -1305,6 +1309,15 @@ static void GlowWant(BuildingPageSlot *slot)
     /* as the page's texture: all the rows the GPU is told it has (PageBytes) */
     bytes = slot->w * slot->tex.height;
     block = VoxelArena_Alloc(&sPageArena, bytes, bytes < 256u * 1024u);
+    slot->glowLinear = false;
+#if CTR_GAME_WIDTH == 320
+    /* RG3DS: with the arena full of the town's pages, the mask from linear
+     * memory - the GPU reads a texture there too (the RG DS runs Azahar,
+     * where it costs nothing) - or the windows came on late or not at all
+     * (port.log: "no room yet for building page N's window mask") */
+    if (block == NULL && (block = linearAlloc(bytes)) != NULL)
+        slot->glowLinear = true;
+#endif
     if (block == NULL)
     {
         slot->glowRetry = sFrame + VOXEL_PAGE_RETRY_FRAMES;
@@ -6862,9 +6875,9 @@ static void BuildingGlowEnv(C3D_Tex *mask, float strength)
  * ground x (1 + light), light = the warm colour x the pool's falloff), so the
  * paving shows through brighter and warmer instead of under a flat orange.
  */
-/* RG3DS: 1.1 - on the deeper nights (night_dark) a pool of 0.5 was lost: it
- * brightens the ground it lies on, and that ground is dark */
-#define VOXEL_LAMP_POOL_GAIN 1.1f
+/* RG3DS: added light now (LampTexEnv), so gentler: the old pools were
+ * "a lil bright" (Matt) */
+#define VOXEL_LAMP_POOL_GAIN 0.40f
 static void LampTexEnv(float strength, bool ground)
 {
     C3D_TexEnv *env;
@@ -6882,7 +6895,10 @@ static void LampTexEnv(float strength, bool ground)
         C3D_TexEnvFunc(env, C3D_Alpha, GPU_REPLACE);
         C3D_TexEnvColor(env, 0xFF000000u | (uint32_t)(k * 60.0f + 0.5f) << 16
                              | (uint32_t)(k * 150.0f + 0.5f) << 8 | (uint32_t)(k * 255.0f + 0.5f));
-        C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, GPU_DST_COLOR, GPU_ONE, GPU_ZERO, GPU_ONE);
+        /* RG3DS: the warm light added to the ground, not the ground's own
+         * colour brightened - that turned blue paving and grass teal-green
+         * at night (desktop shots 2026-10-15) */
+        C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, GPU_ONE, GPU_ONE, GPU_ZERO, GPU_ONE);
         return;
     }
     C3D_TexEnvSrc(env, C3D_RGB, GPU_CONSTANT, GPU_CONSTANT, GPU_CONSTANT);
