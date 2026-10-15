@@ -564,17 +564,35 @@ static bool Lit(float x, float y, float z)
 
 /* Small contact AO at the bases of solid neighbours; leave roof/crown art
  * alone. Ambient light keeps the original pixel art legible in shadow. */
+/* RG3DS: how deep and how far the contact shade reaches at night (0 by day,
+ * 1 at full night; VoxelLighting_SetNight) - the even shade round a base
+ * that stands for the night's soft light from everywhere (Matt 2026-10-15:
+ * "semi top down", the same in every town). */
+static float sNight;
+
 static float Contact(float x, float y, float z)
 {
     unsigned covered = 0;
+    float reach = 0.28f + 0.20f * sNight, per = 0.035f + 0.115f * sNight;
 
     if (y - Cell(Tile(x), Tile(z))->base > 0.41f)
         return 1.0f;
-    covered += Occludes(x - 0.28f, y + 0.3f, z);
-    covered += Occludes(x + 0.28f, y + 0.3f, z);
-    covered += Occludes(x, y + 0.3f, z - 0.28f);
-    covered += Occludes(x, y + 0.3f, z + 0.28f);
-    return 1.0f - 0.035f * (float)covered;
+    covered += Occludes(x - reach, y + 0.3f, z);
+    covered += Occludes(x + reach, y + 0.3f, z);
+    covered += Occludes(x, y + 0.3f, z - reach);
+    covered += Occludes(x, y + 0.3f, z + reach);
+    return 1.0f - per * (float)covered;
+}
+
+bool VoxelLighting_SetNight(float night)
+{
+    /* in quarters: each step relights the static meshes */
+    night = floorf((night < 0.0f ? 0.0f : night > 1.0f ? 1.0f : night) * 4.0f + 0.5f) / 4.0f;
+    if (night == sNight)
+        return false;
+    sNight = night;
+    ResetSamples();
+    return true;
 }
 
 /*

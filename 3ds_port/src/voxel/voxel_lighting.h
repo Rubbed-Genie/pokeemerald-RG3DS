@@ -32,6 +32,9 @@ extern VoxelSun gVoxelSun;
  * and needed at no other time: the caches outlive builds and frames. */
 void VoxelLighting_Reset(void);
 bool VoxelLighting_SetSun(float dx, float dz, float strength, uint32_t key);
+/* RG3DS: the night's depth (0-1, in quarters) for the contact shade; true
+ * when it changed and the static meshes want relighting. */
+bool VoxelLighting_SetNight(float night);
 uint32_t VoxelLighting_Hash(int x0, int z0, int x1, int z1);
 float VoxelLighting_Sample(float x, float y, float z);
 /* Rays cast so far (samples not found in the cache), for the build logs. */

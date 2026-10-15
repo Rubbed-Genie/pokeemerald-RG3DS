@@ -5430,7 +5430,9 @@ bool CtrVoxel_Update(void)
     {
         const CtrDayNightSun *sun = CtrDayNight_GetSun();
 
-        if (VoxelLighting_SetSun(sun->dx, sun->dz, sun->strength, sun->key))
+        bool night = VoxelLighting_SetNight(CtrGame_IsOutdoor() ? CtrDayNight_Get()->glow : 0.0f);
+
+        if (VoxelLighting_SetSun(sun->dx, sun->dz, sun->strength, sun->key) || night)
         {
             StaticMeshesRelight();
             ++sEpoch;

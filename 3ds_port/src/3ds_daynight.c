@@ -198,7 +198,7 @@ void CtrDayNight_Update(void)
         {
             unsigned step = (unsigned)(sLight.glow * 4.0f + 0.5f);
 
-            sSun = (CtrDayNightSun){0.0f, 0.20f, 0.35f * (float)step / 4.0f, 700u + step};
+            sSun = (CtrDayNightSun){0.0f, 0.20f, 0.90f * (float)step / 4.0f, 700u + step};
         }
     }
 }
