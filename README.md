@@ -1,3 +1,61 @@
+> [!NOTE]
+> **This is the `rg3ds-dev` branch of [Pokémon Emerald RG3DS](https://github.com/Rubbed-Genie/pokeemerald-RG3DS)**, Rubbed-Genie's
+> edition of this port tuned for the Anbernic RG DS (two 4:3, 640×480 screens; 3DS software via Azahar on ROCKNIX). It is
+> ZallaxDev's latest `dev` with the RG3DS layer on top, for testing. Everything below the line is the upstream README.
+
+## RG3DS on `dev`: what this branch adds
+
+**Made for the RG DS's screens** (with `TOP_WIDTH=320`)
+- The top screen laid out at 4:3 (320×240), shown at an exact 2× on the RG DS; larger title, naming, map, PC, mart,
+  bag, party, summary and battle-text screens; tuned camera defaults (`sEditionDefaults` in `3ds_port/src/3ds_settings.c`).
+
+**Night** (OPTIONS > ENHANCEMENTS > DAY/NIGHT on)
+- Deeper nights (`night_dark`, 45% of the light kept at full night) on the world, sprites and 2D layers alike.
+- Window glow for every town building: the authored windows reach buildings drawn alike, other glass is found by colour.
+- Warm light pools in front of the low windows and glass doors of gyms, marts, centres and small houses
+  (`light_pool` in `3ds_port/scripts/gen_voxel_buildings.py`), drawn as one smooth disc like the lamps'.
+- At night, light from overhead: short shadows round every base instead of the evening's long ones, a deeper contact
+  shade, and a few firefly motes on clear nights.
+- On the 4:3 build a window mask that finds no room in the building pages' VRAM arena comes from linear memory, so
+  lit windows no longer wait.
+
+**Models** (Rubbed-Genie's picks over dev's): Slateport's Battle Tent dome (all three tents, each in its own town's
+art), the market's stalls and awnings (with back legs), Stern's shipyard; and models dev does not have yet: Route 110's
+south gate, Lavaridge's and Fortree's gyms, Slateport's kerbs and beach breakwater, the market's goods as props.
+Every one passes `gen_voxel_buildings.py --verify` (the drawing reproduced pixel for pixel).
+
+**Dev menu** (ZL+ZR): time of day, day/night, night light, weather held across maps, warp to Slateport, Rustboro,
+Dewford, Petalburg or Mauville. Its settings last for that play only; nothing is saved.
+
+### Building it
+
+There is no download of the finished game: the `.3dsx` carries Pokémon Emerald's graphics, maps and music, so you
+build it yourself. You need **git**, **Python 3.11+** with Pillow, and **Podman** (or Docker).
+
+```sh
+git clone -b rg3ds-dev https://github.com/Rubbed-Genie/pokeemerald-RG3DS.git
+cd pokeemerald-RG3DS
+python3 tools/bootstrap.py                     # pinned pret/pokeemerald + patches -> build/upstream
+python3 build/upstream/builder/emerald3ds_builder/followers.py --out build/upstream/3ds_port/romfs   # optional: followers
+cd build/upstream
+podman run --rm -v "$PWD":/work:Z -w /work docker.io/devkitpro/devkitarm sh -c '
+  apt-get update -qq && apt-get install -y -qq libpng-dev python3-pil &&
+  make tools && make generated PYTHON=python3 &&
+  make -C 3ds_port -j8 PYTHON=python3 TOP_WIDTH=320 DATA_BACKEND=1 EMBED_DATA=1'
+```
+
+The tools must be built inside the container (`libpng-dev`, `python3-pil`): without Pillow the building models are
+not regenerated and the link fails, sometimes quietly - check the date of `3ds_port/emerald3ds.3dsx`. Leave out
+`TOP_WIDTH=320` for the 3DS's own 400-wide layout.
+
+### On the RG DS
+
+Copy `build/upstream/3ds_port/emerald3ds.3dsx` to `roms/3ds/` and launch it from the 3DS system (Azahar). Set Azahar's
+top screen to stretch for `.3dsx` files (`screen_top_stretch=true`) so the 4:3 picture fills the panel at 2×, and put a
+DSP dump at `sdmc/3ds/dspfirm.cdc` for sound. Saves and settings live in `sdmc/3ds/emerald3ds/`.
+
+---
+
 <p align="center">
   <img src="https://i.postimg.cc/Sxn0bM2v/logo.png" alt="Pokémon Emerald 3Ds Dual Screen" width="480">
 </p>
