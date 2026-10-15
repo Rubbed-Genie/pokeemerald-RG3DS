@@ -30,6 +30,11 @@ art), the market's stalls and awnings (with back legs), Stern's shipyard; and mo
 south gate, Lavaridge's and Fortree's gyms, Slateport's kerbs and beach breakwater, the market's goods as props.
 Every one passes `gen_voxel_buildings.py --verify` (the drawing reproduced pixel for pixel).
 
+**Weather** (OPTIONS > ENHANCEMENTS > CHANGE WEATHER): a fair town or route now and then has the weather that suits it
+(sea fog on a coast's mornings, showers inland, the rainforest's storms; patch 0057); rain falls in 3D (streaks under the
+sky, splashes, the storm's flash). **Battles**: each move button shows its effectiveness against the foe(s).
+People sit in seats (the chair hides their legs) instead of standing on them.
+
 **Dev menu** (ZL+ZR): time of day, day/night, night light, weather held across maps, warp to Slateport, Rustboro,
 Dewford, Petalburg or Mauville. Its settings last for that play only; nothing is saved.
 
