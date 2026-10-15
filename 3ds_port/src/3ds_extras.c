@@ -239,6 +239,9 @@ const CtrExtra gCtrExtras[] =
     /* The lead Pokémon walking behind the player, on HGSS's sprites from the
      * data pack (src/follower_mon.c). */
     {CTR_EXTRAS_SCREEN(CTR_EXTRAS_ENHANCEMENTS, 1), CTR_TEXT("FOLLOWER", "ACOMPAÑANTE", "COMPAGNON", "COMPAGNO"), "follower", 2, 0, gCtrExtrasOffOn, NULL, NULL, NULL},
+    /* RG3DS: a fair town or route now and then has the weather that suits
+     * it - sea fog, showers, storms (field_weather_effect.c, patch 0057). */
+    {CTR_EXTRAS_SCREEN(CTR_EXTRAS_ENHANCEMENTS, 1), CTR_TEXT("CHANGE WEATHER", "CLIMA VARIABLE", "MÉTÉO CHANGE", "METEO VARIA"), "dyn_weather", 2, 0, gCtrExtrasOffOn, NULL, NULL, NULL},
     {0},
 };
 

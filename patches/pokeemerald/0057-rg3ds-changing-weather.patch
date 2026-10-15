@@ -1,0 +1,125 @@
+RG3DS: CHANGING WEATHER (OPTIONS > ENHANCEMENTS): a fair town or route now and then has
+the weather that suits it - sea fog on a coast's mornings, showers inland, the
+rainforest's downpours and storms (field_weather_effect.c). Applies over 0056.
+
+diff --git a/src/field_weather_effect.c b/src/field_weather_effect.c
+--- a/src/field_weather_effect.c
++++ b/src/field_weather_effect.c
+@@ -13,6 +13,9 @@
+ #include "task.h"
+ #include "trig.h"
+ #include "gpu_regs.h"
++#include "rtc.h"
++#include "constants/map_types.h"
++#include "constants/region_map_sections.h"
+ 
+ EWRAM_DATA static u8 sCurrentAbnormalWeather = 0;
+ EWRAM_DATA static u16 sUnusedWeatherRelated = 0;
+@@ -2519,10 +2522,107 @@
+     return gSaveBlock1Ptr->weather;
+ }
+ 
++#ifdef PORT_BRIDGE
++int CtrExtras_Get(const char *key); // 3ds_extras.c
++
++// RG3DS: CHANGING WEATHER (OPTIONS > ENHANCEMENTS). A town or route whose own
++// weather is fair now and then has another - what suits the place: sea fog
++// on a coast's mornings, showers inland, the rainforest's downpours and
++// storms. One roll for the whole region a few hours at a time (by the clock),
++// so walking on keeps it; every weather a map has of its own (Route 119's
++// rain, the ash, the sand, the forests' shade) stays as it is.
++enum { AREA_INLAND, AREA_COAST, AREA_RAINFOREST, AREA_MOUNTAIN, AREA_ISLAND };
++
++static u8 WeatherArea(u8 mapsec)
++{
++    switch (mapsec)
++    {
++    case MAPSEC_DEWFORD_TOWN: case MAPSEC_SLATEPORT_CITY: case MAPSEC_LILYCOVE_CITY:
++    case MAPSEC_EVER_GRANDE_CITY: case MAPSEC_ROUTE_103: case MAPSEC_ROUTE_104:
++    case MAPSEC_ROUTE_105: case MAPSEC_ROUTE_106: case MAPSEC_ROUTE_107: case MAPSEC_ROUTE_108:
++    case MAPSEC_ROUTE_109: case MAPSEC_ROUTE_110: case MAPSEC_ROUTE_115: case MAPSEC_ROUTE_118:
++    case MAPSEC_ROUTE_121: case MAPSEC_ROUTE_122: case MAPSEC_ROUTE_124: case MAPSEC_ROUTE_125:
++    case MAPSEC_ROUTE_126: case MAPSEC_ROUTE_127: case MAPSEC_ROUTE_128: case MAPSEC_ROUTE_129:
++    case MAPSEC_ROUTE_130: case MAPSEC_ROUTE_131: case MAPSEC_ROUTE_132: case MAPSEC_ROUTE_133:
++    case MAPSEC_ROUTE_134:
++        return AREA_COAST;
++    case MAPSEC_FORTREE_CITY: case MAPSEC_ROUTE_119: case MAPSEC_ROUTE_120: case MAPSEC_ROUTE_123:
++        return AREA_RAINFOREST;
++    case MAPSEC_LAVARIDGE_TOWN: case MAPSEC_FALLARBOR_TOWN: case MAPSEC_VERDANTURF_TOWN:
++    case MAPSEC_ROUTE_111: case MAPSEC_ROUTE_112: case MAPSEC_ROUTE_113: case MAPSEC_ROUTE_114:
++        return AREA_MOUNTAIN;
++    case MAPSEC_MOSSDEEP_CITY: case MAPSEC_SOOTOPOLIS_CITY: case MAPSEC_PACIFIDLOG_TOWN:
++        return AREA_ISLAND;
++    default:
++        return AREA_INLAND;
++    }
++}
++
++static u8 ChangingWeather(u8 weather)
++{
++    u32 period, roll;
++    bool8 town, morning;
++
++    if (!CtrExtras_Get("dyn_weather")
++     || (weather != WEATHER_SUNNY && weather != WEATHER_SUNNY_CLOUDS)
++     || (gMapHeader.mapType != MAP_TYPE_TOWN && gMapHeader.mapType != MAP_TYPE_CITY
++      && gMapHeader.mapType != MAP_TYPE_ROUTE && gMapHeader.mapType != MAP_TYPE_OCEAN_ROUTE))
++        return weather;
++    RtcCalcLocalTime();
++    period = (u32)gLocalTime.days * 6 + gLocalTime.hours / 4;
++    roll = period * 2654435761u;
++    roll = ((roll ^ (roll >> 15)) * 2246822519u) >> 16;
++    roll %= 100;
++    town = gMapHeader.mapType == MAP_TYPE_TOWN || gMapHeader.mapType == MAP_TYPE_CITY;
++    morning = gLocalTime.hours >= 5 && gLocalTime.hours < 10;
++    switch (WeatherArea(gMapHeader.regionMapSectionId))
++    {
++    case AREA_COAST:
++        if (morning && roll < 22)
++            return WEATHER_FOG_HORIZONTAL;   // sea fog, gone by mid-morning
++        if (roll >= 30 && roll < 42)
++            return WEATHER_RAIN;
++        if (roll >= 42 && roll < 47 && !town)
++            return WEATHER_RAIN_THUNDERSTORM;
++        break;
++    case AREA_RAINFOREST:
++        if (morning && roll < 14)
++            return WEATHER_FOG_HORIZONTAL;
++        if (roll < 34)
++            return WEATHER_RAIN;
++        if (roll < 44)
++            return WEATHER_RAIN_THUNDERSTORM;
++        break;
++    case AREA_MOUNTAIN:
++        if (roll >= 30 && roll < 38)
++            return WEATHER_RAIN;
++        break;
++    case AREA_ISLAND:
++        if (roll >= 30 && roll < 38)
++            return WEATHER_RAIN;
++        if (roll >= 38 && roll < 44 && !town)
++            return WEATHER_RAIN_THUNDERSTORM;
++        break;
++    default:   // inland: showers, a grey day, a misty morning
++        if (roll >= 30 && roll < 44)
++            return WEATHER_RAIN;
++        if (roll >= 44 && roll < 52)
++            return WEATHER_SHADE;
++        if (morning && roll >= 52 && roll < 58)
++            return WEATHER_FOG_HORIZONTAL;
++        break;
++    }
++    return weather;
++}
++#endif
++
+ void SetSavedWeatherFromCurrMapHeader(void)
+ {
+     u8 oldWeather = gSaveBlock1Ptr->weather;
+     gSaveBlock1Ptr->weather = TranslateWeatherNum(gMapHeader.weather);
++#ifdef PORT_BRIDGE
++    gSaveBlock1Ptr->weather = ChangingWeather(gSaveBlock1Ptr->weather);
++#endif
+     UpdateRainCounter(gSaveBlock1Ptr->weather, oldWeather);
+ }
+ 
