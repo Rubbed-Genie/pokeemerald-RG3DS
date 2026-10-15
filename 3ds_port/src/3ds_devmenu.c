@@ -96,7 +96,7 @@ static void DrawText(const char *text, float x, float y, u32 colour)
 
 /* ── Rows ──────────────────────────────────────────────────────────────── */
 
-enum { ROW_TIME, ROW_DAYNIGHT, ROW_CLOCK, ROW_NIGHTDARK, ROW_WEATHER, ROW_WARP, ROW_ZLZR, ROW_COUNT };
+enum { ROW_TIME, ROW_DAYNIGHT, ROW_NIGHTDARK, ROW_WEATHER, ROW_WARP, ROW_ZLZR, ROW_COUNT };
 
 /* What L2/R2 do on their own (zlzr_mode): step the speed, hold for turbo A,
  * or cycle the time of day or the weather. */
@@ -131,9 +131,6 @@ static int TimeIndex(void)
     return 0;
 }
 
-static const char *const sClockNames[] = {"1X", "6X", "12X", "24X", "60X", "120X"};
-#define CLOCK_SPEEDS 6
-
 static const char *const sTowns[] = {"SLATEPORT", "RUSTBORO", "DEWFORD", "PETALBURG"};
 #define TOWNS 4
 static int sTown;
@@ -150,18 +147,10 @@ static void RowText(int row, char *label, char *value, size_t size)
         strcpy(label, "DAY/NIGHT");
         snprintf(value, size, "%s", CtrSettings_GetInt("day_night", 0) == 1 ? "ON" : "OFF");
         break;
-    case ROW_CLOCK:
-    {
-        int speed = CtrSettings_GetInt("clock_speed", 0);
-
-        strcpy(label, "CLOCK SPEED");
-        snprintf(value, size, "%s", sClockNames[speed >= 0 && speed < CLOCK_SPEEDS ? speed : 0]);
-        break;
-    }
     case ROW_NIGHTDARK:
         /* the light kept at full night (3ds_daynight.c) */
         strcpy(label, "NIGHT LIGHT");
-        snprintf(value, size, "%d%%", CtrSettings_GetInt("night_dark", 55));
+        snprintf(value, size, "%d%%", CtrSettings_GetInt("night_dark", 45));
         break;
     case ROW_WEATHER:
         strcpy(label, "WEATHER");
@@ -196,17 +185,9 @@ static void ChangeRow(int row, int direction)
     case ROW_DAYNIGHT:
         CtrSettings_SetInt("day_night", CtrSettings_GetInt("day_night", 0) == 1 ? 0 : 1);
         break;
-    case ROW_CLOCK:
-    {
-        int speed = CtrSettings_GetInt("clock_speed", 0);
-
-        speed = (speed < 0 || speed >= CLOCK_SPEEDS ? 0 : speed) + direction;
-        CtrSettings_SetInt("clock_speed", speed < 0 ? 0 : speed >= CLOCK_SPEEDS ? CLOCK_SPEEDS - 1 : speed);
-        break;
-    }
     case ROW_NIGHTDARK:
     {
-        int v = CtrSettings_GetInt("night_dark", 55) + direction * 5;
+        int v = CtrSettings_GetInt("night_dark", 45) + direction * 5;
 
         CtrSettings_SetInt("night_dark", v < 10 ? 10 : v > 100 ? 100 : v);
         break;

@@ -179,7 +179,7 @@ void CtrDayNight_Update(void)
          * the glow, so evenings darken a little and nights the full amount;
          * the world, the sprites and the 2D layers all read sLight. */
         {
-            int pct = CtrSettings_GetInt("night_dark", 55);
+            int pct = CtrSettings_GetInt("night_dark", 45);
             float keep;
 
             if (pct < 10) pct = 10;
@@ -190,6 +190,15 @@ void CtrDayNight_Update(void)
         }
         sSun = previousSun.key == SunKey(sClock.timeMs)
              ? previousSun : CtrDayNight_SunAt(sClock.timeMs);
+        /* RG3DS: at night the moon casts the shadows - softer, from the
+         * upper left, as strong as the night is deep (its key steps with
+         * that strength, so the casters relight as it comes in). */
+        if (sSun.strength <= 0.0f && sLight.glow > 0.0f)
+        {
+            unsigned step = (unsigned)(sLight.glow * 4.0f + 0.5f);
+
+            sSun = (CtrDayNightSun){0.90f, 0.45f, 0.45f * (float)step / 4.0f, 500u + step};
+        }
     }
 }
 

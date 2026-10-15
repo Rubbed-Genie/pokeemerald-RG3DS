@@ -6049,6 +6049,24 @@ static VoxelLight BaseLightFor(bool indoor)
 }
 
 static float sMoonlight;
+/* RG3DS: how far into night the outdoor light is (the cycle's glow), for
+ * the beams' and motes' colour. */
+static float sNightAmount;
+
+/* RG3DS: a colour (0xAABBGGRR) moved towards the moon's cool white. */
+static uint32_t MoonTint(uint32_t day)
+{
+    static const unsigned moon[3] = {0xA8, 0xC4, 0xFF};
+    uint32_t out = day & 0xFF000000u;
+
+    for (unsigned channel = 0; channel < 3; ++channel)
+    {
+        float d = (float)((day >> (channel * 8u)) & 255u);
+
+        out |= (uint32_t)(d + (moon[channel] - d) * sNightAmount + 0.5f) << (channel * 8u);
+    }
+    return out;
+}
 static uint32_t sMoonlightColour;
 
 static uint32_t MoonlightColour(float fade)
@@ -6077,8 +6095,23 @@ static VoxelLight LightFor(bool indoor)
             light.hazeRgb[channel] *= cycle->rgb[channel];
             light.hazeRgb[channel] += (moon.rgb[channel] - light.hazeRgb[channel]) * moon.amount;
         }
+        /* RG3DS: a clear night keeps an atmosphere of its own (Matt
+         * 2026-10-15: "a lil moon beam thing like the sun has", the
+         * particles): faint moonbeams, moonlit motes, faces turned from the
+         * moon in deeper shade. Rain and fog, which have none by day, keep
+         * none. sNightAmount tints the beams and motes towards the moon. */
+        float rays = light.rays, motes = light.motes, night = cycle->glow;
+
         light.rays *= cycle->daylight;
         light.motes *= cycle->daylight;
+        if (night > 0.0f && rays > 0.0f)
+        {
+            light.rays = fmaxf(light.rays, rays * 0.8f * night);
+            light.motes = fmaxf(light.motes, motes * 0.6f * night);
+            for (unsigned channel = 0; channel < 3; ++channel)
+                light.shade[channel] *= 1.0f - 0.30f * night;
+        }
+        sNightAmount = night;
         light.dappleLow = 1.0f + (light.dappleLow - 1.0f) * cycle->daylight;
         light.dappleHigh = 1.0f + (light.dappleHigh - 1.0f) * cycle->daylight;
     }
@@ -6346,7 +6379,7 @@ static void DrawRays(const VoxelLight *light, const VoxelLight *unlit)
     C3D_TexEnvOpAlpha(env, GPU_TEVOP_A_ONE_MINUS_SRC_R, GPU_TEVOP_A_SRC_R, GPU_TEVOP_A_SRC_ALPHA);
     C3D_TexEnvFunc(env, C3D_Alpha, GPU_MODULATE);
     C3D_TexEnvScale(env, C3D_Alpha, GPU_TEVSCALE_2);
-    C3D_TexEnvColor(env, VOXEL_RAY_COLOUR);
+    C3D_TexEnvColor(env, MoonTint(VOXEL_RAY_COLOUR));
     env = C3D_GetTexEnv(1);
     C3D_TexEnvInit(env);
     C3D_TexEnvSrc(env, C3D_Alpha, GPU_PREVIOUS, GPU_CONSTANT, GPU_CONSTANT);
@@ -6500,7 +6533,7 @@ static void DrawMotes(const C3D_Mtx *view, const VoxelLight *light, const VoxelL
     C3D_TexEnvOpAlpha(env, GPU_TEVOP_A_SRC_R, GPU_TEVOP_A_SRC_ALPHA, GPU_TEVOP_A_SRC_ALPHA);
     C3D_TexEnvFunc(env, C3D_Alpha, GPU_MODULATE);
     C3D_TexEnvScale(env, C3D_Alpha, GPU_TEVSCALE_2);
-    C3D_TexEnvColor(env, (strength << 24) | (VOXEL_MOTE_COLOUR & 0xFFFFFFu));
+    C3D_TexEnvColor(env, (strength << 24) | (MoonTint(VOXEL_MOTE_COLOUR) & 0xFFFFFFu));
     C3D_TexEnvInit(C3D_GetTexEnv(1));
     C3D_TexEnvInit(C3D_GetTexEnv(2));
     FadeFor(false);

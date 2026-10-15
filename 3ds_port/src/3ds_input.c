@@ -33,7 +33,8 @@ static uint32_t DriveStep(void)
     static const char *const names[] = {"a", "b", "select", "start", "right", "left", "up", "down",
                                         "r", "l", "x", "y", "zl", "zr", "zlzr"};
 
-    if (sDrive.text[0] == 0 && ++sDrive.polled % 30 == 0)
+    /* RG3DS: drive.txt only for desktop test runs (dev_files=1) */
+    if (sDrive.text[0] == 0 && ++sDrive.polled % 30 == 0 && CtrSettings_GetInt("dev_files", 0) != 0)
     {
         FILE *file = CtrFs_OpenData("drive.txt", "r");
 

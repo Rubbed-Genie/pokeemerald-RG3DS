@@ -163,6 +163,10 @@ void CtrSettings_PollTune(void)
      * (the title menu at 100% and then zoomed). */
     if (frames++ % 60)
         return;
+    /* RG3DS: only for tuning (dev_files=1): a missing file is an error line
+     * in port.log every second otherwise */
+    if (frames > 1 && CtrSettings_GetInt("dev_files", 0) == 0)
+        return;
     file = CtrFs_OpenData("tune.txt", "r");
     if (file == NULL)
         return;
