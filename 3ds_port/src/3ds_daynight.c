@@ -174,6 +174,20 @@ void CtrDayNight_Update(void)
     if (enabled && CtrGame_IsOutdoor())
     {
         sLight = CtrDayNight_At(sClock.timeMs);
+        /* RG3DS: deeper nights - the cycle's own night read flat on the RG DS.
+         * night_dark (percent of the light kept at full night) comes in with
+         * the glow, so evenings darken a little and nights the full amount;
+         * the world, the sprites and the 2D layers all read sLight. */
+        {
+            int pct = CtrSettings_GetInt("night_dark", 55);
+            float keep;
+
+            if (pct < 10) pct = 10;
+            if (pct > 100) pct = 100;
+            keep = 1.0f - sLight.glow * (1.0f - (float)pct / 100.0f);
+            for (unsigned channel = 0; channel < 3; ++channel)
+                sLight.rgb[channel] *= keep;
+        }
         sSun = previousSun.key == SunKey(sClock.timeMs)
              ? previousSun : CtrDayNight_SunAt(sClock.timeMs);
     }

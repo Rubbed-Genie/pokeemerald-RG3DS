@@ -96,7 +96,7 @@ static void DrawText(const char *text, float x, float y, u32 colour)
 
 /* ── Rows ──────────────────────────────────────────────────────────────── */
 
-enum { ROW_TIME, ROW_DAYNIGHT, ROW_CLOCK, ROW_WEATHER, ROW_WARP, ROW_ZLZR, ROW_COUNT };
+enum { ROW_TIME, ROW_DAYNIGHT, ROW_CLOCK, ROW_NIGHTDARK, ROW_WEATHER, ROW_WARP, ROW_ZLZR, ROW_COUNT };
 
 /* What L2/R2 do on their own (zlzr_mode): step the speed, hold for turbo A,
  * or cycle the time of day or the weather. */
@@ -158,6 +158,11 @@ static void RowText(int row, char *label, char *value, size_t size)
         snprintf(value, size, "%s", sClockNames[speed >= 0 && speed < CLOCK_SPEEDS ? speed : 0]);
         break;
     }
+    case ROW_NIGHTDARK:
+        /* the light kept at full night (3ds_daynight.c) */
+        strcpy(label, "NIGHT LIGHT");
+        snprintf(value, size, "%d%%", CtrSettings_GetInt("night_dark", 55));
+        break;
     case ROW_WEATHER:
         strcpy(label, "WEATHER");
         snprintf(value, size, "%s", CtrGame_WeatherName());
@@ -197,6 +202,13 @@ static void ChangeRow(int row, int direction)
 
         speed = (speed < 0 || speed >= CLOCK_SPEEDS ? 0 : speed) + direction;
         CtrSettings_SetInt("clock_speed", speed < 0 ? 0 : speed >= CLOCK_SPEEDS ? CLOCK_SPEEDS - 1 : speed);
+        break;
+    }
+    case ROW_NIGHTDARK:
+    {
+        int v = CtrSettings_GetInt("night_dark", 55) + direction * 5;
+
+        CtrSettings_SetInt("night_dark", v < 10 ? 10 : v > 100 ? 100 : v);
         break;
     }
     case ROW_WEATHER:

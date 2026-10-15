@@ -1,5 +1,7 @@
 """Authored exterior glass regions, without recolouring frames or roof art."""
 
+import re
+
 NIGHT_WINDOWS = {
     "dewford_house": ((34, 46, 39, 52), (41, 46, 46, 52)),
     "dewford_hall": ((50, 46, 55, 52), (57, 46, 62, 52)),
@@ -75,9 +77,58 @@ def component_rectangles(art, predicate, top):
     return sorted(rectangles)
 
 
-def building_mask(art, name):
+# RG3DS: the authored windows reach the buildings drawn like them, and the
+# glass of any other town or route building is found by its colour.
+OUTDOOR_LAYOUT = re.compile(r"^LAYOUT_([A-Z0-9_]+_(CITY|TOWN)|ROUTE[0-9]+)$")
+AUTO_REPORT = []
+
+
+def _is_glass(pixel):
+    return pixel[3] >= 128 and pixel[0] >= 90 and pixel[1] > pixel[0] and pixel[2] > pixel[0] + 12
+
+
+def _glass_in(art, rect):
+    left, top, right, bottom = rect
+    if not (0 <= left < right <= art.width and 0 <= top < bottom <= art.height):
+        return 0
+    pixels = art.load()
+    return sum(1 for y in range(top, bottom) for x in range(left, right) if _is_glass(pixels[x, y]))
+
+
+def lookalike_windows(art):
+    """The authored windows of a building drawn alike: every one of its
+    rectangles over glass in this drawing too (the most glass wins)."""
+    best, best_glass = None, 0
+    for other, rects in NIGHT_WINDOWS.items():
+        if len(rects) < 2 or other == "devon_corporation":
+            continue
+        counts = [_glass_in(art, r) for r in rects]
+        if all(counts) and sum(counts) > best_glass:
+            best, best_glass = other, sum(counts)
+    return best
+
+
+def auto_windows(art):
+    """Glass panes found by colour in the front half of the drawing (the
+    walls under the roof), window-sized."""
+    panes = component_rectangles(art, _is_glass, art.height // 2)
+    return tuple(r for r in panes if 2 <= r[2] - r[0] <= 16 and 2 <= r[3] - r[1] <= 16)
+
+
+def building_mask(art, name, spec=None):
     name = name.removesuffix("_bare")
     rectangles = NIGHT_WINDOWS.get(name, ())
+    if (not rectangles and spec is not None and not name.startswith(("rustboro_stone_", "rustboro_olive_"))
+            and OUTDOOR_LAYOUT.match(spec.get("layout") or "")
+            and not any(k in spec for k in ("interior", "props", "relief", "components"))):
+        like = lookalike_windows(art)
+        if like is not None:
+            rectangles = NIGHT_WINDOWS[like]
+            AUTO_REPORT.append((name, "like " + like))
+        else:
+            rectangles = auto_windows(art)
+            if rectangles:
+                AUTO_REPORT.append((name, "auto %d pane(s)" % len(rectangles)))
     if name.startswith("rustboro_stone_"):
         frames = component_rectangles(art, lambda pixel: pixel == (65, 74, 106, 255), 48)
         rectangles = tuple(rect for rect in frames

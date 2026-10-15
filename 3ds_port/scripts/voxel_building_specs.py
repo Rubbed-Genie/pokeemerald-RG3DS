@@ -3483,6 +3483,12 @@ def rg_canopy(x0, x1, back_row, top_row, hem_row, foot_row, posts, lift):
             "post%d" % i, a, b,
             [(front, 0), (front, hem), (front - (b - a), hem), (front - (b - a), 0)],
             edges={0: wood, 2: wood}, skip=(1, 3), caps=[Band(0, hem + 1, wood, front)]))
+        # RG3DS: the back legs (Matt 2026-10-15), under the cloth's back edge:
+        # the 45-degree view never sees them behind the stall, the 3D one does
+        parts.append(Prism(
+            "back_post%d" % i, a, b,
+            [(back + (b - a), 0), (back + (b - a), hem), (back, hem), (back, 0)],
+            edges={0: wood, 2: wood}, skip=(1, 3), caps=[Band(0, hem + 1, wood, back + (b - a))]))
     return parts
 
 

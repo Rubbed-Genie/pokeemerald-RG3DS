@@ -3808,7 +3808,7 @@ def export(models, path):
     # model.glass, an L image over the drawing as exported (None: no glass).
     glass, as_drawn = 0, []
     for m in models:
-        mask = voxel_night.building_mask(m.art, m.name)
+        mask = voxel_night.building_mask(m.art, m.name, getattr(m, "spec", None))
         m.glass = None
         kept = (m.art, m.mesh.tris, getattr(m, "live", None))
         before = (m.art.convert("RGBA"), list(m.mesh.tris))
@@ -3830,6 +3830,8 @@ def export(models, path):
                 as_drawn.append(m.name)
             m.glass = moved
             glass += 1
+    for name, how in voxel_night.AUTO_REPORT:
+        print("  RG3DS night windows: %s %s" % (name, how))
     if glass:
         print("voxel buildings: window glass on %d drawing(s), %d kept as drawn%s"
               % (glass, len(as_drawn), (": " + ", ".join(as_drawn)) if as_drawn else ""))
