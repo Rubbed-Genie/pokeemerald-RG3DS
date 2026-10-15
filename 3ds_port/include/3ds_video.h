@@ -40,7 +40,14 @@ void CtrVideo_BottomPictureMap(int *x, int *y);
  * 120,112) sits on screen (200,192), on top of the 1:1 text box. At 1.5 the
  * tile grid still lands on whole screen pixels.
  */
+#if CTR_GAME_WIDTH == 320
+/* RG3DS: 4/3 on the 4:3 build - the GBA's whole 240 columns across its 320
+ * (at 1.4 they were 336: a double battle's outer boxes lost their edges,
+ * Matt 2026-10-15 "especially double battles"). */
+#define CTR_BATTLE_ZOOM (4.0f / 3.0f)
+#else
 #define CTR_BATTLE_ZOOM 1.4f
+#endif
 
 typedef struct
 {

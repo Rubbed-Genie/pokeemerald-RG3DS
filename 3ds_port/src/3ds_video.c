@@ -291,8 +291,9 @@ static int sSurfaceH = 256;
  * picture ends; below that, behind the box's margins, the scene's last line
  * is carried down (ScenePlaceFrom).
  */
-#define BATTLE_SCENE_BOX_BOTTOM (CtrBattleClassic() \
-    ? 112 + (int)ceilf((48.0f - CtrVideo_BattleBoxHeight()) / CTR_BATTLE_ZOOM) \
+/* RG3DS: with the GBA's box (CtrBattleClassic) the whole scene is lifted
+ * above it (CtrVideo_Present), so its own row 112 meets the box's top. */
+#define BATTLE_SCENE_BOX_BOTTOM (CtrBattleClassic() ? 112 \
     : 112 + (int)ceilf((CTR_BATTLE_BOX_TOP - (CTR_GAME_HEIGHT - 48)) / CTR_BATTLE_ZOOM))
 /* Or the whole picture, with no text box to go behind (BattleSceneBottom). */
 static int BattleSceneBottom(void);
@@ -8918,7 +8919,8 @@ static float BattleScenerySway(unsigned reg)
  * All of it is the world's, under the battle's own picture.
  */
 /* The world's lowest line on screen: the text box covers the rest. */
-#define BATTLE_INTRO_FLOOR (CTR_BATTLE_Y + BATTLE_BAND_TOP)
+#define BATTLE_INTRO_FLOOR (CtrBattleClassic() ? (float)CTR_GAME_HEIGHT - CtrVideo_BattleBoxHeight() \
+                                               : (float)(CTR_BATTLE_Y + BATTLE_BAND_TOP))
 #define BATTLE_INTRO_BAR 22.0f      /* each cinema bar, closed */
 #define BATTLE_INTRO_BAR_EDGE 10.0f /* its soft edge */
 #define BATTLE_INTRO_STREAKS 12u
@@ -10381,7 +10383,10 @@ void CtrVideo_Present(void)
     sZoom = sBattle ? CTR_BATTLE_ZOOM : 1.0f;
     /* GBA (120, 112) - the middle of the scene's bottom edge - on screen (200, 192). */
     sOffX = sBattle ? CTR_GAME_WIDTH / 2 - 120 * sZoom : 0.0f;
-    sOffY = sBattle ? CTR_GAME_HEIGHT - 48 - 112 * sZoom : 0.0f;
+    /* RG3DS: with the GBA's box (CtrBattleClassic) zoomed by bat_zoom the
+     * scene stands above it, so it covers none of the battlers or boxes. */
+    sOffY = sBattle ? CTR_GAME_HEIGHT - (CtrBattleClassic() ? CtrVideo_BattleBoxHeight() : 48.0f) - 112 * sZoom
+                    : 0.0f;
     sShiftZoom = sZoom;
     /* RG DS branch: tune.txt's values, live, whatever is on screen. */
     CtrSettings_PollTune();
