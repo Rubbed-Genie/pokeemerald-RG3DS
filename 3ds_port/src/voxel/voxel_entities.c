@@ -601,20 +601,38 @@ static bool OnSeat(float cx, float cz)
         && VoxelBuildings_CellAt(seat, sx, sy, NULL, NULL);
 }
 
-/* RG3DS: how far a sitter is lifted, so the chair shows the body and hides
- * only the legs (seat_lift, pixels; Matt: "just a tad"). */
+/* RG3DS: how far a sitter is lifted (seat_lift, pixels). 0: nobody is
+ * lifted onto a seat, a deck chair or a parasol's cell - any lift read as
+ * stepping up onto it (Matt, 2026-10-16: "not even the lil tad"). */
 static float SeatLift(float cx, float cz)
 {
-    int px = CtrSettings_GetInt("seat_lift", 6);
+    int px = CtrSettings_GetInt("seat_lift", 0);
 
     if (px < 0 || px > 12 || !OnSeat(cx, cz))
         return 0.0f;
     return (float)px / VOXEL_PIXELS_PER_TILE;
 }
 
+/* RG3DS: how far forward of its tile's centre a sitter's card stands
+ * (seat_z, hundredths of a tile); unset, where everyone else's does
+ * (in_spr_z), so stepping onto a seat does not jump. */
+static float CardForwardAt(float cx, float cz)
+{
+    int v;
+
+    if (!OnSeat(cx, cz))
+        return sCardForward;
+    v = CtrSettings_GetInt("seat_z", -100);
+    return (v < -50 || v > 60) ? sCardForward : (float)v / 100.0f;
+}
+
 static float ModelPush(float cx, float cz, float halfW)
 {
     int y = (int)floorf(cz);
+    /* RG3DS: the card's own depth, forward of its tile's centre already
+     * (in_spr_z): measured from the centre, the push came on top of that and
+     * lifted whoever stood at the PC a step up. */
+    float cardZ = cz + sCardForward;
     float left = cx - halfW + VOXEL_CARD_CLEAR, right = cx + halfW - VOXEL_CARD_CLEAR;
     int x0 = (int)floorf(left), x1 = (int)floorf(right);
     float push = 0.0f;
@@ -632,13 +650,21 @@ static float ModelPush(float cx, float cz, float halfW)
 
         if (inst == NULL)
             continue;
+        /* RG3DS: a model that goes on in the cell before this one is not
+         * furniture against the wall with the walker before it, but a
+         * counter with the walker behind it (the nurse): it hides their
+         * legs, as on the GBA, instead of them standing up on its top. */
+        if (VoxelWorld_GetInstanceAt(x, y + 1) == inst
+         && VoxelBuildings_CellAt(inst, x, y + 1, NULL, NULL)
+         && VoxelWorld_GetCollision(x, y + 1) != 0)
+            continue;
         /* A model's face in the cell, whether or not the cell is the
          * model's: the PC's foot is drawn on the floor the walker uses it
          * from, in a cell that is the counter's. */
         if (VoxelBuildings_FrontAt(inst, x, y, left, right, VOXEL_MODEL_PUSH_HEIGHT, &front)
-         && front + VOXEL_CARD_CLEAR > cz && front - cz + VOXEL_CARD_CLEAR <= VOXEL_MODEL_PUSH_MAX)
-            need = front - cz + VOXEL_CARD_CLEAR;
-        else if (VoxelBuildings_CellAt(inst, x, y, NULL, NULL))
+         && front + VOXEL_CARD_CLEAR > cardZ && front - cz + VOXEL_CARD_CLEAR <= VOXEL_MODEL_PUSH_MAX)
+            need = front - cardZ + VOXEL_CARD_CLEAR;
+        else if (VoxelBuildings_CellAt(inst, x, y, NULL, NULL) && sCardForward < VOXEL_CARD_CLEAR)
             need = VOXEL_CARD_CLEAR;
         if (need > push)
             push = need;
@@ -692,7 +718,7 @@ static void EmitBillboard(VoxelBuilder *builder, const VoxelSpriteSlot *slot, un
         push = model;
     /* Towards the camera: the right vector turned a quarter, unit length. */
     float along = push > 0.0f ? push / sqrtf(rightX * rightX + rightZ * rightZ) : 0.0f;
-    float px = cx + offX - rightZ * along, pz = cz + offZ + shift + rightX * along + sCardForward;
+    float px = cx + offX - rightZ * along, pz = cz + offZ + shift + rightX * along + CardForwardAt(cx, cz);
 
     lift += push;
     float ax = px - rightX * halfW, az = pz - rightZ * halfW;
