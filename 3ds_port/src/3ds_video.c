@@ -8599,10 +8599,26 @@ static void ComposeVoxelOverlay(void)
                 sClipY0 = band;
                 sClipY1 = CTR_GAME_HEIGHT;
                 sZoom = z;
-                /* The box's middle (view + shift + 124 = view + width / 2)
-                 * stays the screen's middle. */
-                sOffX = (float)CTR_GAME_WIDTH / 2.0f - z * ((float)CTR_VIEW_X + (float)CTR_GAME_WIDTH / 2.0f);
-                sOffY = (1.0f - z) * (float)(CTR_GAME_HEIGHT - 2);
+                /* RG3DS: the frame on the screen's middle, and its bottom
+                 * edge box_margin (3) rows
+                 * over the screen's - measured on dev's layout (2026-10-15):
+                 * the frame ends 226.4 rows down before zooming. Anchored
+                 * lower, the GBA row under the frame (a light or black line)
+                 * goes off the screen with it. */
+                {
+                    int margin = CtrSettings_GetInt("box_margin", 3);
+
+                    if (margin < 0 || margin > 40)
+                        margin = 3;
+                    /* the zoom's own placement moved right by five of the
+                     * GBA's pixels zoomed (6.25): the frame measured 5.6 px
+                     * left of the middle. A move of 5 or a rounded one drew a
+                     * seam down the text's left edge (beside the P and the
+                     * quote mark); 6.25 keeps the columns' sampling as it was. */
+                    sOffX = (float)CTR_GAME_WIDTH / 2.0f
+                          - z * ((float)CTR_VIEW_X + (float)CTR_GAME_WIDTH / 2.0f) + 6.25f;
+                    sOffY = floorf((float)(CTR_GAME_HEIGHT - margin) - z * 226.4f + 0.5f);
+                }
             }
             sLayerOrigin = sFieldBanner ? 0.0f : CTR_FIELD_UI_SHIFT;
             Layers(1u << 0);
