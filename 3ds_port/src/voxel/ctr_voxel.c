@@ -5103,6 +5103,10 @@ static void UpdateNightLamps(void)
         for (unsigned index = 0; index < VoxelWorld_InstanceCount(); ++index)
             VoxelSign_EmitNight(&glass, &ground, VoxelWorld_Instance(index),
                                sLampView[0], sLampView[1], sLampView[2], sLampView[3]);
+        /* RG3DS: and the light out of the doors (gyms, marts, centres, houses) */
+        for (unsigned index = 0; index < VoxelWorld_InstanceCount(); ++index)
+            VoxelSign_EmitDoorPools(&ground, VoxelWorld_Instance(index),
+                                    sLampView[0], sLampView[1], sLampView[2], sLampView[3]);
         /* Near full: some lamp may have been left out (EmitNight stops at
          * the capacity). Over the view alone, as before the padding. */
         if (pad == 3 || (glass.capacity - glass.count >= 64u && ground.capacity - ground.count >= 64u))

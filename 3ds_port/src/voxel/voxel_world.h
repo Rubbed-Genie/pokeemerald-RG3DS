@@ -86,6 +86,8 @@ int VoxelWorld_GetMetatileId(int worldX, int worldY);
 /* The cell's collision bits (0: walkable). */
 unsigned VoxelWorld_GetCollision(int worldX, int worldY);
 unsigned VoxelWorld_GetMetatileBehavior(int worldX, int worldY);
+/* RG3DS: a building door in that world cell (the night's door pools). */
+bool VoxelWorld_IsDoorAt(int worldX, int worldY);
 /* Reflective behavior whose metatile art actually depicts water or ice. */
 bool VoxelWorld_IsVisibleReflectiveSurface(int worldX, int worldY);
 /* Explicit tileset identity: these tree IDs mean other art in other tilesets. */

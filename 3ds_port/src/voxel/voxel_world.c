@@ -517,6 +517,14 @@ unsigned VoxelWorld_GetMetatileBehavior(int worldX, int worldY)
     return UNPACK_BEHAVIOR(GetMetatileAttribute(inst, block & MAPGRID_METATILE_ID_MASK));
 }
 
+/* RG3DS: a door in world cell (x, y) - a building's, animated or not. */
+bool VoxelWorld_IsDoorAt(int worldX, int worldY)
+{
+    unsigned behavior = VoxelWorld_GetMetatileBehavior(worldX, worldY);
+
+    return MetatileBehavior_IsDoor(behavior) || MetatileBehavior_IsNonAnimDoor(behavior);
+}
+
 bool VoxelWorld_IsVisibleReflectiveSurface(int worldX, int worldY)
 {
     const VoxelMapInstance *inst = NULL;

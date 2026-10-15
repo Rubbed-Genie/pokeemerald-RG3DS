@@ -4,6 +4,7 @@
 #include <math.h>
 
 #include "voxel_sign.h"
+#include "voxel_world.h"
 #include "voxel_file.h"
 #include "voxel_lighting.h"
 #include "voxel_atlas.h"
@@ -193,6 +194,30 @@ static void LampGround(VoxelBuilder *builder, const VoxelMapInstance *inst,
             builder->shift = VoxelRelief_CellShift(inst, xpos, zpos);
             LampPoolQuad(builder, (float)xpos, (float)zpos, (float)(xpos + 1), (float)(zpos + 1),
                          centerX, centerZ);
+        }
+}
+
+void VoxelSign_EmitDoorPools(VoxelBuilder *ground, const VoxelMapInstance *inst,
+                             int x0, int y0, int x1, int y1)
+{
+    if (ground == NULL || inst == NULL || inst->indoor)
+        return;
+    if (x0 < inst->originX) x0 = inst->originX;
+    if (y0 < inst->originY) y0 = inst->originY;
+    if (x1 > inst->originX + inst->width) x1 = inst->originX + inst->width;
+    if (y1 > inst->originY + inst->height) y1 = inst->originY + inst->height;
+    for (int zpos = y0; zpos < y1; ++zpos)
+        for (int xpos = x0; xpos < x1; ++xpos)
+        {
+            /* a double door is one doorway: its west cell lights it */
+            if (!VoxelWorld_IsDoorAt(xpos, zpos) || VoxelWorld_IsDoorAt(xpos - 1, zpos))
+                continue;
+            if (ground->capacity - ground->count < 64u)
+                return;
+            float centerX = VoxelWorld_IsDoorAt(xpos + 1, zpos) ? xpos + 1.0f : xpos + 0.5f;
+
+            /* on the step in front of it, a little way out */
+            LampGround(ground, inst, centerX, zpos + 1.35f);
         }
 }
 

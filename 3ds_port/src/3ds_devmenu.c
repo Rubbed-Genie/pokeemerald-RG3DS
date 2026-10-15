@@ -131,8 +131,8 @@ static int TimeIndex(void)
     return 0;
 }
 
-static const char *const sTowns[] = {"SLATEPORT", "RUSTBORO", "DEWFORD", "PETALBURG"};
-#define TOWNS 4
+static const char *const sTowns[] = {"SLATEPORT", "RUSTBORO", "DEWFORD", "PETALBURG", "MAUVILLE"};
+#define TOWNS 5
 static int sTown;
 
 static void RowText(int row, char *label, char *value, size_t size)

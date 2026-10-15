@@ -487,7 +487,8 @@ static volatile int sMenuWarp = -1;
 void CtrGame_WarpToTown(int town)
 {
     static const u8 towns[] = {HEAL_LOCATION_SLATEPORT_CITY, HEAL_LOCATION_RUSTBORO_CITY,
-                               HEAL_LOCATION_DEWFORD_TOWN, HEAL_LOCATION_PETALBURG_CITY};
+                               HEAL_LOCATION_DEWFORD_TOWN, HEAL_LOCATION_PETALBURG_CITY,
+                               HEAL_LOCATION_MAUVILLE_CITY};
 
     if (town >= 0 && town < (int)ARRAY_COUNT(towns))
         sMenuWarp = towns[town];

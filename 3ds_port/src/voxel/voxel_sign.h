@@ -71,6 +71,10 @@ void VoxelSign_Shutdown(void);
 #define VOXEL_LAMP_POOL_RADIUS 1.75f
 
 bool VoxelSign_IsLantern(const uint16_t head[16]);
+/* RG3DS: the light spilling out of every building door in [x0,x1) x [y0,y1)
+ * of `inst` at night: a lamp's pool on the ground in front of it. */
+void VoxelSign_EmitDoorPools(VoxelBuilder *ground, const VoxelMapInstance *inst,
+                             int x0, int y0, int x1, int y1);
 void VoxelSign_EmitNight(VoxelBuilder *glass, VoxelBuilder *ground,
                        const VoxelMapInstance *inst, int x0, int y0, int x1, int y1);
 
