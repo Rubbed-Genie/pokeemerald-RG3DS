@@ -143,6 +143,8 @@ void CtrSettings_SetRunAlways(bool on);
 /* Settings kept by key (the OPTIONS pages of 3ds_extras.c). */
 int CtrSettings_GetInt(const char *key, int fallback);
 void CtrSettings_SetInt(const char *key, int value);
+/* RG3DS: a value for this play only (the dev menu's): read first, never saved. */
+void CtrSettings_SetTemp(const char *key, int value);
 /* Fast-forward: game frames per shown frame in halves, 2 (1x) to 8 (4x),
  * 3 being 1.5x (OPTIONS, ZR/ZL). */
 int CtrSettings_SpeedHalves(void);

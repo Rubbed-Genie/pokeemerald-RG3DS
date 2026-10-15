@@ -176,20 +176,20 @@ static void ChangeRow(int row, int direction)
         int count = (int)(sizeof(sTimeHours) / sizeof(sTimeHours[0]));
         int next = (TimeIndex() + direction + count) % count;
 
-        CtrSettings_SetInt("dev_hour", sTimeHours[next]);
+        CtrSettings_SetTemp("dev_hour", sTimeHours[next]);
         /* a held hour means nothing with their day/night off */
         if (sTimeHours[next] >= 0)
-            CtrSettings_SetInt("day_night", 1);
+            CtrSettings_SetTemp("day_night", 1);
         break;
     }
     case ROW_DAYNIGHT:
-        CtrSettings_SetInt("day_night", CtrSettings_GetInt("day_night", 0) == 1 ? 0 : 1);
+        CtrSettings_SetTemp("day_night", CtrSettings_GetInt("day_night", 0) == 1 ? 0 : 1);
         break;
     case ROW_NIGHTDARK:
     {
         int v = CtrSettings_GetInt("night_dark", 45) + direction * 5;
 
-        CtrSettings_SetInt("night_dark", v < 10 ? 10 : v > 100 ? 100 : v);
+        CtrSettings_SetTemp("night_dark", v < 10 ? 10 : v > 100 ? 100 : v);
         break;
     }
     case ROW_WEATHER:
@@ -199,7 +199,7 @@ static void ChangeRow(int row, int direction)
         sTown = (sTown + direction + TOWNS) % TOWNS;
         break;
     default:
-        CtrSettings_SetInt("zlzr_mode", (ZlzrMode() + direction + ZLZR_MODES) % ZLZR_MODES);
+        CtrSettings_SetTemp("zlzr_mode", (ZlzrMode() + direction + ZLZR_MODES) % ZLZR_MODES);
         break;
     }
 }

@@ -70,6 +70,55 @@ static int ExtraIndex(const char *key, bool add)
     return sExtraCount++;
 }
 
+/*
+ * RG3DS: the dev menu's settings - for trying things during one play, not
+ * options (Matt 2026-10-15): read before the saved ones, never written to
+ * settings.txt, gone when the game closes. A key the dev menu owns that an
+ * older build did save is dropped as settings.txt loads (DEV_ONLY).
+ */
+#define TEMP_KEYS 16
+static struct { char key[24]; int value; } sTemp[TEMP_KEYS];
+static int sTempCount;
+static const char *const DEV_ONLY[] = {"dev_hour", "weather_force", "zlzr_mode", "night_dark"};
+
+void CtrSettings_SetTemp(const char *key, int value)
+{
+    int i;
+
+    for (i = 0; i < sTempCount && strcmp(sTemp[i].key, key) != 0; ++i)
+        ;
+    if (i == sTempCount)
+    {
+        if (sTempCount == TEMP_KEYS || strlen(key) >= sizeof(sTemp[0].key))
+            return;
+        strcpy(sTemp[sTempCount++].key, key);
+    }
+    sTemp[i].value = value;
+    CtrLog_Write(CTR_LOG_FS, "settings: %s=%d (this play only)", key, value);
+}
+
+static void Save(void);
+
+static void DropDevOnly(void)
+{
+    bool dropped = false;
+
+    for (unsigned d = 0; d < sizeof(DEV_ONLY) / sizeof(DEV_ONLY[0]); ++d)
+    {
+        int index = ExtraIndex(DEV_ONLY[d], false);
+
+        if (index < 0)
+            continue;
+        CtrLog_Write(CTR_LOG_FS, "settings: %s=%d dropped (the dev menu's, this play only now)",
+                     DEV_ONLY[d], sExtra[index].value);
+        memmove(&sExtra[index], &sExtra[index + 1], (size_t)(sExtraCount - index - 1) * sizeof(sExtra[0]));
+        --sExtraCount;
+        dropped = true;
+    }
+    if (dropped)
+        Save();
+}
+
 static int Find(const int *values, int count, int value, int fallback)
 {
     for (int i = 0; i < count; ++i)
@@ -142,6 +191,7 @@ void CtrSettings_Load(void)
     while (fgets(line, sizeof(line), file))
         CtrSettings_ApplyLine(line);
     fclose(file);
+    DropDevOnly();
     CtrLog_Write(CTR_LOG_FS, "settings: voxel=%d pitch=%d zoom=%d blur=%d battle=%d fps=%d run=%d speed=%d%s",
                  sVoxel ? 1 : 0, sPitches[sPitch], sZooms[sZoom], sBlurs[sBlur],
                  sVoxelBattle ? 1 : 0, sShowFps ? 1 : 0, sRunAlways ? 1 : 0,
@@ -321,6 +371,10 @@ static const struct { const char *key; int value; } sEditionDefaults[] = {
 int CtrSettings_GetInt(const char *key, int fallback)
 {
     int index = ExtraIndex(key, false);
+
+    for (int i = 0; i < sTempCount; ++i)
+        if (strcmp(sTemp[i].key, key) == 0)
+            return sTemp[i].value;
 
     if (index >= 0)
         return sExtra[index].value;

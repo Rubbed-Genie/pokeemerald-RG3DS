@@ -458,7 +458,7 @@ void CtrGame_StepWeather(int direction)
         ;
     i = force < 0 ? -1 : i == n ? -1 : i;
     i = (i + 1 + n + 1 + (direction > 0 ? 1 : -1)) % (n + 1) - 1;
-    CtrSettings_SetInt("weather_force", i < 0 ? -1 : sWeathers[i].id);
+    CtrSettings_SetTemp("weather_force", i < 0 ? -1 : sWeathers[i].id);
     if (i < 0)
     {
         SetSavedWeatherFromCurrMapHeader();
