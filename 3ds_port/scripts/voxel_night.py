@@ -95,12 +95,26 @@ def _glass_in(art, rect):
     return sum(1 for y in range(top, bottom) for x in range(left, right) if _is_glass(pixels[x, y]))
 
 
-def lookalike_windows(art):
-    """The authored windows of a building drawn alike: every one of its
-    rectangles over glass in this drawing too (the most glass wins)."""
+_AUTHORED_SIZE = {}
+
+
+def _authored_sizes():
+    """The cell size (w, h) of each building with authored windows."""
+    if not _AUTHORED_SIZE:
+        import voxel_building_specs
+        for spec in voxel_building_specs.SPECS:
+            if spec.get("name") in NIGHT_WINDOWS and spec.get("rect"):
+                _AUTHORED_SIZE[spec["name"]] = tuple(spec["rect"][2:4])
+    return _AUTHORED_SIZE
+
+
+def lookalike_windows(art, size):
+    """The authored windows of a building drawn alike: as many cells, and
+    every one of its rectangles over glass in this drawing too (the most
+    glass wins)."""
     best, best_glass = None, 0
     for other, rects in NIGHT_WINDOWS.items():
-        if len(rects) < 2 or other == "devon_corporation":
+        if len(rects) < 2 or _authored_sizes().get(other) != size:
             continue
         counts = [_glass_in(art, r) for r in rects]
         if all(counts) and sum(counts) > best_glass:
@@ -108,20 +122,29 @@ def lookalike_windows(art):
     return best
 
 
+# not buildings, or buildings whose blue is paint, not glass
+_NOT_HOUSES = ("rock", "boat", "tent", "mat", "lantern", "bush", "bollard", "sign", "tree",
+               "parasol", "lounger", "stall", "awning", "goods", "fence", "kerb", "rail", "curb",
+               "cycling_road")
+
+
 def auto_windows(art):
-    """Glass panes found by colour in the front half of the drawing (the
-    walls under the roof), window-sized."""
-    panes = component_rectangles(art, _is_glass, art.height // 2)
-    return tuple(r for r in panes if 2 <= r[2] - r[0] <= 16 and 2 <= r[3] - r[1] <= 16)
+    """Glass panes found by colour in the walls (the drawing's lower 45%),
+    window-sized; two at least, or none."""
+    panes = component_rectangles(art, _is_glass, art.height * 55 // 100)
+    panes = tuple(r for r in panes if 3 <= r[2] - r[0] <= 12 and 3 <= r[3] - r[1] <= 12)
+    return panes if len(panes) >= 2 else ()
 
 
 def building_mask(art, name, spec=None):
     name = name.removesuffix("_bare")
     rectangles = NIGHT_WINDOWS.get(name, ())
     if (not rectangles and spec is not None and not name.startswith(("rustboro_stone_", "rustboro_olive_"))
+            and spec.get("rect") and ("parts" in spec or "parts_art" in spec)
             and OUTDOOR_LAYOUT.match(spec.get("layout") or "")
-            and not any(k in spec for k in ("interior", "props", "relief", "components"))):
-        like = lookalike_windows(art)
+            and not any(word in name for word in _NOT_HOUSES)
+            and not any(k in spec for k in ("interior", "props", "relief", "components", "bridge", "at"))):
+        like = lookalike_windows(art, tuple(spec["rect"][2:4]))
         if like is not None:
             rectangles = NIGHT_WINDOWS[like]
             AUTO_REPORT.append((name, "like " + like))
