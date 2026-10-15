@@ -10449,12 +10449,25 @@ void CtrVideo_Present(void)
             char name[48];
             FILE *shot;
 
+            bool bottom = gCtrDriveShot == 2;
+
             gCtrDriveShot = 0;
-            snprintf(name, sizeof(name), "shot-%06lu.raw", (unsigned long)sStats.frames);
+            snprintf(name, sizeof(name), bottom ? "shotb-%06lu.raw" : "shot-%06lu.raw",
+                     (unsigned long)sStats.frames);
             shot = CtrFs_OpenData(name, "wb");
             if (shot != NULL)
             {
-                fwrite(sTop->frameBuf.colorBuf, 4, 240 * 400, shot);
+                if (bottom)   /* "shotb": the bottom screen's own framebuffer, as shown */
+                {
+                    u16 fbW = 0, fbH = 0;
+                    u8 *fb = gfxGetFramebuffer(GFX_BOTTOM, GFX_LEFT, &fbW, &fbH);
+                    unsigned bpp = gspGetBytesPerPixel(gfxGetScreenFormat(GFX_BOTTOM));
+
+                    if (fb != NULL)
+                        fwrite(fb, bpp, (size_t)fbW * fbH, shot);
+                }
+                else
+                    fwrite(sTop->frameBuf.colorBuf, 4, 240 * 400, shot);
                 fclose(shot);
             }
         }

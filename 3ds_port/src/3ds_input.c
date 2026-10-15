@@ -14,6 +14,7 @@ static CtrInput sInput;
  *   up down left right a b start select l r x y [N]  press N times (default 1)
  *   wait[N]        N frames (default 60)
  *   shot           dump the top screen (shot-<frame>.raw, CtrVideo)
+ *   shotb          dump the bottom screen (shotb-<frame>.raw, RGB565)
  *   warp:G:N:X:Y   warp there (3ds_game_full.c)
  *   weather:N      set the weather (WEATHER_ id)
  * A press holds 6 frames and lets go 6.
@@ -106,6 +107,12 @@ static uint32_t DriveStep(void)
                 gCtrDriveWarp[0] = g;
             }
             sDrive.wait = 90;
+            return 0;
+        }
+        if (strcmp(word, "shotb") == 0)
+        {
+            gCtrDriveShot = 2;   /* the bottom screen */
+            sDrive.wait = 10;
             return 0;
         }
         if (strcmp(word, "shot") == 0)
