@@ -45,6 +45,67 @@ OBJECTS = {
         "grid": ((88, 89),
                  (104, 105)),
     },
+    # RG3DS: the cave tileset's rocks on its floor (upper layer, palette 6):
+    # a boulder, a pile of pebbles, a heap of rock, a stalagmite
+    "cave_boulder": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Cave",
+                     "palette": 6, "grid": ((640, 641), (656, 657))},
+    "cave_pebbles": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Cave",
+                     "palette": 6, "grid": ((519, 520), (535, 536))},
+    # the heap of rock and the stalagmite under it are one tall rock, drawn
+    # over two cells (always so, but four lone heaps in the Desert Underpass,
+    # left flat for now)
+    "cave_column": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Cave",
+                    "palette": 6, "grid": ((794, 795), (810, 811), (826, 827), (842, 843))},
+    # RG3DS: the beach's parasols (Route 109, Slateport): a canopy of four
+    # subtiles' width, its right half the left mirrored, over its pole - one
+    # per colour - and the loungers, two subtiles by four
+    "parasol_orange": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Slateport",
+                       "palette": 11, "grid": ((676, 677, (677, False, 11, 1), (676, False, 11, 1)),
+                                               (692, 693, (693, False, 11, 1), (692, False, 11, 1)),
+                                               (708, 709, (709, False, 11, 1), (708, False, 11, 1)),
+                                               (724, 725, (725, False, 11, 1), (724, False, 11, 1)),
+                                               (None, 684, 685, None))},
+    "parasol_blue": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Slateport",
+                     "palette": 11, "grid": ((672, 673, (673, False, 11, 1), (672, False, 11, 1)),
+                                             (688, 689, (689, False, 11, 1), (688, False, 11, 1)),
+                                             (704, 705, (705, False, 11, 1), (704, False, 11, 1)),
+                                             (720, 721, (721, False, 11, 1), (720, False, 11, 1)),
+                                             (None, 684, 685, None))},
+    "parasol_green": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Slateport",
+                      "palette": 11, "grid": ((674, 675, (675, False, 11, 1), (674, False, 11, 1)),
+                                              (690, 691, (691, False, 11, 1), (690, False, 11, 1)),
+                                              (706, 707, (707, False, 11, 1), (706, False, 11, 1)),
+                                              (722, 723, (723, False, 11, 1), (722, False, 11, 1)),
+                                              (None, 684, 685, None))},
+    "lounger": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Slateport",
+                "palette": 11, "grid": ((678, 679), (694, 695), (710, 711), (726, 727))},
+    # RG3DS: Slateport market's goods - jars, baskets, crates of fruit - a
+    # cell each on the upper layer
+    "goods_550": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Slateport",
+                  "palette": 7, "grid": ((550, 551), (566, 567))},
+    "goods_614": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Slateport",
+                  "palette": 7, "grid": ((614, 615), (630, 631))},
+    "goods_548": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Slateport",
+                  "palette": 7, "grid": ((548, 549), (564, 565))},
+    "goods_518": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Slateport",
+                  "palette": 7, "grid": ((518, 519), (534, 535))},
+    "goods_514": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Slateport",
+                  "palette": 7, "grid": ((514, 515), (530, 531))},
+    "goods_516": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Slateport",
+                  "palette": 7, "grid": ((516, 517), (532, 533))},
+    "goods_650": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Slateport",
+                  "palette": 7, "grid": ((650, 651), (666, 667))},
+    "goods_648": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Slateport",
+                  "palette": 7, "grid": ((648, 649), (664, 665))},
+    "goods_736": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Slateport",
+                  "palette": 7, "grid": ((736, 737), (738, 739))},
+    "goods_889": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Slateport",
+                  "palette": 11, "grid": ((889, 890), (891, 892))},
+    # the pots by the beach's rail, their lower halves drawn twice
+    "goods_664b": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Slateport",
+                   "palette": 7, "grid": ((664, 665), (664, 665))},
+    "goods_666b": {"land": True, "tileset": "gTileset_General", "secondary": "gTileset_Slateport",
+                   "palette": 7, "grid": ((666, 667), (666, 667))},
     "sea_stack": {
         "tileset": "gTileset_General",
         "palette": 3,
@@ -233,9 +294,9 @@ def find(layout_entry, names=None):
                 for i, t in enumerate(row):
                     if t is None:
                         continue
-                    want, optional, pal = t if isinstance(t, tuple) else (t, False, obj["palette"])
+                    want, optional, pal, flip = _entry(t, obj)
                     got = sub_at(x0 + i, y0 + j)
-                    if got == (want, pal, 0):
+                    if got == (want, pal, flip):
                         present.add((i, j))
                     elif not optional:
                         ok = False
@@ -245,6 +306,15 @@ def find(layout_entry, names=None):
             if ok:
                 found.append((name, x0, y0, frozenset(present)))
     return sorted(found)
+
+
+def _entry(t, obj):
+    """(tile, optional, palette, flips) of a grid entry: a tile id, or
+    (tile, optional, palette) or (tile, optional, palette, flips) - flips
+    1 across, 2 down (RG3DS: a parasol's right half is its left mirrored)."""
+    if not isinstance(t, tuple):
+        return t, False, obj["palette"], 0
+    return (t + (0,))[:4]
 
 
 def cells_of(name, sx, sy):

@@ -62,6 +62,9 @@ def component_specs(spec, layouts):
             continue
         if ("primary" in comp and entry.get("primary_tileset") != comp["primary"]) or                 ("secondary" in comp and entry.get("secondary_tileset") != comp["secondary"]):
             continue
+        # RG3DS: only these layouts (the same tiles mean other things elsewhere)
+        if comp.get("layouts") and entry["id"] not in comp["layouts"]:
+            continue
         blocks = vb.read_u16(os.path.join(vb.ROOT, entry["blockdata_filepath"]))
         w, h = entry["width"], entry["height"]
         seen = set()

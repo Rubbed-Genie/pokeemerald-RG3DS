@@ -161,6 +161,14 @@ void CtrDayNight_Update(void)
         sClock.lastMs = now;
     sResume = false;
     CtrDayNight_Advance(&sClock, now, sLocalSeconds, speed);
+    /* RG3DS dev menu: TIME OF DAY holds the clock at an hour (dev_hour,
+     * -1 = the clock's own), for looking at the lights. */
+    {
+        int hour = CtrSettings_GetInt("dev_hour", -1);
+
+        if (hour >= 0 && hour < 24)
+            sClock.timeMs = (uint32_t)hour * 3600000u;
+    }
     sEnabled = true;
     sValid = true;
     if (enabled && CtrGame_IsOutdoor())

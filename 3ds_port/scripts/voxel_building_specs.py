@@ -3448,6 +3448,44 @@ def rustboro_gym():
     ]
 
 
+def rg_tent_dome(art):
+    """RG3DS: a Battle Tent (80 x 80) lifted pixel by pixel off its own
+    drawing (Mound) - a dome every column of it, so the 45-degree view sees
+    the drawing exactly. Each town's copy from its own art."""
+    return [Mound("dome", art, rise=0.9, step=4)]
+
+
+def rg_canopy(x0, x1, back_row, top_row, hem_row, foot_row, posts, lift):
+    """RG3DS: a market awning on posts (Slateport): the cloth flat on top,
+    its valance hanging at the front, posts at its front corners.
+
+    Drawn: the top from `back_row` to `top_row`, the valance down to
+    `hem_row`, the posts down to their feet at `foot_row`. Read as drawn the
+    cloth would hang at the posts' height - lower than a walker under it - so
+    the cloth and valance are lifted `lift` and moved back as far, which the
+    45-degree view sees as the same drawing; the posts stand where the
+    valance now is, taller by `lift`. `posts`: (x0, x1) columns.
+    """
+    front = foot_row + lift
+    hem = foot_row - hem_row + lift
+    top = foot_row - top_row + lift
+    back = back_row + top
+    side = Tile(x0 + 4, top_row, x0 + 12, hem_row, top=top)
+    cloth = Prism(
+        "cloth", x0, x1,
+        [(front, hem), (front, top), (back, top), (back, hem)],
+        edges={0: Proj(top_row, hem_row), 1: Proj(back_row, top_row), 2: side},
+        skip=(3,), caps=[Band(hem, top + 1, side, front)])
+    parts = [cloth]
+    for i, (a, b) in enumerate(posts):
+        wood = Tile(a, hem_row + 2, b, foot_row, top=hem)
+        parts.append(Prism(
+            "post%d" % i, a, b,
+            [(front, 0), (front, hem), (front - (b - a), hem), (front - (b - a), 0)],
+            edges={0: wood, 2: wood}, skip=(1, 3), caps=[Band(0, hem + 1, wood, front)]))
+    return parts
+
+
 SPECS = [
     {
         "name": "littleroot_house_w",
@@ -3608,10 +3646,8 @@ SPECS = [
             (1, 0): 0x210, (2, 0): 0x211, (3, 0): 0x212,
             (1, 1): 0x286, (2, 1): 0x285, (3, 1): 0x287,
             (1, 2): 0x286, (2, 2): 0x285, (3, 2): 0x287}},
-        "parts": lambda: [Awning("awning", 8, 72, top_v=1, valance_v=24, post_v=32,
-                                 foot_v=47, back=0, lift=12, repeat=(3, 11),
-                                 posts=[(8, 14), (66, 72)], shaft=(34, 43), foot=(43, 47))],
-        "exact": [(8, 3, 72, 32)],
+        "parts": lambda: rg_canopy(8, 72, 1, 24, 31, 46, [(10, 13), (68, 71)], 10),  # RG3DS (ours)
+        "exact": [(12, 2, 68, 30)],
     },
     {
         "name": "fan_club",
@@ -3655,11 +3691,6 @@ SPECS = [
         # The battle tent: a smooth dome and its door (battle_tent). The same
         # drawing stands in Verdanturf and Fallarbor in their own tiles.
         "name": "battle_tent",
-        # a coarser grid for its round parts (2026-10-10: the console's
-        # budgets), the drawing still projected wherever the view sees it
-        "lod": (6, 6, 3),
-        # the coarse grid misses 6 pixels of its outline at 45 degrees
-        "tolerance": 6,
         "anywhere": True,
         # Verdanturf paints its cliff into the top row
         "match_rows": (1, 5),
@@ -3671,7 +3702,8 @@ SPECS = [
         "ground_fixed": {"LAYOUT_SLATEPORT_CITY": GRASS},
         "patch_own": True,
         "ground_px": True,
-        "parts_art": battle_tent,
+        # RG3DS: our dome (rg_tent_dome), every town's own drawing
+        "parts_art": rg_tent_dome,
         "exact": [(0, 0, 80, 80)],
     },
     {
@@ -4521,42 +4553,33 @@ SPECS = [
         "name": "shipyard",
         "layout": "LAYOUT_SLATEPORT_CITY",
         "rect": (24, 32, 8, 7),
-        "ground": [0x202, GRASS],
+        "ground": [0x202, 0x212, 0x189, 0x170, 0x190, 0x149, 0x222, 0x22a, GRASS],
         # its top row is the sea behind it, not its roof's
         "keep": [(0, 1, 128, 112)],
-        "parts": shipyard,
-        "exact": SHIPYARD_EXACT,
+        # RG3DS (ours): a flat-roofed shed, corrugated roof rows 17-63, its
+        # back parapet 2-16 at the far end, the eave 64-69, the siding 70-111
+        "parts": lambda: flat_block(128, 112, ((17, 64), (17, 33), (2, 17)), (64, 70), 70),
+        "exact": [(0, 70, 128, 111), (8, 17, 120, 64)],
     },
     {
-        # Slateport market's stalls, six of them, half a cell off the grid
-        # (the east row's metatiles differ, its drawing does not). Lifted 12
-        # like the awnings. Only the stall is its own: the pots and baskets
-        # standing under it are not.
+        # RG3DS (ours): Slateport market's blue stalls (six, one drawing).
         "name": "slateport_stall",
         "layout": "LAYOUT_SLATEPORT_CITY",
         "rect": (2, 41, 5, 3),
-        # the paving and its shade under the stall, told apart pixel by
-        # pixel from the posts drawn over it
-        "ground": [0x211, 0x285],
-        "ground_px": True,
-        "keep": stall_keep(72),
-        # its outer column as the map paints it (the paving's edge): under
-        # the roof the goods stand on their own, not laid flat again
-        "patch_cells": [(0, 0), (0, 1), (0, 2)],
-        "parts": lambda: [stall(72, 57.5, ((24, 3, 55, 8), (9, 12, 12, 20), (60, 12, 69, 20)))],
-        "exact": [(8, 11, 72, 29)],
+        "match_rows": (0, 2),
+        "ground": [0x210, 0x211, 0x212],
+        "parts": lambda: rg_canopy(8, 72, 1, 25, 29, 47, [(9, 12), (66, 69)], 8),
+        "exact": [(12, 2, 68, 28)],
     },
     {
-        # the east row's stalls are a cell narrower
+        # RG3DS (ours): the market's east stalls, a cell narrower.
         "name": "slateport_stall_e",
         "layout": "LAYOUT_SLATEPORT_CITY",
         "rect": (10, 41, 4, 3),
-        "ground": [0x211, 0x285],
-        "ground_px": True,
-        "keep": stall_keep(56),
-        "patch_cells": [(3, 0), (3, 1), (3, 2)],
-        "parts": lambda: [stall(56, 41.5, ((24, 3, 39, 8), (9, 12, 12, 20), (44, 12, 53, 20)))],
-        "exact": [(8, 11, 56, 29)],
+        "match_rows": (0, 2),
+        "ground": [0x210, 0x211, 0x212],
+        "parts": lambda: rg_canopy(8, 56, 1, 25, 29, 47, [(9, 12), (52, 55)], 8),
+        "exact": [(12, 2, 52, 28)],
     },
     {
         "name": "gym",
@@ -5042,5 +5065,110 @@ SPECS = [
                      "shade": [0x209, 0x212, 0x213, 0x214, 0x22A, 0x232,
                                0x216, 0x22C],
                      "pieces": own_shell(petalburg_gym())},
+    },
+    # ── RG3DS: models only the RG3DS edition has ──
+    {
+        # its south twin, the ramp's foot drawn into its top row and east side
+        "name": "cycling_gate_s",
+        "layout": "LAYOUT_ROUTE110",
+        "rect": (15, 84, 6, 5),
+        "ground": [GRASS, 0x170, 0x134, 0x003],
+        "parts": lambda: flat_block(96, 80, ((12, 32), (12, 20), (0, 12)), (32, 40), 40),
+        "exact": [(4, 40, 92, 78), (4, 12, 92, 40)],
+    },
+    {
+        # RG3DS: Lavaridge's gym, the gym drawn in this town's tiles.
+        "name": "gym_lavaridge",
+        "layout": "LAYOUT_LAVARIDGE_TOWN",
+        "rect": (2, 11, 6, 5),
+        "match_rows": (0, 4),
+        "ground": [GRASS],
+        "parts": gym,
+        "exact": GYM_EXACT,
+    },
+    {
+        # RG3DS: Fortree's gym, its top row the trees' crowns over the roof.
+        "name": "gym_fortree",
+        "layout": "LAYOUT_FORTREE_CITY",
+        "rect": (19, 7, 6, 5),
+        "match_rows": (1, 4),
+        "ground": [GRASS, 0x00e, 0x260, 0x261],
+        "parts": gym,
+        "exact": [(2, 45, 40, 72), (72, 45, 94, 72), (3, 17, 93, 45), (40, 41, 72, 80)],
+    },
+    {
+        # RG3DS: Slateport's white kerb stones along the quays and walks, read
+        # column by column, their front the bottom rows of each.
+        "name": "kerb_slateport",
+        "components": {
+            "secondary": "gTileset_Slateport",
+            "layouts": {"LAYOUT_SLATEPORT_CITY"},
+            # (and the white walls down the sand's sides)
+            "tiles": {0x25D, 0x245, 0x23C, 0x2FE, 0x2FF, 0x2CF, 0x24D, 0x255, 0x234, 0x045, 0x047},
+            "height": 6, "hull": 6, "bridge": 3, "block": 4,
+        },
+        "ground": [0x202, 0x212, 0x211, 0x209, 0x189, 0x170, 0x190, 0x198, GRASS, 0x003],
+    },
+    {
+        # RG3DS: the white rail round Slateport's beach, drawn on the upper
+        # layer over the sand's edge: breakwater slabs, half the player's
+        # height (16; Matt 2026-10-15: "at least half player height").
+        "name": "beach_rail_slateport",
+        "components": {
+            "secondary": "gTileset_Slateport",
+            "layouts": {"LAYOUT_SLATEPORT_CITY"},
+            "tiles": {0x2B8, 0x2B9, 0x2BA, 0x2BB, 0x27E},
+            "height": 16, "hull": 16, "bridge": 3, "block": 4,
+            "upper": True,
+        },
+        "ground": [0x124, 0x125, 0x123, 0x2C4, 0x275, 0x276, 0x210, 0x211, 0x212, 0x202, GRASS],
+    },
+    {
+        "name": "goods_664b", "props": "goods_664b", "ground": [0x211, 0x210, 0x212, 0x202, 0x001],
+        "rise": 1.3, "step": 2,
+    },
+    {
+        "name": "goods_666b", "props": "goods_666b", "ground": [0x211, 0x210, 0x212, 0x202, 0x001],
+        "rise": 1.3, "step": 2,
+    },
+    {
+        "name": "goods_550", "props": "goods_550", "ground": [0x211, 0x210, 0x212, 0x202],
+        "rise": 1.3, "step": 2,
+    },
+    {
+        "name": "goods_614", "props": "goods_614", "ground": [0x211, 0x210, 0x212, 0x202],
+        "rise": 1.3, "step": 2,
+    },
+    {
+        "name": "goods_548", "props": "goods_548", "ground": [0x211, 0x210, 0x212, 0x202],
+        "rise": 1.3, "step": 2,
+    },
+    {
+        "name": "goods_518", "props": "goods_518", "ground": [0x211, 0x210, 0x212, 0x202],
+        "rise": 1.3, "step": 2,
+    },
+    {
+        "name": "goods_514", "props": "goods_514", "ground": [0x211, 0x210, 0x212, 0x202],
+        "rise": 1.3, "step": 2,
+    },
+    {
+        "name": "goods_516", "props": "goods_516", "ground": [0x211, 0x210, 0x212, 0x202],
+        "rise": 1.3, "step": 2,
+    },
+    {
+        "name": "goods_650", "props": "goods_650", "ground": [0x211, 0x210, 0x212, 0x202],
+        "rise": 1.3, "step": 2,
+    },
+    {
+        "name": "goods_648", "props": "goods_648", "ground": [0x211, 0x210, 0x212, 0x202],
+        "rise": 1.3, "step": 2,
+    },
+    {
+        "name": "goods_736", "props": "goods_736", "ground": [0x211, 0x210, 0x212, 0x202],
+        "rise": 1.3, "step": 2,
+    },
+    {
+        "name": "goods_889", "props": "goods_889", "ground": [0x211, 0x210, 0x212, 0x202],
+        "rise": 1.3, "step": 2,
     },
 ]

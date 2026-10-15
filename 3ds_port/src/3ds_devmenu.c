@@ -16,9 +16,9 @@
 #include "3ds_platform.h"
 #include "3ds_devmenu.h"
 
-/* The lighting patch's minute counter (overworld.c): 1 re-reads the time of
- * day on the next field frame. Absent without the patch. */
-extern int16_t gTimeUpdateCounter __attribute__((weak));
+/* Their clock (3ds_daynight.c) holds settings dev_hour; the town warp is the
+ * game bridge's (3ds_game_full.c). */
+void CtrGame_WarpToTown(int town);
 
 /* ── Font ──────────────────────────────────────────────────────────────── */
 
@@ -96,20 +96,47 @@ static void DrawText(const char *text, float x, float y, u32 colour)
 
 /* ── Rows ──────────────────────────────────────────────────────────────── */
 
-enum { ROW_TIME, ROW_GLOW, ROW_GLOW_DEBUG, ROW_FPS, ROW_SPEED, ROW_ZLZR, ROW_COUNT };
+enum { ROW_TIME, ROW_DAYNIGHT, ROW_CLOCK, ROW_WEATHER, ROW_WARP, ROW_ZLZR, ROW_COUNT };
 
+/* What L2/R2 do on their own (zlzr_mode): step the speed, hold for turbo A,
+ * or cycle the time of day or the weather. */
+enum { ZLZR_SPEED, ZLZR_TURBO, ZLZR_TIME, ZLZR_WEATHER, ZLZR_MODES };
+static const char *const sZlzrNames[] = {"SPEED", "TURBO A", "TIME OF DAY", "WEATHER"};
+
+/* The game's weather (3ds_game_full.c): its name, and a step through them. */
+const char *CtrGame_WeatherName(void);
+void CtrGame_StepWeather(int direction);
+
+static int ZlzrMode(void)
+{
+    int mode = CtrSettings_GetInt("zlzr_mode", -1);
+
+    if (mode < 0)
+        mode = ZLZR_TURBO;   /* the default */
+    return mode >= 0 && mode < ZLZR_MODES ? mode : ZLZR_SPEED;
+}
+
+/* The hours sit on the clock's keys (3ds_daynight.c): morning light 4-8,
+ * full day 10-15, evening 17-18, night from 20. */
 static const char *const sTimeNames[] = {"REAL CLOCK", "MORNING", "DAY", "EVENING", "NIGHT"};
-static const int sTimeHours[] = {-1, 8, 12, 19, 22};
+static const int sTimeHours[] = {-1, 7, 12, 18, 22};
 
 static int TimeIndex(void)
 {
-    int hour = CtrSettings_GetInt("tod_hour", -1);
+    int hour = CtrSettings_GetInt("dev_hour", -1);
 
     for (int i = 0; i < (int)(sizeof(sTimeHours) / sizeof(sTimeHours[0])); ++i)
         if (sTimeHours[i] == hour)
             return i;
     return 0;
 }
+
+static const char *const sClockNames[] = {"1X", "6X", "12X", "24X", "60X", "120X"};
+#define CLOCK_SPEEDS 6
+
+static const char *const sTowns[] = {"SLATEPORT", "RUSTBORO", "DEWFORD", "PETALBURG"};
+#define TOWNS 4
+static int sTown;
 
 static void RowText(int row, char *label, char *value, size_t size)
 {
@@ -119,25 +146,29 @@ static void RowText(int row, char *label, char *value, size_t size)
         strcpy(label, "TIME OF DAY");
         snprintf(value, size, "%s", sTimeNames[TimeIndex()]);
         break;
-    case ROW_GLOW:
-        strcpy(label, "NIGHT GLOW");
-        snprintf(value, size, "%s", CtrSettings_GetInt("glow", 1) ? "ON" : "OFF");
+    case ROW_DAYNIGHT:
+        strcpy(label, "DAY/NIGHT");
+        snprintf(value, size, "%s", CtrSettings_GetInt("day_night", 0) == 1 ? "ON" : "OFF");
         break;
-    case ROW_GLOW_DEBUG:
-        strcpy(label, "SHOW LIGHTS");
-        snprintf(value, size, "%s", CtrSettings_GetInt("glow_debug", 0) ? "ON" : "OFF");
+    case ROW_CLOCK:
+    {
+        int speed = CtrSettings_GetInt("clock_speed", 0);
+
+        strcpy(label, "CLOCK SPEED");
+        snprintf(value, size, "%s", sClockNames[speed >= 0 && speed < CLOCK_SPEEDS ? speed : 0]);
         break;
-    case ROW_FPS:
-        strcpy(label, "FPS COUNTER");
-        snprintf(value, size, "%s", CtrSettings_ShowFps() ? "ON" : "OFF");
+    }
+    case ROW_WEATHER:
+        strcpy(label, "WEATHER");
+        snprintf(value, size, "%s", CtrGame_WeatherName());
         break;
-    case ROW_SPEED:
-        strcpy(label, "SPEED");
-        snprintf(value, size, "X%d", CtrSettings_Speed());
+    case ROW_WARP:
+        strcpy(label, "WARP A:GO");
+        snprintf(value, size, "<%s>", sTowns[sTown]);
         break;
     default:
-        strcpy(label, "L2/R2 HELD");
-        snprintf(value, size, "%s", CtrSettings_GetInt("zlzr_auto_a", 0) ? "TURBO A" : "SPEED");
+        strcpy(label, "L2/R2 DOES");
+        snprintf(value, size, "%s", sZlzrNames[ZlzrMode()]);
         break;
     }
 }
@@ -151,25 +182,31 @@ static void ChangeRow(int row, int direction)
         int count = (int)(sizeof(sTimeHours) / sizeof(sTimeHours[0]));
         int next = (TimeIndex() + direction + count) % count;
 
-        CtrSettings_SetInt("tod_hour", sTimeHours[next]);
-        if (&gTimeUpdateCounter != NULL)
-            gTimeUpdateCounter = 1;
+        CtrSettings_SetInt("dev_hour", sTimeHours[next]);
+        /* a held hour means nothing with their day/night off */
+        if (sTimeHours[next] >= 0)
+            CtrSettings_SetInt("day_night", 1);
         break;
     }
-    case ROW_GLOW:
-        CtrSettings_SetInt("glow", !CtrSettings_GetInt("glow", 1));
+    case ROW_DAYNIGHT:
+        CtrSettings_SetInt("day_night", CtrSettings_GetInt("day_night", 0) == 1 ? 0 : 1);
         break;
-    case ROW_GLOW_DEBUG:
-        CtrSettings_SetInt("glow_debug", !CtrSettings_GetInt("glow_debug", 0));
+    case ROW_CLOCK:
+    {
+        int speed = CtrSettings_GetInt("clock_speed", 0);
+
+        speed = (speed < 0 || speed >= CLOCK_SPEEDS ? 0 : speed) + direction;
+        CtrSettings_SetInt("clock_speed", speed < 0 ? 0 : speed >= CLOCK_SPEEDS ? CLOCK_SPEEDS - 1 : speed);
         break;
-    case ROW_FPS:
-        CtrSettings_SetShowFps(!CtrSettings_ShowFps());
+    }
+    case ROW_WEATHER:
+        CtrGame_StepWeather(direction);
         break;
-    case ROW_SPEED:
-        CtrSettings_StepSpeed(direction, true);
+    case ROW_WARP:
+        sTown = (sTown + direction + TOWNS) % TOWNS;
         break;
     default:
-        CtrSettings_SetInt("zlzr_auto_a", !CtrSettings_GetInt("zlzr_auto_a", 0));
+        CtrSettings_SetInt("zlzr_mode", (ZlzrMode() + direction + ZLZR_MODES) % ZLZR_MODES);
         break;
     }
 }
@@ -212,17 +249,20 @@ uint32_t CtrDevMenu_Input(uint32_t held, uint32_t down, bool *pressA)
         sChordUsed = true;
         sOpen = !sOpen;
     }
-    else if (sOpen && !sChordUsed && released && z == 0)
+    /* RG3DS: one of them alone does what the L2/R2 row says - open or not,
+     * the menu is the D-pad's */
+    else if (!sChordUsed && released && z == 0 && !sTurbo)
     {
-        /* one of them alone, open: change the row */
-        ChangeRow(sRow, (released & KEY_ZR) ? 1 : -1);
+        if (ZlzrMode() == ZLZR_SPEED)
+            CtrSettings_StepSpeed((released & KEY_ZR) ? 1 : -1, false);
+        else if (ZlzrMode() == ZLZR_TIME)
+            ChangeRow(ROW_TIME, (released & KEY_ZR) ? 1 : -1);
+        else if (ZlzrMode() == ZLZR_WEATHER)
+            CtrGame_StepWeather((released & KEY_ZR) ? 1 : -1);
     }
-    else if (!sOpen && !sChordUsed && released && z == 0 && !sTurbo)
-        CtrSettings_StepSpeed((released & KEY_ZR) ? 1 : -1, false);
-    /* RG3DS: L2/R2 held on its own as turbo A (the dev menu's choice) */
     *pressA = false;
     if (!sOpen && !sChordUsed && z != 0 && z != (KEY_ZL | KEY_ZR) && sChord > TURBO_DELAY
-     && CtrSettings_GetInt("zlzr_auto_a", 0))
+     && ZlzrMode() == ZLZR_TURBO)
     {
         sTurbo = true;
         *pressA = ((sChord - TURBO_DELAY) % TURBO_PERIOD) < TURBO_PERIOD / 2;
@@ -245,7 +285,13 @@ uint32_t CtrDevMenu_Input(uint32_t held, uint32_t down, bool *pressA)
         sRow = (sRow + 1) % ROW_COUNT;
     if (down & KEY_DLEFT)
         ChangeRow(sRow, -1);
-    if (down & (KEY_DRIGHT | KEY_A))
+    if ((down & KEY_A) && sRow == ROW_WARP)
+    {
+        /* the warp waits for the menu to close (3ds_game_full.c) */
+        CtrGame_WarpToTown(sTown);
+        sOpen = false;
+    }
+    else if (down & (KEY_DRIGHT | KEY_A))
         ChangeRow(sRow, 1);
     return ~0u;
 }
@@ -283,6 +329,6 @@ void CtrDevMenu_Draw(C3D_RenderTarget *target)
         DrawText(label, left + 8.0f, y, colour);
         DrawText(value, left + 192.0f - strlen(value) * ADVANCE, y, colour);
     }
-    DrawText("ZL/ZR CHANGE  B CLOSE", left + 8.0f, top + height - 12.0f, C2D_Color32(150, 150, 170, 255));
+    DrawText("DPAD CHANGE  B CLOSE", left + 8.0f, top + height - 12.0f, C2D_Color32(150, 150, 170, 255));
     C2D_Flush();
 }

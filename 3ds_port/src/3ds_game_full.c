@@ -55,6 +55,7 @@
 #include "field_weather.h"
 #include "event_object_movement.h"
 #include "constants/field_weather.h"
+#include "constants/heal_locations.h"
 #include "constants/pokemon_icon.h"
 #include "constants/species.h"
 #include "constants/maps.h"
@@ -407,13 +408,103 @@ static void UpdateSet(StageSet *set, IntrCallback callback)
     set->on = on;
 }
 
+/* RG3DS dev menu (3ds_devmenu.c): any weather, held over every map
+ * (settings weather_force, a WEATHER_ id), or -1: each map's own, as the game
+ * has it. Only on the field; the map's own weather comes back on DEFAULT. */
+static const struct { u8 id; const char *name; } sWeathers[] =
+{
+    {WEATHER_NONE, "NONE"}, {WEATHER_SUNNY_CLOUDS, "CLOUDY"}, {WEATHER_SUNNY, "SUNNY"}, {WEATHER_RAIN, "RAIN"},
+    {WEATHER_DOWNPOUR, "DOWNPOUR"}, {WEATHER_RAIN_THUNDERSTORM, "STORM"}, {WEATHER_SNOW, "SNOW"},
+    {WEATHER_FOG_HORIZONTAL, "FOG"}, {WEATHER_FOG_DIAGONAL, "FOG DIAG"}, {WEATHER_VOLCANIC_ASH, "ASH"},
+    {WEATHER_SANDSTORM, "SANDSTORM"}, {WEATHER_SHADE, "SHADE"}, {WEATHER_DROUGHT, "DROUGHT"},
+};
+
+static const char *WeatherNameOf(u8 id)
+{
+    for (unsigned i = 0; i < ARRAY_COUNT(sWeathers); ++i)
+        if (sWeathers[i].id == id)
+            return sWeathers[i].name;
+    return "OTHER";
+}
+
+const char *CtrGame_WeatherName(void)
+{
+    static char text[24];
+    int force = CtrSettings_GetInt("weather_force", -1);
+
+    if (gSaveBlock1Ptr == NULL)
+        return "-";
+    if (force < 0)
+    {
+        snprintf(text, sizeof(text), "DEFAULT %s", WeatherNameOf(gSaveBlock1Ptr->weather));
+        return text;
+    }
+    return WeatherNameOf((u8)force);
+}
+
+void CtrGame_StepWeather(int direction)
+{
+    int n = (int)ARRAY_COUNT(sWeathers), force = CtrSettings_GetInt("weather_force", -1), i;
+
+    if (gSaveBlock1Ptr == NULL || gMain.callback2 != CB2_Overworld)
+        return;
+    /* -1 (the map's own) first, then the list */
+    for (i = 0; i < n && sWeathers[i].id != force; ++i)
+        ;
+    i = force < 0 ? -1 : i == n ? -1 : i;
+    i = (i + 1 + n + 1 + (direction > 0 ? 1 : -1)) % (n + 1) - 1;
+    CtrSettings_SetInt("weather_force", i < 0 ? -1 : sWeathers[i].id);
+    if (i < 0)
+    {
+        SetSavedWeatherFromCurrMapHeader();
+        SetNextWeather(GetSavedWeather());
+    }
+    else
+        SetWeather(sWeathers[i].id);
+}
+
+/* Held weather survives a map change: the new map sets its own, this sets
+ * it back. */
+static void HoldWeather(void)
+{
+    int force;
+
+    if (gSaveBlock1Ptr == NULL || gMain.callback2 != CB2_Overworld)
+        return;
+    force = CtrSettings_GetInt("weather_force", -1);
+    if (force >= 0 && gSaveBlock1Ptr->weather != force)
+        SetWeather((u32)force);
+}
+
+/* RG3DS dev menu: WARP to a town, where Fly lands (a HEAL_LOCATION_ id). */
+static volatile int sMenuWarp = -1;
+
+void CtrGame_WarpToTown(int town)
+{
+    static const u8 towns[] = {HEAL_LOCATION_SLATEPORT_CITY, HEAL_LOCATION_RUSTBORO_CITY,
+                               HEAL_LOCATION_DEWFORD_TOWN, HEAL_LOCATION_PETALBURG_CITY};
+
+    if (town >= 0 && town < (int)ARRAY_COUNT(towns))
+        sMenuWarp = towns[town];
+}
+
 /* RG3DS debug driver (3ds_input.c): a warp asked for in drive.txt. */
 extern volatile int gCtrDriveWarp[4];
 void DoWarp(void);
+bool CtrDevMenu_Open(void);
 
 static void DriveWarp(void)
 {
-    if (gCtrDriveWarp[0] < 0 || gMain.callback2 != CB2_Overworld)
+    HoldWeather();
+    if (gMain.callback2 != CB2_Overworld)
+        return;
+    if (sMenuWarp >= 0 && !CtrDevMenu_Open() && !ArePlayerFieldControlsLocked())
+    {
+        SetWarpDestinationToHealLocation((u8)sMenuWarp);
+        DoWarp();
+        sMenuWarp = -1;
+    }
+    if (gCtrDriveWarp[0] < 0)
         return;
     SetWarpDestination(gCtrDriveWarp[0], gCtrDriveWarp[1], WARP_ID_NONE, gCtrDriveWarp[2], gCtrDriveWarp[3]);
     DoWarp();
