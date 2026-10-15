@@ -591,6 +591,27 @@ static float CardPush(float cx, float cz, float halfW, float height)
 #define VOXEL_MODEL_PUSH_MAX 0.5f      /* further than that is not furniture's front */
 #define VOXEL_MODEL_PUSH_HEIGHT 0.25f  /* where on the card the face is looked for */
 
+/* RG3DS: on a model one can walk onto - a seat. */
+static bool OnSeat(float cx, float cz)
+{
+    int sx = (int)floorf(cx), sy = (int)floorf(cz);
+    const VoxelMapInstance *seat = VoxelWorld_GetInstanceAt(sx, sy);
+
+    return seat != NULL && VoxelWorld_GetCollision(sx, sy) == 0
+        && VoxelBuildings_CellAt(seat, sx, sy, NULL, NULL);
+}
+
+/* RG3DS: how far a sitter is lifted, so the chair shows the body and hides
+ * only the legs (seat_lift, pixels; Matt: "just a tad"). */
+static float SeatLift(float cx, float cz)
+{
+    int px = CtrSettings_GetInt("seat_lift", 6);
+
+    if (px < 0 || px > 12 || !OnSeat(cx, cz))
+        return 0.0f;
+    return (float)px / VOXEL_PIXELS_PER_TILE;
+}
+
 static float ModelPush(float cx, float cz, float halfW)
 {
     int y = (int)floorf(cz);
@@ -602,14 +623,8 @@ static float ModelPush(float cx, float cz, float halfW)
      * Pokemon Center's chairs): no push, so the chair hides the legs as on
      * the GBA, instead of the walker standing up on it (Matt: "they stand
      * on top like they have collision"). */
-    {
-        int sx = (int)floorf(cx);
-        const VoxelMapInstance *seat = VoxelWorld_GetInstanceAt(sx, y);
-
-        if (seat != NULL && VoxelWorld_GetCollision(sx, y) == 0
-         && VoxelBuildings_CellAt(seat, sx, y, NULL, NULL))
-            return 0.0f;
-    }
+    if (OnSeat(cx, cz))
+        return 0.0f;
     for (int x = x0; x <= x1; ++x)
     {
         const VoxelMapInstance *inst = VoxelWorld_GetInstanceAt(x, y);
@@ -666,7 +681,7 @@ static void EmitBillboard(VoxelBuilder *builder, const VoxelSpriteSlot *slot, un
     float height = rows / VOXEL_PIXELS_PER_TILE * stretch * scale;
     /* On relief the sprite stands where its cell was lifted to, and rides
      * the lattice between cells, so a flight of stairs is climbed. */
-    float lift = VoxelRelief_LiftAt(cx, cz) + rise + deck;
+    float lift = VoxelRelief_LiftAt(cx, cz) + rise + deck + (deck > 0.0f ? 0.0f : SeatLift(cx, cz));
     float shift = VoxelRelief_ShiftAt(cx, cz) + deck;
     /* Up on a deck nothing of the ground or of a model's front is before
      * it: the deck is under its feet. */
