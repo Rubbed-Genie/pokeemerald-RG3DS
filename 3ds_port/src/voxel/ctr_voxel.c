@@ -224,6 +224,9 @@ static VoxelGpuVertex *sRays;
 static unsigned sRayCount;
 /* The sunlit dust's vertices, rewritten every frame, linear; see DrawMotes. */
 static VoxelGpuVertex *sMotes;
+/* RG3DS: the rain's streaks and splashes, and the flash's screen; see DrawRain. */
+static VoxelGpuVertex *sRain;
+static VoxelGpuVertex *sFlash;
 /* This frame's bloom strength, for the 2D compositor (CtrVoxel_Bloom). */
 static float sBloomStrength;
 /* The fog's drifting banks and the dark of a cave (FogSheets, MakeGloom). */
@@ -238,6 +241,7 @@ static float sGloomX, sGloomY;
 static void MakeDapple(void);
 static void MakeRays(void);
 static void MakeMotes(void);
+static void MakeRain(void);
 static void MakeFog(void);
 static void MakeGloom(void);
 static void FadeFor(bool sprites);
@@ -2181,6 +2185,7 @@ bool CtrVoxel_Init(void)
     MakeDapple();
     MakeRays();
     MakeMotes();
+    MakeRain();
     MakeFog();
     MakeGloom();
 #endif
@@ -2278,6 +2283,10 @@ void CtrVoxel_Shutdown(void)
     sRayCount = 0;
     linearFree(sMotes);
     sMotes = NULL;
+    linearFree(sRain);
+    sRain = NULL;
+    linearFree(sFlash);
+    sFlash = NULL;
     if (sFogTex.data != NULL)
     {
         C3D_TexDelete(&sFogTex);
@@ -5428,7 +5437,19 @@ bool CtrVoxel_Update(void)
 
 #if CTR_VOXEL_LIGHTING
     {
-        const CtrDayNightSun *sun = CtrDayNight_GetSun();
+        const CtrDayNightSun *clockSun = CtrDayNight_GetSun();
+        CtrDayNightSun overcast;
+        const CtrDayNightSun *sun = clockSun;
+
+        /* RG3DS: under rain or fog no sun casts a shadow - light from
+         * overhead, as at night, so the casters are relit, not left with
+         * the clear sky's long shadows */
+        if (CtrGame_IsOutdoor() && (VoxelWorld_Weather() == VOXEL_WEATHER_RAIN
+                                    || VoxelWorld_Weather() == VOXEL_WEATHER_FOG))
+        {
+            overcast = (CtrDayNightSun){0.0f, 0.20f, 0.60f, 900u};
+            sun = &overcast;
+        }
 
         bool night = VoxelLighting_SetNight(CtrGame_IsOutdoor() ? CtrDayNight_Get()->glow : 0.0f);
 
@@ -6021,10 +6042,15 @@ static VoxelLight BaseLightFor(bool indoor)
             light.motes = 1.00f;
             break;
         case VOXEL_WEATHER_RAIN:
-            /* Overcast: no sun to break into patches, rays or glinting dust. */
-            light.sun[0] = 0.81f; light.sun[1] = 0.88f; light.sun[2] = 0.98f;
-            light.shade[0] = 0.82f; light.shade[1] = 0.89f; light.shade[2] = 1.00f;
-            light.haze = 0.30f;
+            /* Overcast: no sun to break into patches, rays or glinting dust.
+             * RG3DS: greyer and darker, the more so the harder it rains */
+        {
+            float k = VoxelWorld_RainAmount() > 1.0f ? 0.88f : 1.0f;
+
+            light.sun[0] = 0.72f * k; light.sun[1] = 0.78f * k; light.sun[2] = 0.88f * k;
+            light.shade[0] = 0.74f * k; light.shade[1] = 0.80f * k; light.shade[2] = 0.90f * k;
+            light.haze = 0.34f;
+        }
             light.dappleLow = light.dappleHigh = 1.0f;
             light.rays = 0.0f;
             light.bloom = 0.08f;
@@ -6567,6 +6593,175 @@ static void DrawMotes(const C3D_Mtx *view, const VoxelLight *light, const VoxelL
 #ifdef CTR_F8_LOAD
     ++sF8Drawn[0];
 #endif
+    C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_ALL);
+    C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD,
+                   GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA, GPU_ZERO, GPU_ONE);
+}
+
+/*
+ * RG3DS: rain in the world. Each drop a thin streak facing the camera, falling
+ * through a box round the camera's target and wrapped in it like the dust, so
+ * there are always as many in view; where a drop meets the ground (the relief's
+ * height there) a splash spreads and fades, a flat ring of four triangles.
+ * Depth tested, never written: a roof hides the rain under it. The bolt is
+ * the GBA's: its palettes flash and fade back, and the screen brightens with
+ * them (VoxelWorld_ThunderFlash).
+ */
+#define VOXEL_RAIN_DROPS 400
+#define VOXEL_RAIN_HALF_X 11.0f
+#define VOXEL_RAIN_HALF_Z 10.0f
+#define VOXEL_RAIN_TOP 7.0f       /* tiles over the ground a drop starts */
+#define VOXEL_RAIN_SPEED 13.0f    /* tiles a second */
+#define VOXEL_RAIN_LENGTH 0.85f   /* a streak's length */
+#define VOXEL_RAIN_WIDTH 0.03f
+#define VOXEL_RAIN_SLANT 0.32f    /* across per tile fallen: the GBA streaks' slant */
+#define VOXEL_RAIN_SPLASH 0.22f   /* seconds a splash lasts */
+#define VOXEL_RAIN_VERTICES (VOXEL_RAIN_DROPS * 18)
+/* 0xAABBGGRR: a pale blue-white */
+#define VOXEL_RAIN_COLOUR 0xFFF8E8D8u
+
+static void MakeRain(void)
+{
+    static const float corner[6][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 0}, {1, 1}, {0, 1}};
+
+    sRain = linearAlloc(VOXEL_RAIN_VERTICES * sizeof(VoxelGpuVertex));
+    sFlash = linearAlloc(6 * sizeof(VoxelGpuVertex));
+    if (sRain == NULL || sFlash == NULL)
+    {
+        CtrLog_Write(CTR_LOG_ERROR, "VOXEL: no linear memory for the rain");
+        linearFree(sRain);
+        linearFree(sFlash);
+        sRain = sFlash = NULL;
+        return;
+    }
+    for (unsigned k = 0; k < 6; ++k)
+    {
+        sFlash[k].u = sFlash[k].v = 0.0f;
+        sFlash[k].x = (int16_t)(corner[k][0] * 512.0f);
+        sFlash[k].y = (int16_t)(corner[k][1] * 512.0f);
+        sFlash[k].z = -512;
+        sFlash[k].shade = (int16_t)VOXEL_SHADE_SCALE;
+    }
+    GSPGPU_FlushDataCache(sFlash, 6 * sizeof(VoxelGpuVertex));
+}
+
+static void DrawRain(const C3D_Mtx *view, float amount, float flash)
+{
+    int originX = (int)floorf(sCamera.targetX), originZ = (int)floorf(sCamera.targetZ);
+    double now = (double)svcGetSystemTick() / SYSCLOCK_ARM11;
+    float seconds = (float)fmod(now, 3600.0);
+    unsigned drops = (unsigned)(VOXEL_RAIN_DROPS * (amount > 2.0f ? 1.0f : amount * 0.5f));
+    /* blended over, not added: added, a pale streak on the sunlit sand was gone */
+    /* the camera's right in the world, for the streaks' width */
+    float rx = view->r[0].x * VOXEL_RAIN_WIDTH, rz = view->r[0].z * VOXEL_RAIN_WIDTH;
+    float cycle = VOXEL_RAIN_TOP / VOXEL_RAIN_SPEED;
+    VoxelGpuVertex *v = sRain;
+    unsigned count = 0;
+    C3D_TexEnv *env;
+
+    for (unsigned i = 0; i < drops; ++i)
+    {
+        /* each drop falls again and again, each time somewhere new */
+        float t = seconds + MoteRandom(i, 7) * cycle;
+        unsigned round = (unsigned)(t / cycle);
+        float fallen = (t - (float)round * cycle) * VOXEL_RAIN_SPEED;
+        float wx = MoteRandom(i * 131u + round, 8) * 64.0f, wz = MoteRandom(i * 131u + round, 9) * 64.0f;
+        float x = Wrap(wx - (float)(originX + sDappleAnchorX) + VOXEL_RAIN_HALF_X,
+                       2.0f * VOXEL_RAIN_HALF_X) - VOXEL_RAIN_HALF_X;
+        float z = Wrap(wz - (float)(originZ + sDappleAnchorZ) + VOXEL_RAIN_HALF_Z,
+                       2.0f * VOXEL_RAIN_HALF_Z) - VOXEL_RAIN_HALF_Z;
+        float ground = VoxelRelief_LiftAt((float)originX + x, (float)originZ + z);
+        float y = ground + VOXEL_RAIN_TOP - fallen, slant = (VOXEL_RAIN_TOP - fallen) * VOXEL_RAIN_SLANT;
+        float strength = 0.45f + 0.3f * MoteRandom(i, 10);
+
+        if (y > ground)
+        {
+            float top = y + VOXEL_RAIN_LENGTH, bottom = y > ground ? y : ground;
+            float sx = x - slant, ts = VOXEL_RAIN_LENGTH * VOXEL_RAIN_SLANT;
+
+            MoteVertex(&v[0], sx - rx, bottom, z - rz, strength);
+            MoteVertex(&v[1], sx + rx, bottom, z + rz, strength);
+            MoteVertex(&v[2], sx + ts + rx, top, z + rz, 0.0f);
+            v[3] = v[0];
+            v[4] = v[2];
+            MoteVertex(&v[5], sx + ts - rx, top, z - rz, 0.0f);
+            v += 6;
+            count += 6;
+        }
+        /* the splash of the drop before: the time since it landed */
+        {
+            float since = (t - (float)round * cycle);
+            float px = Wrap(MoteRandom(i * 131u + round - 1u, 8) * 64.0f - (float)(originX + sDappleAnchorX)
+                            + VOXEL_RAIN_HALF_X, 2.0f * VOXEL_RAIN_HALF_X) - VOXEL_RAIN_HALF_X;
+            float pz = Wrap(MoteRandom(i * 131u + round - 1u, 9) * 64.0f - (float)(originZ + sDappleAnchorZ)
+                            + VOXEL_RAIN_HALF_Z, 2.0f * VOXEL_RAIN_HALF_Z) - VOXEL_RAIN_HALF_Z;
+
+            if (since < VOXEL_RAIN_SPLASH && round > 0)
+            {
+                float k = since / VOXEL_RAIN_SPLASH, r = 0.06f + 0.16f * k;
+                float gy = VoxelRelief_LiftAt((float)originX + px, (float)originZ + pz) + 0.02f;
+                float a = (1.0f - k) * 0.7f;
+
+                MoteVertex(&v[0], px, gy, pz, a * 0.3f);
+                MoteVertex(&v[1], px + r, gy, pz, a);
+                MoteVertex(&v[2], px, gy, pz - r * 0.7f, a);
+                v[3] = v[0];
+                v[4] = v[2];
+                MoteVertex(&v[5], px - r, gy, pz, a);
+                v[6] = v[0];
+                v[7] = v[5];
+                MoteVertex(&v[8], px, gy, pz + r * 0.7f, a);
+                v[9] = v[0];
+                v[10] = v[8];
+                v[11] = v[1];
+                v += 12;
+                count += 12;
+            }
+        }
+    }
+    if (count > 0)
+    {
+        GSPGPU_FlushDataCache(sRain, count * sizeof(VoxelGpuVertex));
+        SetModelView(view, originX, originZ);
+        env = C3D_GetTexEnv(0);
+        C3D_TexEnvInit(env);
+        C3D_TexEnvSrc(env, C3D_RGB, GPU_CONSTANT, GPU_CONSTANT, GPU_CONSTANT);
+        C3D_TexEnvFunc(env, C3D_RGB, GPU_REPLACE);
+        C3D_TexEnvSrc(env, C3D_Alpha, GPU_PRIMARY_COLOR, GPU_CONSTANT, GPU_CONSTANT);
+        C3D_TexEnvOpAlpha(env, GPU_TEVOP_A_SRC_R, GPU_TEVOP_A_SRC_ALPHA, GPU_TEVOP_A_SRC_ALPHA);
+        C3D_TexEnvFunc(env, C3D_Alpha, GPU_REPLACE);
+        C3D_TexEnvColor(env, VOXEL_RAIN_COLOUR);
+        C3D_TexEnvInit(C3D_GetTexEnv(1));
+        C3D_TexEnvInit(C3D_GetTexEnv(2));
+        FadeFor(false);
+        C3D_AlphaTest(false, GPU_ALWAYS, 0);
+        C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_COLOR);
+        C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA, GPU_ZERO, GPU_ONE);
+        BindVertices(sRain);
+        C3D_DrawArrays(GPU_TRIANGLES, 0, (int)count);
+    }
+    if (flash > 0.01f)
+    {
+        C3D_Mtx ortho, identity;
+
+        Mtx_Ortho(&ortho, 0.0f, 1.0f, 0.0f, 1.0f, 0.1f, 10.0f, false);
+        FitToLogicalSurface(&ortho);
+        Mtx_Identity(&identity);
+        C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, sUniProjection, &ortho);
+        C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, sUniModelView, &identity);
+        env = C3D_GetTexEnv(0);
+        C3D_TexEnvInit(env);
+        C3D_TexEnvSrc(env, C3D_Both, GPU_CONSTANT, GPU_CONSTANT, GPU_CONSTANT);
+        C3D_TexEnvFunc(env, C3D_Both, GPU_REPLACE);
+        C3D_TexEnvColor(env, ((unsigned)(flash * 110.0f) << 24) | 0xFFF4F0u);
+        C3D_TexEnvInit(C3D_GetTexEnv(1));
+        C3D_TexEnvInit(C3D_GetTexEnv(2));
+        FadeFor(false);
+        C3D_DepthTest(false, GPU_ALWAYS, GPU_WRITE_COLOR);
+        C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, GPU_SRC_ALPHA, GPU_ONE, GPU_ZERO, GPU_ONE);
+        BindVertices(sFlash);
+        C3D_DrawArrays(GPU_TRIANGLES, 0, 6);
+    }
     C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_ALL);
     C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD,
                    GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA, GPU_ZERO, GPU_ONE);
@@ -7813,6 +8008,17 @@ void CtrVoxel_Draw(C3D_RenderTarget *target, int eye)
     /* Before the rays, which leave the orthographic projection behind. */
     if (sMotes != NULL && light.motes > 0.005f)
         DrawMotes(&view, &light, &unlit);
+    /* RG3DS: the rain, not under a roof (indoors) or underground */
+    if (sRain != NULL && !indoor && !VoxelWorld_Underground())
+    {
+        float rain = VoxelWorld_RainAmount();
+
+        if (rain > 0.0f)
+        {
+            SetGrade(&unlit);
+            DrawRain(&view, rain, VoxelWorld_ThunderFlash());
+        }
+    }
 #endif
 #if CTR_VOXEL_LIGHTING
     {

@@ -119,6 +119,10 @@ VoxelWeatherClass VoxelWorld_Weather(void);
 /* How thick the game's fog is right now, 0-1: its sprites' blend as it fades
  * in and out, 0 when there are none (voxel_world.c). */
 float VoxelWorld_FogDensity(void);
+/* RG3DS: how hard it rains (0 none, 1 rain, more in a storm or downpour),
+ * and the lightning's flash now (0..1, the GBA's own bolt timing). */
+float VoxelWorld_RainAmount(void);
+float VoxelWorld_ThunderFlash(void);
 /* A cave, tunnel or other map under the ground (MAP_TYPE_UNDERGROUND). */
 bool VoxelWorld_Underground(void);
 /* The palette fade on the backgrounds as a blend towards rgb (0-1) by amount,

@@ -496,6 +496,7 @@ void CtrGame_WarpToTown(int town)
 
 /* RG3DS debug driver (3ds_input.c): a warp asked for in drive.txt. */
 extern volatile int gCtrDriveWarp[4];
+extern volatile int gCtrDriveWeather;
 void DoWarp(void);
 bool CtrDevMenu_Open(void);
 
@@ -504,6 +505,11 @@ static void DriveWarp(void)
     HoldWeather();
     if (gMain.callback2 != CB2_Overworld)
         return;
+    if (gCtrDriveWeather >= 0)
+    {
+        SetWeather(gCtrDriveWeather);
+        gCtrDriveWeather = -1;
+    }
     if (sMenuWarp >= 0 && !CtrDevMenu_Open() && !ArePlayerFieldControlsLocked())
     {
         SetWarpDestinationToHealLocation((u8)sMenuWarp);
