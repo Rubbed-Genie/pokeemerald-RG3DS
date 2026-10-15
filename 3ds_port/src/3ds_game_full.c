@@ -67,6 +67,7 @@
 #include "script.h"
 #include "constants/field_weather.h"
 #include "constants/heal_locations.h"
+#include "constants/weather.h"
 #include "librfu.h"
 #include "port_platform.h"
 #include "port_log.h"
