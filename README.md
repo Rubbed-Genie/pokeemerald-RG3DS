@@ -1,47 +1,100 @@
-> [!NOTE]
-> **This is the `rg3ds-dev` branch of [Pokémon Emerald RG3DS](https://github.com/Rubbed-Genie/pokeemerald-RG3DS)**, Rubbed-Genie's
-> edition of this port tuned for the Anbernic RG DS (two 4:3, 640×480 screens; 3DS software via Azahar on ROCKNIX). It is
-> ZallaxDev's latest `dev` with the RG3DS layer on top, for testing. Everything below the line is the upstream README.
+<h1 align="center">Pokémon Emerald RG3DS</h1>
 
-## RG3DS on `dev`: what this branch adds
+<p align="center">
+  <strong>Pokémon Emerald 3Ds Dual Screen, tuned for the Anbernic RG DS.</strong><br>
+  A fork of <a href="https://github.com/ZallaxDev/pokeemerald-3Ds-dualscreen">ZallaxDev's Pokémon Emerald 3Ds Dual Screen</a> by <a href="https://github.com/Rubbed-Genie">Rubbed-Genie</a>.
+</p>
 
-**Made for the RG DS's screens** (with `TOP_WIDTH=320`)
-- The top screen laid out at 4:3 (320×240), shown at an exact 2× on the RG DS; larger title, naming, map, PC, mart,
-  bag, party, summary and battle-text screens; tuned camera defaults (`sEditionDefaults` in `3ds_port/src/3ds_settings.c`).
+<p align="center">
+  <img src="docs/rg3ds/screenshots/rustboro-night-gym.png" alt="Rustboro's gym at night, its windows lit and warm light on the ground in front of it" width="640">
+</p>
 
-**Battles and text boxes**
-- The GBA's own battle boxes and text box (`battle_hd=0`, the 4:3 build's default; `battle_hd=1` for dev's HD
-  interface), the scene lifted above the zoomed text box and zoomed 4/3 so a double battle's four boxes fit the screen;
-  the foes stay on their platform.
-- The field's text box centred, 3 px over the screen's bottom edge (`box_margin`), with no line under it.
+The RG DS is a dual-screen handheld with two **4:3, 640×480** panels. It runs 3DS software through the Azahar
+emulator on ROCKNIX. The original port is laid out for the 3DS's wide 400×240 top screen, so on the RG DS it was
+stretched or letterboxed and the menus were small. RG3DS lays it out for the RG DS's screens, then adds its own nights,
+weather, battle layout and models.
+
+This branch, `rg3ds-dev`, is RG3DS on ZallaxDev's `dev` branch, where upstream does its work. The port, the touch
+interface, the voxel overworld, followers and the day/night cycle are all ZallaxDev's work and their contributors'.
+RG3DS is a layer on top.
+
+<table>
+  <tr>
+    <td><img src="docs/rg3ds/screenshots/slateport-fog-lighthouse.png" alt="Slateport's lighthouse on the south pier in morning sea fog, a sailing boat beside it" width="400"></td>
+    <td><img src="docs/rg3ds/screenshots/petalburg-rain.png" alt="Petalburg in the rain at dusk, the Pokémon Center's door lit" width="400"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>Morning sea fog at Slateport's lighthouse</em></td>
+    <td align="center"><em>Rain falling in 3D over Petalburg</em></td>
+  </tr>
+  <tr>
+    <td><img src="docs/rg3ds/screenshots/rustboro-night-center.png" alt="Rustboro at night: street lamps, light pools and the Pokémon Center" width="400"></td>
+    <td><img src="docs/rg3ds/screenshots/slateport-market.png" alt="Slateport's market by day: stalls with awnings and goods on the ground" width="400"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>Rustboro at night</em></td>
+    <td align="center"><em>Slateport's market, its goods as models</em></td>
+  </tr>
+</table>
+
+### What's different
+
+**Made for the RG DS's screens** (built with `TOP_WIDTH=320`)
+- The top screen is laid out at **4:3 (320×240)** and shown at an exact 2× on the 640×480 panel, so pixels stay sharp
+  and nothing is stretched.
+- Bigger title, naming, map, PC, mart, bag, party, summary and battle-text screens.
+- A lower, longer-lens indoor camera chosen by playing through the early game (tilt 33°, zoom 155%), with people a
+  little forward on their tile at 93% size so they stand on it, and the mart clerk lifted above the glass counter.
+- Every value is a built-in default (`sEditionDefaults` in [`3ds_port/src/3ds_settings.c`](3ds_port/src/3ds_settings.c))
+  that `settings.txt` can override, or `tune.txt` live while the game runs (with `dev_files=1`).
 
 **Night** (OPTIONS > ENHANCEMENTS > DAY/NIGHT on)
-- Deeper nights (`night_dark`, 45% of the light kept at full night) on the world, sprites and 2D layers alike.
-- Window glow for every town building: the authored windows reach buildings drawn alike, other glass is found by colour.
-- Warm light pools in front of the low windows and glass doors of gyms, marts, centres and small houses
-  (`light_pool` in `3ds_port/scripts/gen_voxel_buildings.py`), drawn as one smooth disc like the lamps'.
-- At night, light from overhead: short shadows round every base instead of the evening's long ones, a deeper contact
-  shade, and a few firefly motes on clear nights.
-- On the 4:3 build a window mask that finds no room in the building pages' VRAM arena comes from linear memory, so
-  lit windows no longer wait.
+- Darker nights (`night_dark`: 45% of the light is kept at full night). The world, the sprites and the 2D layers all
+  darken together.
+- Every town building's windows glow. Authored windows carry over to buildings drawn the same way, and other glass is
+  found by its colour.
+- Warm light pools on the ground in front of the low windows and glass doors of gyms, marts, Pokémon Centers and small
+  houses, each drawn as one smooth disc like the street lamps' pools.
+- Light from overhead at night: short shadows round every base instead of the evening's long ones, a deeper contact
+  shade, and a few fireflies on clear nights.
 
-**Models** (Rubbed-Genie's picks over dev's): Slateport's Battle Tent dome (all three tents, each in its own town's
-art), the market's stalls and awnings (with back legs), Stern's shipyard; and models dev does not have yet: Route 110's
-south gate, Lavaridge's and Fortree's gyms, Slateport's kerbs and beach breakwater, the market's goods as props.
-Every one passes `gen_voxel_buildings.py --verify` (the drawing reproduced pixel for pixel).
+**Weather** (OPTIONS > ENHANCEMENTS > CHANGE WEATHER)
+- Towns and routes with fair weather now sometimes get weather that suits the place: sea fog on a coast's mornings,
+  showers inland, storms in the rainforest (patch 0057).
+- Rain falls in 3D: streaks under the sky, splashes on the ground, and lightning flashes in a storm. Rain and fog cast
+  no sun shadows.
 
-**Weather** (OPTIONS > ENHANCEMENTS > CHANGE WEATHER): a fair town or route now and then has the weather that suits it
-(sea fog on a coast's mornings, showers inland, the rainforest's storms; patch 0057); rain falls in 3D (streaks under the
-sky, splashes, the storm's flash). **Battles**: each move button shows its effectiveness against the foe(s).
-People sit in seats (the chair hides their legs) instead of standing on them.
+<p align="center">
+  <img src="docs/rg3ds/screenshots/battle-moves.png" alt="A wild Ralts battle with the GBA's battle boxes on top, and the move buttons on the bottom screen showing Astonish as super effective (x2)" width="800">
+</p>
 
-**Dev menu** (ZL+ZR): time of day, day/night, night light, weather held across maps, warp to Slateport, Rustboro,
-Dewford, Petalburg or Mauville. Its settings last for that play only; nothing is saved.
+**Battles**
+- The GBA's own battle boxes and text box (`battle_hd=0`, the 4:3 build's default; `battle_hd=1` for dev's HD
+  interface). The scene sits above the zoomed text box, zoomed by 4/3 so all four boxes of a double battle fit on the
+  screen, and every Pokémon stands on its own platform where the GBA puts it.
+- Each move button on the bottom screen shows how effective the move is against the foe(s).
+
+**Around the world**
+- The field's text box is centred and 3 px over the screen's bottom edge (`box_margin`), with no line under it.
+- People sit in seats (the chair hides their legs) instead of standing on them.
+
+<p align="center">
+  <img src="docs/rg3ds/screenshots/slateport-battle-tent.png" alt="Slateport's Battle Tent as a dome, by day" width="400">
+</p>
+
+**Models** (picked over dev's own): the Battle Tent dome (all three tents, each in its own town's art), Slateport
+market's stalls and awnings (with back legs) and Stern's shipyard. Also models dev does not have: Lavaridge's and
+Fortree's gyms in their own towns' art, Slateport's kerbs and beach breakwater, and the market's goods as props.
+Every one passes `gen_voxel_buildings.py --verify` (the drawing is reproduced pixel for pixel).
+
+**Dev menu** (ZL+ZR): time of day, day/night, night light, weather held across maps, and warps to Slateport,
+Rustboro, Dewford, Petalburg or Mauville. Its settings last for that play only; nothing is saved.
 
 ### Building it
 
-There is no download of the finished game: the `.3dsx` carries Pokémon Emerald's graphics, maps and music, so you
-build it yourself. You need **git**, **Python 3.11+** with Pillow, and **Podman** (or Docker).
+There is no download of the finished game: the `.3dsx` contains Pokémon Emerald's graphics, maps and music, which
+belong to Nintendo, so you build it yourself. You need **git**, **Python 3.11+** with Pillow, and **Podman** (or
+Docker).
 
 ```sh
 git clone -b rg3ds-dev https://github.com/Rubbed-Genie/pokeemerald-RG3DS.git
@@ -55,17 +108,38 @@ podman run --rm -v "$PWD":/work:Z -w /work docker.io/devkitpro/devkitarm sh -c '
   make -C 3ds_port -j8 PYTHON=python3 TOP_WIDTH=320 DATA_BACKEND=1 EMBED_DATA=1'
 ```
 
-The tools must be built inside the container (`libpng-dev`, `python3-pil`): without Pillow the building models are
-not regenerated and the link fails, sometimes quietly - check the date of `3ds_port/emerald3ds.3dsx`. Leave out
-`TOP_WIDTH=320` for the 3DS's own 400-wide layout.
+The tools must be built inside the container (`libpng-dev`, `python3-pil`). Without Pillow the building models are
+not regenerated and the link fails, sometimes without an error, so check the date of `3ds_port/emerald3ds.3dsx`.
+`TOP_WIDTH=320` gives the RG DS layout; leave it out for the 3DS's own 400-wide layout. `EMBED_DATA=1` puts the game
+data inside the `.3dsx` (about 40 MB), so it needs no separate data pack.
 
-### On the RG DS
+### Installing on the RG DS (ROCKNIX)
 
-Copy `build/upstream/3ds_port/emerald3ds.3dsx` to `roms/3ds/` and launch it from the 3DS system (Azahar). Set Azahar's
-top screen to stretch for `.3dsx` files (`screen_top_stretch=true`) so the 4:3 picture fills the panel at 2×, and put a
-DSP dump at `sdmc/3ds/dspfirm.cdc` for sound. Saves and settings live in `sdmc/3ds/emerald3ds/`.
+1. Copy `build/upstream/3ds_port/emerald3ds.3dsx` to `roms/3ds/` (rename it as you like) and launch it from the 3DS
+   system (Azahar).
+2. For sound, put a `dspfirm.cdc` dumped from your own 3DS in `roms/3ds/azahar/sdmc/3ds/`.
+3. Install the launcher hook [`rocknix/054-azahar-3dsx-stretch`](rocknix/054-azahar-3dsx-stretch) in
+   `/storage/.config/autostart/`. It turns on Azahar's top-screen stretch for `.3dsx` homebrew only (retail 3DS games
+   stay 5:3), keeps Azahar fullscreen, and moves Azahar's bottom-screen window onto the bottom panel. Without that last
+   step the game stalls on a black screen.
+4. Optional: in ROCKNIX, set the game's Azahar resolution to 2× for a sharper 3D world.
+
+Saves and settings live in `roms/3ds/azahar/sdmc/3ds/emerald3ds/`, the same place as the original port's.
+
+### Credits
+
+- **[ZallaxDev](https://github.com/ZallaxDev)** and the port's contributors: Pokémon Emerald 3Ds Dual Screen, which
+  this is built on. Support the original: [Ko-fi](https://ko-fi.com/zallax),
+  [Discord](https://discord.com/invite/tfqHF8496P), [emerald-3ds.com](https://emerald-3ds.com/).
+- **[pret](https://github.com/pret/pokeemerald)**: the Pokémon Emerald decompilation.
+- **[gradenGnostic/pokeemerald-multiplatform](https://github.com/gradenGnostic/pokeemerald-multiplatform)**: the
+  original voxel renderer.
+- **[Rubbed-Genie](https://github.com/Rubbed-Genie)**: RG3DS, playtested on an Anbernic RG DS.
 
 ---
+
+<details>
+<summary><strong>The original Pokémon Emerald 3Ds Dual Screen README</strong> (for the 3DS release, web builder and full documentation)</summary>
 
 <p align="center">
   <img src="https://i.postimg.cc/Sxn0bM2v/logo.png" alt="Pokémon Emerald 3Ds Dual Screen" width="480">
@@ -356,3 +430,5 @@ development: [AI_DISCLOSURE.md](AI_DISCLOSURE.md).
 Pokémon Emerald 3Ds Dual Screen is an unofficial fan project, not affiliated with or endorsed by
 Nintendo, Game Freak, Creatures or The Pokémon Company. Pokémon and Pokémon
 Emerald are trademarks of their respective owners.
+
+</details>
