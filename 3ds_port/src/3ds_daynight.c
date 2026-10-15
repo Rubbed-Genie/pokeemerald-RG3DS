@@ -190,6 +190,16 @@ void CtrDayNight_Update(void)
         }
         sSun = previousSun.key == SunKey(sClock.timeMs)
              ? previousSun : CtrDayNight_SunAt(sClock.timeMs);
+        /* RG3DS: night - light from overhead, so poles and buildings keep a
+         * short even shadow round their base (Matt 2026-10-15: "semi top
+         * down"). With no light at all the casters were never relit and the
+         * evening's long shadows stayed on some buildings (Rustboro). */
+        if (sSun.strength <= 0.0f && sLight.glow > 0.0f)
+        {
+            unsigned step = (unsigned)(sLight.glow * 4.0f + 0.5f);
+
+            sSun = (CtrDayNightSun){0.0f, 0.20f, 0.35f * (float)step / 4.0f, 700u + step};
+        }
     }
 }
 

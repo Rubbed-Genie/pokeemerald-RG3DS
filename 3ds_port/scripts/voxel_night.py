@@ -81,6 +81,24 @@ def component_rectangles(art, predicate, top):
 # glass of any other town or route building is found by its colour.
 OUTDOOR_LAYOUT = re.compile(r"^LAYOUT_([A-Z0-9_]+_(CITY|TOWN)|ROUTE[0-9]+)$")
 AUTO_REPORT = []
+# RG3DS: the window rectangles the last building_mask call used (the
+# generator reads them for the night's light pools: pool_points).
+LAST_RECTANGLES = []
+
+
+def pool_points(art, rectangles):
+    """RG3DS: where a building's windows pour light on the ground at night:
+    the middle of each low window (its foot in the drawing's lower 45%: the
+    ground floor's, a glass door), in pixels across the drawing - one per
+    16 px, so a long shop front is not a row of pools on one spot."""
+    points = []
+    for left, top, right, bottom in rectangles:
+        if bottom < art.height * 0.55:
+            continue
+        x = (left + right) / 2.0
+        if all(abs(x - p) >= 16 for p in points):
+            points.append(x)
+    return sorted(points)
 
 
 def _is_glass(pixel):
@@ -161,6 +179,7 @@ def building_mask(art, name, spec=None):
                                      and pixel[1] > pixel[0] and pixel[2] > pixel[0] + 12, 48)
         rectangles = tuple(rect for rect in panes
                            if 2 <= rect[2] - rect[0] <= 12 and 2 <= rect[3] - rect[1] <= 12)
+    LAST_RECTANGLES[:] = rectangles
     mask = window_mask(art, rectangles)
     if name == "devon_corporation":
         for left, top, right, bottom in rectangles:

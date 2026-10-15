@@ -199,9 +199,11 @@ static void LampGround(VoxelBuilder *builder, const VoxelMapInstance *inst,
         }
 }
 
-/* RG3DS: the buildings tagged for door light (gen_voxel_buildings.py
- * light_pool, voxel/door_lights.bin): layout, top-left cell, size. */
-typedef struct { uint16_t layout, x, y; uint8_t w, h; } DoorLight;
+/* RG3DS: the buildings tagged for light pools (gen_voxel_buildings.py
+ * light_pool, voxel/door_lights.bin): layout, top-left cell, size, and the
+ * middles of their low windows in pixels across the drawing. */
+#define DOOR_LIGHT_POINTS 8
+typedef struct { uint16_t layout, x, y; uint8_t w, h, n; uint8_t px[DOOR_LIGHT_POINTS]; } DoorLight;
 static DoorLight *sDoorLights;
 static unsigned sDoorLightCount;
 static bool sDoorLightsRead;
@@ -209,7 +211,7 @@ static bool sDoorLightsRead;
 static void LoadDoorLights(void)
 {
     FILE *file;
-    uint8_t head[2], rec[8];
+    uint8_t head[2], rec[9];
 
     if (sDoorLightsRead)
         return;
@@ -221,54 +223,46 @@ static void LoadDoorLights(void)
     {
         unsigned count = head[0] | (unsigned)head[1] << 8;
 
-        sDoorLights = count ? malloc(count * sizeof(DoorLight)) : NULL;
-        for (unsigned i = 0; sDoorLights != NULL && i < count && fread(rec, 1, 8, file) == 8; ++i)
+        sDoorLights = count ? calloc(count, sizeof(DoorLight)) : NULL;
+        for (unsigned i = 0; sDoorLights != NULL && i < count && fread(rec, 1, 9, file) == 9; ++i)
         {
-            sDoorLights[i] = (DoorLight){(uint16_t)(rec[0] | rec[1] << 8), (uint16_t)(rec[2] | rec[3] << 8),
-                                         (uint16_t)(rec[4] | rec[5] << 8), rec[6], rec[7]};
+            DoorLight *d = &sDoorLights[i];
+
+            d->layout = (uint16_t)(rec[0] | rec[1] << 8);
+            d->x = (uint16_t)(rec[2] | rec[3] << 8);
+            d->y = (uint16_t)(rec[4] | rec[5] << 8);
+            d->w = rec[6];
+            d->h = rec[7];
+            d->n = rec[8] < DOOR_LIGHT_POINTS ? rec[8] : DOOR_LIGHT_POINTS;
+            if (fread(d->px, 1, rec[8], file) != rec[8])
+                break;
             sDoorLightCount = i + 1;
         }
     }
     fclose(file);
 }
 
-/* Whether map cell (x, y) of the layout lies in a building tagged for it. */
-static bool DoorLit(int layout, int x, int y)
-{
-    for (unsigned i = 0; i < sDoorLightCount; ++i)
-    {
-        const DoorLight *d = &sDoorLights[i];
-
-        if (d->layout == layout && x >= d->x && x < d->x + d->w && y >= d->y && y < d->y + d->h)
-            return true;
-    }
-    return false;
-}
-
 void VoxelSign_EmitDoorPools(VoxelBuilder *ground, const VoxelMapInstance *inst,
                              int x0, int y0, int x1, int y1)
 {
-    LoadDoorLights();
     if (ground == NULL || inst == NULL || inst->indoor)
         return;
-    if (x0 < inst->originX) x0 = inst->originX;
-    if (y0 < inst->originY) y0 = inst->originY;
-    if (x1 > inst->originX + inst->width) x1 = inst->originX + inst->width;
-    if (y1 > inst->originY + inst->height) y1 = inst->originY + inst->height;
-    for (int zpos = y0; zpos < y1; ++zpos)
-        for (int xpos = x0; xpos < x1; ++xpos)
+    LoadDoorLights();
+    for (unsigned i = 0; i < sDoorLightCount; ++i)
+    {
+        const DoorLight *d = &sDoorLights[i];
+        int wx = inst->originX + d->x, wz = inst->originY + d->y;
+
+        if (d->layout != inst->layoutId || wx + d->w <= x0 || wx >= x1 || wz + d->h <= y0 || wz >= y1)
+            continue;
+        for (unsigned k = 0; k < d->n; ++k)
         {
-            /* a double door is one doorway: its west cell lights it */
-            if (!VoxelWorld_IsDoorAt(xpos, zpos) || VoxelWorld_IsDoorAt(xpos - 1, zpos)
-             || !DoorLit(inst->layoutId, xpos - inst->originX, zpos - inst->originY))
-                continue;
             if (ground->capacity - ground->count < 64u)
                 return;
-            float centerX = VoxelWorld_IsDoorAt(xpos + 1, zpos) ? xpos + 1.0f : xpos + 0.5f;
-
-            /* on the step in front of it, a little way out */
-            LampGround(ground, inst, centerX, zpos + 1.35f);
+            /* a window's light on the ground just in front of the front */
+            LampGround(ground, inst, wx + d->px[k] / 16.0f, wz + d->h + 0.3f);
         }
+    }
 }
 
 void VoxelSign_EmitNight(VoxelBuilder *glass, VoxelBuilder *ground,

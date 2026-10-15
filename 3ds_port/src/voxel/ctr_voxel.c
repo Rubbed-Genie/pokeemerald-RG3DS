@@ -6073,7 +6073,8 @@ static float sNightAmount;
 /* RG3DS: a colour (0xAABBGGRR) moved towards the moon's cool white. */
 static uint32_t MoonTint(uint32_t day)
 {
-    static const unsigned moon[3] = {0xA8, 0xC4, 0xFF};
+    /* RG3DS: fireflies' yellow-green - a cool white read as snow or ash */
+    static const unsigned moon[3] = {0xD8, 0xFF, 0x60};
     uint32_t out = day & 0xFF000000u;
 
     for (unsigned channel = 0; channel < 3; ++channel)
@@ -6125,7 +6126,7 @@ static VoxelLight LightFor(bool indoor)
         {
             /* no moonbeams (Matt: "a lil eh"), the motes stay */
             (void)rays;
-            light.motes = fmaxf(light.motes, motes * 0.6f * night);
+            light.motes = fmaxf(light.motes, motes * 0.35f * night);
             for (unsigned channel = 0; channel < 3; ++channel)
                 light.shade[channel] *= 1.0f - 0.18f * night;
         }

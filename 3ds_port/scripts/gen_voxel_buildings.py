@@ -3828,6 +3828,9 @@ def export(models, path):
     glass, as_drawn = 0, []
     for m in models:
         mask = voxel_night.building_mask(m.art, m.name, getattr(m, "spec", None))
+        # RG3DS: its low windows' light on the ground, read off the drawing
+        # before compaction moves its texels (the drawing's x: the model's)
+        m.pool_points = voxel_night.pool_points(m.art, list(voxel_night.LAST_RECTANGLES))
         m.glass = None
         kept = (m.art, m.mesh.tris, getattr(m, "live", None))
         before = (m.art.convert("RGBA"), list(m.mesh.tris))
@@ -3967,9 +3970,11 @@ def export(models, path):
                 verts += a + b + c + a + c + d
             placements.append((lid, pm_of[index], px, py, ground, len(verts) // 6 - first, first))
             # RG3DS: a building whose door lights the ground at night
-            if light_pool(models[index]):
+            points = getattr(models[index], "pool_points", [])
+            if light_pool(models[index]) and points:
                 rect = models[index].spec.get("rect") or (0, 0, 1, 1)
-                door_lights.append((lid, px, py, rect[2], rect[3]))
+                door_lights.append((lid, px, py, rect[2], rect[3],
+                                    tuple(min(255, int(round(x))) for x in points[:8])))
     placements.sort()
     nverts = len(verts) // 6
     # ctr_voxel.c keeps a flag a page (VOXEL_MAX_PAGES), and a page larger
@@ -4018,13 +4023,15 @@ def export(models, path):
     blob += anim_table(anims, len(blob))
     os.makedirs(os.path.dirname(path), exist_ok=True)
     open(path, "wb").write(blob)
-    # RG3DS: the buildings tagged for door light (light_pool): u16 count, then
-    # per building u16 layout, u16 x, u16 y, u8 w, u8 h - its cells.
+    # RG3DS: the buildings tagged for light pools (light_pool) with low
+    # windows: u16 count, then per building u16 layout, u16 x, u16 y, u8 w,
+    # u8 h (its cells), u8 n, n x u8 (a window's middle, pixels across it).
     door_lights.sort()
     open(os.path.join(os.path.dirname(path), "door_lights.bin"), "wb").write(
         struct.pack("<H", len(door_lights))
-        + b"".join(struct.pack("<HHHBB", *d) for d in door_lights))
-    print("voxel buildings: %d placements light their doors at night (door_lights.bin)" % len(door_lights))
+        + b"".join(struct.pack("<HHHBBB", *d[:5], len(d[5])) + bytes(d[5]) for d in door_lights))
+    print("voxel buildings: %d placements, %d windows light the ground at night (door_lights.bin)"
+          % (len(door_lights), sum(len(d[5]) for d in door_lights)))
     print("voxel buildings: %d models, %d pages, %d placements, %d vertices, %d footprints, "
           "%.1f KiB -> %s" % (len(models), len(pages), len(placements), nverts, len(masks),
                               len(blob) / 1024.0, path))
