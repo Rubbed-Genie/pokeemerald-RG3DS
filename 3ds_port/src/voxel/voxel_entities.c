@@ -603,13 +603,17 @@ static bool OnSeat(float cx, float cz)
         && VoxelBuildings_CellAt(seat, sx, sy, NULL, NULL);
 }
 
-/* RG3DS: how far a sitter is lifted (seat_lift, pixels). 0: nobody is
- * lifted onto a seat, a deck chair or a parasol's cell - any lift read as
- * stepping up onto it (Matt, 2026-10-16: "not even the lil tad"). */
+/* RG3DS: how far a sitter is lifted (seat_lift, pixels), so the chair
+ * hides the legs, not the body up to the waist. Indoors only: outdoors the
+ * walkable models are deck chairs and parasols, and a lift there read as
+ * jumping up onto them (Matt, 2026-10-16). */
 static float SeatLift(float cx, float cz)
 {
-    int px = CtrSettings_GetInt("seat_lift", 0);
+    const VoxelMapInstance *map = VoxelWorld_Instance(0);
+    int px = CtrSettings_GetInt("seat_lift", 6);
 
+    if (map == NULL || !map->indoor)
+        return 0.0f;
     if (px < 0 || px > 12 || !OnSeat(cx, cz))
         return 0.0f;
     return (float)px / VOXEL_PIXELS_PER_TILE;
