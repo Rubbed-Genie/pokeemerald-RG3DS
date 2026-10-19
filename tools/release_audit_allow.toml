@@ -33,6 +33,13 @@ paths = [
 "3ds_port/assets/artwork/bottom/shoe_on.png" = "bottom screen RUN button icon (on), original pixel art by the Emerald 3DS author"
 "3ds_port/assets/artwork/bottom/badge_y.png" = "bottom screen Y button badge, original pixel art by the Emerald 3DS author"
 "3ds_port/assets/artwork/rg3ds/avatar.png" = "RG3DS edition credit icon under the title screen: the RG3DS edition author's (Rubbed-Genie) own avatar"
+"docs/rg3ds/screenshots/battle-moves.png" = "RG3DS README screenshot: a frame of the port running in Azahar, captured by the RG3DS edition author (Rubbed-Genie)"
+"docs/rg3ds/screenshots/petalburg-rain.png" = "RG3DS README screenshot: a frame of the port running in Azahar, captured by the RG3DS edition author (Rubbed-Genie)"
+"docs/rg3ds/screenshots/rustboro-night-center.png" = "RG3DS README screenshot: a frame of the port running in Azahar, captured by the RG3DS edition author (Rubbed-Genie)"
+"docs/rg3ds/screenshots/rustboro-night-gym.png" = "RG3DS README screenshot: a frame of the port running in Azahar, captured by the RG3DS edition author (Rubbed-Genie)"
+"docs/rg3ds/screenshots/slateport-battle-tent.png" = "RG3DS README screenshot: a frame of the port running in Azahar, captured by the RG3DS edition author (Rubbed-Genie)"
+"docs/rg3ds/screenshots/slateport-fog-lighthouse.png" = "RG3DS README screenshot: a frame of the port running in Azahar, captured by the RG3DS edition author (Rubbed-Genie)"
+"docs/rg3ds/screenshots/slateport-market.png" = "RG3DS README screenshot: a frame of the port running in Azahar, captured by the RG3DS edition author (Rubbed-Genie)"
 "3ds_port/assets/artwork/bottom/pokedex.png" = "bottom screen Pokédex column icon: Pokémon Platinum's menu Pokédex art, mastered to 24x24 by luksgrin (public PR #91)"
 
 [local_paths]
