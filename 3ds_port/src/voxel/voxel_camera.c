@@ -216,7 +216,10 @@ void VoxelCamera_Swoop(VoxelCamera *cam, float t)
 {
     /* Both poses as the eye's distance from the target along the line of
      * sight, so the dolly is one length eased, whatever the pitch does. */
-    float pitch0 = cam->pitch, fov0 = VOXEL_CAMERA_FOV;
+    /* RG3DS: the follow camera's own lens (AdaptDistance: in_fov indoors),
+     * not VOXEL_CAMERA_FOV - put back every frame, it undid the indoor lens
+     * and the rooms came out wide (2026-10-19). */
+    float pitch0 = cam->pitch, fov0 = cam->fov;
     float length0 = cam->distance / cosf(pitch0 * VOXEL_DEG_TO_RAD);
     /* The eye's distance at which the perspective ground framing is the 2D
      * field's: half its height of ground, seen at the pitch, fills half the

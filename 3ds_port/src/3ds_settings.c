@@ -373,7 +373,7 @@ bool CtrSettings_Voxel(void)
  */
 #if CTR_GAME_WIDTH == 320
 static const struct { const char *key; int value; } sEditionDefaults[] = {
-    {"in_pitch", 33}, {"in_fov", 22}, {"in_dist", 155},  /* indoor camera */
+    {"in_pitch", 33}, {"in_fov", 22}, {"in_dist", 160},  /* indoor camera */
     {"in_spr_z", 35}, {"in_spr_scale", 93},              /* indoor sprites */
     {"counter_rise", 50},                                /* mart clerk */
     {"ui_zoom", 125},                                    /* field message box */
