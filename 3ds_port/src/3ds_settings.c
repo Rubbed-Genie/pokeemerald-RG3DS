@@ -378,8 +378,6 @@ static const struct { const char *key; int value; } sEditionDefaults[] = {
     {"counter_rise", 50},                                /* mart clerk */
     {"ui_zoom", 125},                                    /* field message box */
     {"top_zoom", 133},                                   /* title menu, maps... */
-    {"bot_zoom", 133}, {"pc_zoom", 133}, {"shop_zoom", 133},
-    {"bag_zoom", 133}, {"party_zoom", 133},              /* bottom screens */
     {"bat_zoom", 133},                                   /* battle text box */
     {"battle_hd", 0},                                    /* the GBA's battle boxes */
     {"dio_top", 56}, {"dio_bot", 32}, {"dio_pct", 60},   /* tilt-shift blur */

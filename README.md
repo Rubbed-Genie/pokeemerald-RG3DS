@@ -60,7 +60,7 @@ RG3DS is a layer on top.
 
 **Weather** (OPTIONS > ENHANCEMENTS > CHANGE WEATHER)
 - Towns and routes with fair weather now sometimes get weather that suits the place: sea fog on a coast's mornings,
-  showers inland, storms in the rainforest (patch 0057).
+  showers inland, storms in the rainforest (patch 0900).
 - Rain falls in 3D: streaks under the sky, splashes on the ground, and lightning flashes in a storm. Rain and fog cast
   no sun shadows.
 
@@ -367,6 +367,7 @@ python tools/bootstrap.py --make # also builds the 3DSX there
 python tools/bootstrap.py --make --spanish-rom esmeralda.gba  # Spanish build
 python tools/bootstrap.py --make --french-rom emeraude.gba    # French build
 python tools/bootstrap.py --make --italian-rom smeraldo.gba   # Italian build
+python tools/bootstrap.py --make --port-lang pt_br             # Brazilian Portuguese build
 ```
 
 The Spanish, French and Italian builds take their texts and graphics from your own
@@ -389,6 +390,7 @@ the development loop, loose data, data packs and host tests.
 | [Spanish build](docs/SPANISH.md) | Playing in Spanish with your own Pokémon Esmeralda (Spain) ROM. |
 | [French build](docs/FRENCH.md) | Playing in French with your own Pokémon Émeraude (France) ROM. |
 | [Italian build](docs/ITALIAN.md) | Playing in Italian with your own Pokémon Versione Smeraldo (Italy) ROM. |
+| [Portuguese build](docs/PORTUGUESE.md) | The whole game in Brazilian Portuguese, from your own English ROM ([leia em português](README.pt-BR.md)). |
 | [Architecture](docs/ARCHITECTURE.md) | How the engine and the 3DS backend fit together. |
 | [Asset pipeline](docs/ASSET_PIPELINE.md) | How game data is prepared for the port. |
 | [Releasing](docs/RELEASING.md) | Building and packaging a release. |
