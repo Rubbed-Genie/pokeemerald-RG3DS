@@ -4000,6 +4000,211 @@ def devon_corp_1f():
     ]
 
 
+
+# The Battle Tents (Slateport, Verdanturf, Fallarbor). The lobby, the three
+# tents': the tent's curtain falling down each side, two C-shaped counters
+# (the ticket machine painted on the west one's front) and a machine by the
+# east one, the door painted on the back wall. The corridor and the battle
+# rooms: their back walls and their doors; the battlefield, the pool and
+# the bushes of Verdanturf's are drawn on the floor (the trainers walk in on
+# a script, nowhere near the walls).
+
+TENT_FLOOR = ("b4acf6", "cdd5ff", "9c83ee")
+TENT_WALL_SIDE = (64, 0, 80, 32)
+# the west counter's inner corner, rounded down from its arm to its bar: its
+# outline row by row
+TENT_COUNTER_INNER = [(48, 78), (49, 78), (49, 80), (50, 80), (50, 81), (51, 81), (51, 82),
+                      (54, 82), (54, 83)]
+
+
+def tent_lobby():
+    side = TENT_WALL_SIDE
+    return [
+        piece("machine", [(176, 56, 192, 88)], 24, leave=TENT_FLOOR),
+        piece("counter_w", [(32, 29, 64, 48), (32, 48, 48, 96), (48, 76, 96, 96)], 6,
+              leave=TENT_FLOOR,
+              plan=[(32, 35), (64, 35), (64, 48), (48, 48)] + TENT_COUNTER_INNER
+              + [(95, 83), (95, 84), (96, 84), (96, 96), (32, 96)]),
+        piece("counter_e", [(144, 29, 176, 48), (160, 48, 176, 96), (112, 76, 160, 96)], 6,
+              leave=TENT_FLOOR,
+              plan=[(144, 35), (176, 35), (176, 96), (112, 96), (112, 84), (113, 84), (113, 83)]
+              + [(208 - x, z) for x, z in reversed(TENT_COUNTER_INNER)] + [(160, 48), (144, 48)]),
+        # the curtain down each side, from the back wall
+        piece("wall_cw", [(0, 0, 16, 80)], 32, fill=16, foot=80, side=side, leave=TENT_FLOOR,
+              walls=[((16, 80), (16, 32))]),
+        piece("wall_ce", [(192, 0, 208, 80)], 32, fill=16, foot=80, side=side, leave=TENT_FLOOR,
+              walls=[((192, 32), (192, 80))]),
+        piece("wall", [(16, 0, 192, 32)], 32, fill=16, foot=32, side=side),
+        piece("side_w", [], 32, side=side, walls=[((0, 160), (0, 80))]),
+        piece("side_e", [], 32, side=side, walls=[((208, 80), (208, 160))]),
+    ]
+
+
+def tent_room(w, h):
+    side = TENT_WALL_SIDE
+    return [
+        piece("wall", [(0, 0, w, 32)], 32, fill=16, foot=32, side=side),
+        piece("side_w", [], 32, side=side, walls=[((0, h), (0, 32))]),
+        piece("side_e", [], 32, side=side, walls=[((w, 32), (w, h))]),
+    ]
+
+
+
+# Slateport's Pokemon Fan Club: the bookcases, two wooden pillars and two
+# plants along the back wall (drawn 8 px down, the void above it), a plant
+# in each south corner, and the glass table between the sofas - the sofas
+# and armchairs stand on cells the player walks on and stay drawn.
+
+SLATEPORT_FAN_FLOOR = ("ded58b", "f6eeb4", "c5bd7b")
+SLATEPORT_FAN_RUG = ("ee836a", "cd6a6a", "ffcd94")
+SLATEPORT_FAN_WALL = ("e6d583", "f6eecd", "9c9c8b", "a49441", "d5a46a", "000000")
+SLATEPORT_FAN_SIDE = (64, 8, 80, 40)
+
+
+def slateport_fan_club():
+    side = SLATEPORT_FAN_SIDE
+    wall_floor = SLATEPORT_FAN_WALL + SLATEPORT_FAN_FLOOR
+    return [
+        piece("plant_sw", [(0, 150, 16, 176)], 26, card=True, leave=SLATEPORT_FAN_FLOOR),
+        piece("plant_se", [(208, 150, 224, 176)], 26, card=True, leave=SLATEPORT_FAN_FLOOR),
+        piece("table", [(80, 94, 144, 128)], 10, leave=SLATEPORT_FAN_RUG, solid=True),
+        piece("plant_w", [(48, 20, 64, 47)], 27, card=True, leave=wall_floor),
+        piece("plant_e", [(160, 20, 176, 47)], 27, card=True, leave=wall_floor),
+        # pilasters: the wall's own pattern 5 px forward, their tops its trim
+        # (drawn in the wall's colours: only the floor is left round them)
+        piece("pillar_w", [(32, 8, 48, 45)], 32, leave=SLATEPORT_FAN_FLOOR, back=40),
+        piece("pillar_e", [(176, 8, 192, 45)], 32, leave=SLATEPORT_FAN_FLOOR, back=40),
+        # the bookcases' sides are their green tops
+        piece("bookcase_w", [(0, 26, 32, 47)], 12, leave=wall_floor, against=40,
+              side=(6, 28, 22, 34)),
+        piece("bookcase_e", [(192, 17, 224, 46)], 18, leave=wall_floor, against=40,
+              side=(194, 19, 206, 25)),
+        piece("wall", [(0, 8, 224, 40)], 32, fill=16, foot=40, side=side),
+        piece("side_w", [], 32, side=side, walls=[((0, 176), (0, 40))]),
+        piece("side_e", [], 32, side=side, walls=[((224, 40), (224, 176))]),
+    ]
+
+
+
+# The Harbor (Slateport's and Lilycove's): the building's wall along the
+# back, the railing round the dock - the floor and the water seen between
+# its bars, the runs down the west side and the cargo yard drawn as their
+# top line, their sides the back railing's bars, as Rustboro's - and the
+# crates stacked in the yard. The water stays the sea, level with the
+# floor; the gangway, where the S.S. Tidal is boarded, and the stools are
+# drawn on the floor.
+
+HARBOR_SEE = ("8bb4ac", "a4cdbd", "9c8b94", "628b83", "739c8b", "62627b", "526ad5", "6a83d5",
+              "29418b", "39529c", "acb494", "839473", "6a7b41", "dedec5")
+HARBOR_BARS = (180, 67, 212, 74)
+HARBOR_WALL_SIDE = (64, 0, 80, 64)
+
+
+def harbor():
+    see = HARBOR_SEE
+    return [
+        # the crates inside the dark line between them (their sides would be
+        # that line), the line drawn on the floor beside them
+        piece("crate_c", [(352, 192, 383, 239)], 14, leave=see),
+        piece("crate_b", [(320, 176, 351, 207)], 14, leave=see),
+        piece("crate_a", [(289, 160, 319, 207)], 14, leave=see),
+        piece("rail_v", [(272, 176, 280, 240)], 15, through=True, leave=see, side=HARBOR_BARS),
+        piece("rail_s", [(48, 160, 112, 176), (144, 160, 288, 176), (320, 160, 384, 176)], 15,
+              through=True, leave=see),
+        piece("rail_w", [(48, 80, 56, 160)], 15, through=True, leave=see, side=HARBOR_BARS),
+        piece("rail_n", [(48, 64, 384, 80)], 15, through=True, leave=see),
+        piece("wall", [(0, 0, 384, 64)], 56, fill=16, foot=64, side=HARBOR_WALL_SIDE),
+        piece("side_w", [], 56, side=HARBOR_WALL_SIDE, walls=[((0, 240), (0, 64))]),
+        piece("side_e", [], 56, side=HARBOR_WALL_SIDE, walls=[((384, 64), (384, 240))]),
+    ]
+
+
+
+# Stern's Shipyard 1F: the office west of its partition (the stairs up
+# painted on the back wall), the workshop east of it - the board stacks in
+# its corners, the girder towers, the enclosure round the submarine.
+
+SHIPYARD_FLOOR = ("739c8b", "62627b", "628b83", "8bb4ac", "a4cdbd", "9c8b94", "acb494", "839473",
+                  "6a7b41", "dedec5")
+SHIPYARD_WALL = ("dedede", "ffffff", "8b94a4", "6a7b7b")
+SHIPYARD_WALL_SIDE = (64, 0, 80, 32)
+
+
+def shipyard_1f():
+    fl = SHIPYARD_FLOOR
+    side = SHIPYARD_WALL_SIDE
+    return [
+        # the submarine in its glass capsule, its nose out in front
+        piece("sub_nose", [(192, 136, 224, 157)], 12, leave=fl),
+        piece("capsule", [(176, 72, 240, 136)], 40, leave=fl),
+        # the robot arm and its console, before the enclosure's wall
+        piece("robot", [(144, 72, 176, 120)], 24, leave=fl),
+        piece("girder_n", [(112, 64, 128, 112)], 44, leave=fl),
+        # the enclosure's wall and the pillar at its east end
+        piece("pillar_e", [(240, 56, 256, 99)], 29, leave=fl),
+        piece("wall_enc", [(112, 60, 240, 96)], 27, fill=16, foot=96, side=side),
+        # along the back wall: the three consoles and a pilaster
+        piece("consoles", [(128, 16, 176, 40)], 17, back=32, leave=fl, side=(129, 17, 143, 21)),
+        piece("pilaster", [(192, 0, 208, 35)], 35, back=32, leave=fl),
+        # the workshop's girder towers and board stacks
+        piece("girder_w", [(160, 144, 176, 207)], 59, leave=fl),
+        piece("girder_e", [(224, 160, 240, 207)], 43, leave=fl),
+        piece("boards_sw", [(112, 176, 160, 240)], 32, leave=fl),
+        piece("boards_se", [(288, 176, 336, 225)], 32, leave=fl),
+        piece("boards_ne", [(304, 48, 336, 113)], 40, leave=fl),
+        # the office
+        piece("table", [(64, 96, 96, 128)], 6, leave=fl, solid=True),
+        # the desks with their computers, their sides their tops' lavender
+        piece("desk_n", [(0, 66, 32, 97)], 10, leave=fl, solid=True, side=(18, 78, 30, 88)),
+        piece("desk_m", [(0, 114, 32, 145)], 10, leave=fl, solid=True, side=(18, 126, 30, 136)),
+        piece("desk_s", [(0, 162, 32, 193)], 10, leave=fl, solid=True, side=(18, 174, 30, 184)),
+        # the model ship on the desk, with the grey strip of the desk's top
+        # it stands on (outside the desk's outline, which closes its front)
+        piece("model_ship", [(3, 24, 30, 38)], 10, base=8, leave=SHIPYARD_WALL[2:]),
+        # the desk the model ship is on, back to the wall under the ship
+        piece("desk_ship", [(0, 37, 32, 48)], 8, back=32),
+        # the partition between office and workshop, its door between its
+        # two runs; the south one runs on past the map's edge
+        piece("partition_n", [(96, 0, 112, 146)], 28, fill=16, foot=146, side=side, against=32,
+              walls=[((96, 32), (96, 146)), ((112, 146), (112, 32))]),
+        piece("partition_s", [(96, 169, 112, 240)], 28, fill=16, foot=268, side=side,
+              walls=[((96, 197), (96, 268)), ((112, 268), (112, 197))]),
+        piece("wall", [(0, 0, 336, 32)], 32, fill=16, foot=32, side=side),
+        piece("side_w", [], 32, side=side, walls=[((0, 240), (0, 32))]),
+        piece("side_e", [], 32, side=side, walls=[((336, 32), (336, 240))]),
+    ]
+
+
+
+# Stern's Shipyard 2F: offices round a balcony over the workshop. 1F's desks
+# with their computers, its blueprint tables, its pilasters and the Harbor's
+# railing stand in it as they are (reuse_pieces); its own are the plain
+# desks, the bin, and the railing round the balcony, the workshop seen
+# through it. Inside the railing the floor below is drawn - 1F's girder
+# and submarine among it: the room's `pit`, where nothing found again
+# stands.
+
+SHIPYARD_PIT = [(136, 96, 248, 192)]
+
+
+def shipyard_2f():
+    side = SHIPYARD_WALL_SIDE
+    fl = SHIPYARD_FLOOR
+    desk = lambda name, x, y: piece(name, [(x, y + 10, x + 32, y + 33)], 10, leave=fl,  # noqa: E731
+                                    solid=True, side=(x + 18, y + 14, x + 30, y + 24))
+    return [
+        piece("bin", [(113, 176, 127, 192)], 15, round="lathe", leave=fl),
+        desk("desk_nw", 0, 64), desk("desk_m", 32, 112), desk("desk_s", 32, 160),
+        piece("rail_s", [(128, 192, 256, 208)], 15, through=True, leave=fl),
+        piece("rail_e", [(248, 96, 256, 192)], 15, through=True, leave=fl, side=HARBOR_BARS),
+        piece("rail_w", [(128, 160, 136, 192)], 15, through=True, leave=fl, side=HARBOR_BARS),
+        piece("rail_n", [(128, 80, 256, 96)], 15, through=True, leave=fl),
+        piece("wall", [(0, 0, 272, 32)], 32, fill=16, foot=32, side=side),
+        piece("side_w", [], 32, side=side, walls=[((0, 240), (0, 32))]),
+        piece("side_e", [], 32, side=side, walls=[((272, 32), (272, 240))]),
+    ]
+
+
 SPECS = [
     {
         "name": "littleroot_house_w",
@@ -5781,6 +5986,51 @@ SPECS = [
         "name": "devon_corp_1f",
         "interior": {"layout": "LAYOUT_RUSTBORO_CITY_DEVON_CORP_1F", "ground": [0x380],
                      "pieces": own_shell(devon_corp_1f())},
+    },
+    {
+        # the Battle Tents' lobby (Slateport, Verdanturf, Fallarbor)
+        "name": "tent_lobby",
+        "interior": {"layout": "LAYOUT_BATTLE_TENT_LOBBY", "ground": [0x210],
+                     "pieces": own_shell(tent_lobby())},
+    },
+    {
+        "name": "tent_corridor",
+        "interior": {"layout": "LAYOUT_BATTLE_TENT_CORRIDOR", "ground": [0x23b],
+                     "pieces": own_shell(tent_room(80, 128))},
+    },
+    {
+        # Slateport's and Fallarbor's battle room
+        "name": "tent_battle_room",
+        "interior": {"layout": "LAYOUT_BATTLE_TENT_BATTLE_ROOM", "ground": [0x210],
+                     "pieces": own_shell(tent_room(160, 144))},
+    },
+    {
+        "name": "verdanturf_tent_battle_room",
+        "interior": {"layout": "LAYOUT_VERDANTURF_TOWN_BATTLE_TENT_BATTLE_ROOM", "ground": [0x1],
+                     "pieces": own_shell(tent_room(208, 144))},
+    },
+    {
+        # Slateport's Pokemon Fan Club
+        "name": "slateport_fan_club",
+        "interior": {"layout": "LAYOUT_SLATEPORT_CITY_POKEMON_FAN_CLUB", "ground": [0x201],
+                     "pieces": own_shell(slateport_fan_club())},
+    },
+    {
+        # the Harbor, Slateport's and Lilycove's
+        "name": "harbor",
+        "interior": {"layout": "LAYOUT_HARBOR", "ground": [0x202],
+                     "pieces": own_shell(harbor())},
+    },
+    {
+        # Stern's Shipyard, Slateport, 1F
+        "name": "shipyard_1f",
+        "interior": {"layout": "LAYOUT_SLATEPORT_CITY_STERNS_SHIPYARD_1F", "ground": [0x229],
+                     "pieces": own_shell(shipyard_1f())},
+    },
+    {
+        "name": "shipyard_2f",
+        "interior": {"layout": "LAYOUT_SLATEPORT_CITY_STERNS_SHIPYARD_2F", "ground": [0x202],
+                     "pieces": own_shell(shipyard_2f()), "pit": SHIPYARD_PIT},
     },
 ] + [
     {
