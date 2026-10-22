@@ -184,6 +184,13 @@ void __attribute__((weak)) FollowerMon_ReleaseAll(void)
 {
 }
 
+/* RG3DS: whether a map change's own picture - the cave fade - is up
+ * (fldeff_flash.c, patch 0901); none without it. */
+bool8 __attribute__((weak)) CtrMapChange_Showing(void)
+{
+    return FALSE;
+}
+
 void CtrGame_SoftReset(void)
 {
     if (sGameAtStart == NULL)
@@ -604,8 +611,11 @@ static void UpdateStage(void)
     CtrVideo_SetStage(!caughtMonPage && sStage.on);
     CtrVideo_SetStageFaded(!caughtMonPage && sStage.on && sStage.screen == 1);
     CtrVideo_SetStageZoomed(!caughtMonPage && sStage.on && sStage.screen == 2);
+    /* RG3DS: the cave fade is a picture of the GBA's screen; drawn as the
+     * field it filled a corner of the view. Centred, as the maps are. */
     CtrVideo_SetCentred(caughtMonPage ? CTR_CENTRED_POKEDEX_CAUGHT
-                                    : sCentred.on ? sCentred.screen : CTR_CENTRED_NONE);
+                        : sCentred.on ? sCentred.screen
+                        : CtrMapChange_Showing() ? CTR_CENTRED_PLAIN : CTR_CENTRED_NONE);
     CtrVideo_SetBattle(!caughtMonPage && sBattle.on);
     CtrVideo_SetTransition(!caughtMonPage && TransitionOn());
     /* The battle's info boxes made ready on a worker while the transition

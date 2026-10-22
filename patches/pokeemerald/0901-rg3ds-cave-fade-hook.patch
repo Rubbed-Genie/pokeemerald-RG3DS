@@ -1,0 +1,22 @@
+RG3DS: CtrMapChange_Showing - the cave fade (fldeff_flash.c) is up, for the port to draw it
+over the whole view. Applies over 0005.
+
+diff --git a/src/fldeff_flash.c b/src/fldeff_flash.c
+--- a/src/fldeff_flash.c
++++ b/src/fldeff_flash.c
+@@ -120,6 +120,15 @@
+     TransferPlttBuffer();
+ }
+ 
++#ifdef PORT_BRIDGE
++// RG3DS: whether a map change's own picture is up (the cave's fade in and
++// out, drawn for the GBA's screen): the port shows it over the whole view.
++bool8 CtrMapChange_Showing(void)
++{
++    return gMain.callback2 == CB2_ChangeMapMain;
++}
++
++#endif
+ void CB2_DoChangeMap(void)
+ {
+     u16 ime;
