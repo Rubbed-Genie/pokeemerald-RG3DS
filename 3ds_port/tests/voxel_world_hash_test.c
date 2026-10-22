@@ -29,6 +29,9 @@ bool8 MetatileBehavior_IsCounter(u8 b) { return b == MB_COUNTER; }
 bool8 MetatileBehavior_IsPC(u8 b) { return b == MB_PC; }
 bool8 MetatileBehavior_IsSecretBasePC(u8 b) { return b == MB_SECRET_BASE_PC; }
 bool8 MetatileBehavior_IsPlayerRoomPCOn(u8 b) { return b == MB_PLAYER_ROOM_PC_ON; }
+/* RG3DS: doors (VoxelWorld_IsDoorAt, the night's door pools). */
+bool8 MetatileBehavior_IsDoor(u8 b) { return b == MB_ANIMATED_DOOR || b == MB_PETALBURG_GYM_DOOR; }
+bool8 MetatileBehavior_IsNonAnimDoor(u8 b) { return b == MB_NON_ANIMATED_DOOR; }
 static const struct ObjectEventGraphicsInfo *sDynamicInfo;
 const struct ObjectEventGraphicsInfo *GetObjectEventGraphicsInfo(u8 id)
 { return id == 1 ? sDynamicInfo : NULL; }

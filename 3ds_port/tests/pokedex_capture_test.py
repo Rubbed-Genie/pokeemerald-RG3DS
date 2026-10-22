@@ -308,6 +308,9 @@ static void CtrVideo_SetCentred(unsigned screen) { videoCentred = screen; }
 static void CtrVideo_SetBattle(bool active) { videoBattle = active; }
 static void CtrVideo_SetTransition(bool active) { videoTransition = active; }
 static void CtrBattleHud_Warm(void) {}
+/* RG3DS: the desktop test driver's warps and the cave fade's hook. */
+static void DriveWarp(void) {}
+static bool8 CtrMapChange_Showing(void) { return false; }
 static u8 CreateTask(TaskFunc func, u8 priority) {
     (void)priority;
     for (u8 taskId = 0; taskId < 16; ++taskId) {
