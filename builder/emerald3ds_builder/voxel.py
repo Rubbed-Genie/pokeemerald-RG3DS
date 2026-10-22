@@ -9,10 +9,11 @@ The steps, their order, the copy of the scripts into the tree and the output
 checks are shared. Only the way one step is run differs:
 
 * `run_step_subprocess` runs each script in its own process (desktop and the
-  frozen Windows builder): no state can carry over between scripts. No
-  script reads another's output, so their processes run side by side, as
-  many at once as there are processors: the build takes as long as the
-  slowest (the relief), not the sum;
+  frozen Windows builder): no state can carry over between scripts. Their
+  processes run side by side, as many at once as there are processors,
+  except that a script waits for the outputs it reads (AFTER: the relief
+  reads buildings.bin, voxel_terraces.modelled): the build takes as long as
+  the longest chain (buildings, then relief), not the sum;
 * `run_step_inprocess` runs each script in this interpreter (the web builder:
   Pyodide has no processes). It gives every script a fresh copy of its sibling
   modules, its own argv, working directory and import path, and puts them all
@@ -43,12 +44,17 @@ from .errors import BuilderError
 STEPS = [
     ("gen_voxel_regions.py", [], "3ds_port/romfs/voxel/regions.bin"),
     ("gen_voxel_sign_masks.py", [], "3ds_port/romfs/voxel/signposts.bin"),
-    ("gen_voxel_relief.py", ["--output", "3ds_port/romfs/voxel/relief.bin"], "3ds_port/romfs/voxel/relief.bin"),
     ("gen_voxel_buildings.py", ["--output", "3ds_port/romfs/voxel/buildings.bin"],
      "3ds_port/romfs/voxel/buildings.bin"),
+    ("gen_voxel_relief.py", ["--output", "3ds_port/romfs/voxel/relief.bin"], "3ds_port/romfs/voxel/relief.bin"),
     # not voxel data, but made the same way: the intro's leaves scene, widened
     ("gen_intro_margins.py", ["--output", "3ds_port/romfs/stage/leaves.bin"], "3ds_port/romfs/stage/leaves.bin"),
 ]
+
+# The steps whose output a step reads: it starts once they are done. Without
+# buildings.bin the relief leaves the cells under the buildings' models out
+# (voxel_terraces.modelled), a different relief.bin than the release's.
+AFTER = {"gen_voxel_relief.py": ("gen_voxel_buildings.py",)}
 
 # What each step makes, for the progress line.
 LABELS = {
@@ -151,18 +157,27 @@ def run_generators(tree: Path, voxelgen: Path, expected: list[dict], progress=No
         if progress:
             progress(0.0, ", ".join(LABELS.get(s[0], s[0]) for s in steps))
         workers = max(1, min(len(steps), os.cpu_count() or 1))
+        names = [s[0] for s in steps]
+        waits = {i: {names.index(n) for n in AFTER.get(names[i], ()) if n in names} for i in range(len(steps))}
         with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
-            running = {pool.submit(timed, i): i for i in range(len(steps))}
+            running = {pool.submit(timed, i): i for i in range(len(steps)) if not waits[i]}
             failed: dict[int, BaseException] = {}
-            for future in concurrent.futures.as_completed(running):
-                i = running[future]
-                try:
-                    took[i] = future.result()
-                except BaseException as exc:  # reported below, the first step's first
-                    failed[i] = exc
-                    continue
-                if progress:
-                    progress(len(took) / len(steps), "%s, done in %.1f s" % (label(i), took[i]))
+            while running:
+                done, _ = concurrent.futures.wait(running, return_when=concurrent.futures.FIRST_COMPLETED)
+                for future in done:
+                    i = running.pop(future)
+                    try:
+                        took[i] = future.result()
+                    except BaseException as exc:  # reported below, the first step's first
+                        failed[i] = exc
+                        continue
+                    if progress:
+                        progress(len(took) / len(steps), "%s, done in %.1f s" % (label(i), took[i]))
+                    for j in range(len(steps)):
+                        if i in waits[j]:
+                            waits[j].discard(i)
+                            if not waits[j]:
+                                running[pool.submit(timed, j)] = j
         if failed:
             raise failed[min(failed)]
     else:
