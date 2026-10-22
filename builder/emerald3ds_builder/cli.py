@@ -1,7 +1,7 @@
 """Command line: the same build the window runs, for scripts, CI and Linux/macOS.
 
     emerald3ds-builder build   --rom ROM --output DIR       (a roms/ folder to copy over)
-    emerald3ds-builder install --rom ROM --roms \\\\ROCKNIX\\games-roms
+    emerald3ds-builder install --rom ROM --roms \\\\RK3566.local\\games-roms
     emerald3ds-builder verify  --pak FILE
     emerald3ds-builder detect
 """

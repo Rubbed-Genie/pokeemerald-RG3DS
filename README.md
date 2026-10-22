@@ -99,8 +99,8 @@ it from **your own Pokémon Emerald (USA, Europe) ROM**, on your computer.
 1. Download `RG3DS-vX.Y-Windows.zip` from [Releases](https://github.com/Rubbed-Genie/pokeemerald-RG3DS/releases) and
    extract it.
 2. Run `Emerald3DS-Builder.exe`, choose your ROM, and choose where to install:
-   - **Network** fills in `\\ROCKNIX\games-roms`, the RG DS's roms folder over Wi-Fi (the RG DS on and on the same
-     network), or
+   - **Network** fills in `\\RK3566.local\games-roms`, the RG DS's roms folder over Wi-Fi (the RG DS on and on the same
+     network; if that name is not found, type `\\<its IP>\games-roms` with the IP from ROCKNIX's network settings), or
    - a games card's `roms` folder, or any empty folder whose contents you then copy into `roms` yourself.
 3. For sound, put your own `dspfirm.cdc` (dumped from a 3DS, for example with the DSP1 homebrew) in
    `roms/3ds/azahar/sdmc/3ds/`. Without it the game is silent.

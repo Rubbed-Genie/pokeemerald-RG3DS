@@ -43,8 +43,10 @@ DSP_WARNING = ("The 3DS sound firmware dump (dspfirm.cdc) was not found at:\n%s\
                "(made on a 3DS, for example with the DSP1 homebrew) at "
                "roms/3ds/azahar/sdmc/3ds/dspfirm.cdc.")
 
-# ROCKNIX's network share of the roms folder (hostname ROCKNIX by default).
-NETWORK_SHARE = r"\\ROCKNIX\games-roms"
+# ROCKNIX's network share of the roms folder. The RG DS's image names the
+# device RK3566 (system.hostname) and announces it over mDNS as RK3566.local;
+# NetBIOS names are off with SMB1, so a bare \\RK3566 may not resolve.
+NETWORK_SHARE = r"\\RK3566.local\games-roms"
 
 
 def is_roms_folder(path: Path) -> bool:

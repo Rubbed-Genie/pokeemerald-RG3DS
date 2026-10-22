@@ -17,8 +17,9 @@ What you need
 - A clean ROM of Pokemon Emerald (USA, Europe),
   SHA-1 f3ae088181bf583e55daf962a92bb46f4f1d07b7.
 - A way to copy files into the RG DS's roms folder: its network share
-  \\ROCKNIX\games-roms (Wi-Fi on, same network), a second games card, or
-  however you usually add games.
+  \\RK3566.local\games-roms (Wi-Fi on, same network; if that name is not
+  found, \\<its IP>\games-roms with the IP from ROCKNIX's network settings),
+  a second games card, or however you usually add games.
 - For sound: your own 3DS sound firmware dump, dspfirm.cdc (made on a real
   3DS, for example with the DSP1 homebrew). Without it the game is silent.
 
@@ -27,7 +28,7 @@ Install
 1. Extract this whole ZIP to a folder.
 2. Run Emerald3DS-Builder.exe.
 3. Choose your ROM. The builder checks that it is the supported one.
-4. Choose where to install: press "Network" for \\ROCKNIX\games-roms, pick a
+4. Choose where to install: press "Network" for \\RK3566.local\games-roms, pick a
    games card's roms folder, or pick any empty folder and copy what it writes
    into the RG DS's roms folder yourself.
 5. Press Install. It writes, under roms/:
@@ -52,8 +53,8 @@ EmulationStation looks sharper, at a small cost in speed.
 Command line
 ------------
     emerald3ds-builder-cli.exe build   --rom "Pokemon Emerald.gba" --output out
-    emerald3ds-builder-cli.exe install --rom "Pokemon Emerald.gba" --roms \\ROCKNIX\games-roms
-    emerald3ds-builder-cli.exe verify  --pak \\ROCKNIX\games-roms\3ds\azahar\sdmc\3ds\emerald3ds\emerald3ds.pak
+    emerald3ds-builder-cli.exe install --rom "Pokemon Emerald.gba" --roms \\RK3566.local\games-roms
+    emerald3ds-builder-cli.exe verify  --pak \\RK3566.local\games-roms\3ds\azahar\sdmc\3ds\emerald3ds\emerald3ds.pak
 
 Updating
 --------
