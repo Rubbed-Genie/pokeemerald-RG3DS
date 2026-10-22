@@ -177,6 +177,10 @@ enum { GPU_RGBA5551, GPU_L8, GPU_TEX_2D, GPU_NEAREST, GPU_CLAMP_TO_EDGE, CTR_LOG
 typedef struct { void *data; unsigned fmt, size; u16 width, height; unsigned param, maxLevel; } C3D_Tex;
 static void C3D_TexSetFilter(C3D_Tex *tex, int min, int mag) { (void)tex; (void)min; (void)mag; }
 static void C3D_TexSetWrap(C3D_Tex *tex, int first, int second) { (void)tex; (void)first; (void)second; }
+/* RG3DS: a mask the arena has no room for goes to linear memory instead
+ * (glowLinear); none here, so the arena is what is tested. */
+static void *linearAlloc(size_t bytes) { (void)bytes; return NULL; }
+static void linearFree(void *block) { (void)block; }
 #define VOXEL_BUILDING_PAGES 4
 #define VOXEL_MAX_PAGES 256
 #define VOXEL_PAGE_RETRY_FRAMES 120u
@@ -517,11 +521,12 @@ int main(void)
     assert(sEnvs[0].colour == 0xDC6BBFFFu && sAlphaScale == 0);
     assert(sBlend[2] == GPU_SRC_ALPHA && sBlend[3] == GPU_ONE_MINUS_SRC_ALPHA);
     /* the pool: the falloff texture times a warm colour, added to the
-       ground in proportion to it (dst * src + dst) */
+       ground as light (RG3DS: src + dst; dst * src + dst tinted blue paving
+       and grass teal at night) */
     LampTexEnv(1.0f, true);
     assert(sEnvs[0].rgb[0] == GPU_TEXTURE0 && sEnvs[0].rgbFunc == GPU_MODULATE);
     assert(sEnvs[0].alphaFunc == GPU_REPLACE && sAlphaScale == 0);
-    assert(sBlend[0] == GPU_BLEND_ADD && sBlend[2] == GPU_DST_COLOR && sBlend[3] == GPU_ONE);
+    assert(sBlend[0] == GPU_BLEND_ADD && sBlend[2] == GPU_ONE && sBlend[3] == GPU_ONE);
     assert(sEnvs[0].colour == (0xFF000000u | (uint32_t)(VOXEL_LAMP_POOL_GAIN * 60.0f + 0.5f) << 16
                                | (uint32_t)(VOXEL_LAMP_POOL_GAIN * 150.0f + 0.5f) << 8
                                | (uint32_t)(VOXEL_LAMP_POOL_GAIN * 255.0f + 0.5f)));
