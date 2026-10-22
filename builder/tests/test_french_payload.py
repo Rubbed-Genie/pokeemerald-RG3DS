@@ -19,6 +19,9 @@ class FrenchPayloadTests(unittest.TestCase):
             root = Path(temp)
             base = root / "payload"
             base.mkdir()
+            (base / "rgds").mkdir()
+            for name in ("RG3DS Setup.sh", "054-azahar-3dsx-stretch"):
+                (base / "rgds" / name).write_text("synthetic\n")
             cases = []
             for code, directory in (("BPEE", ""), ("BPES", "es"), ("BPEF", "fr")):
                 folder = base / directory

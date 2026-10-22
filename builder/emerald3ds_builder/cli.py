@@ -1,7 +1,7 @@
 """Command line: the same build the window runs, for scripts, CI and Linux/macOS.
 
-    emerald3ds-builder build   --rom ROM --output DIR
-    emerald3ds-builder install --rom ROM --sd E:\\
+    emerald3ds-builder build   --rom ROM --output DIR       (a roms/ folder to copy over)
+    emerald3ds-builder install --rom ROM --roms \\\\ROCKNIX\\games-roms
     emerald3ds-builder verify  --pak FILE
     emerald3ds-builder detect
 """
@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import argparse
-import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -17,7 +16,7 @@ from pathlib import Path
 from . import __version__, followers, pak
 from .build import Payload, build_pack, default_payload, select_payload
 from .errors import BuilderError
-from .install import APP_DIR, find_sd_cards, install
+from .install import find_sd_cards, install, placed_files, roms_folder
 from .recipe import Recipe
 from .rom import load_rom
 
@@ -36,7 +35,7 @@ def _warn(message: str) -> None:
 
 def cmd_build(args) -> int:
     payload = Payload(args.payload)
-    out_dir = Path(args.output) / APP_DIR
+    out_root = Path(args.output) / "roms"
     # Pick the ROM's variant before the output folder is touched. A language
     # subfolder must bring its own executables (the English ones would not run
     # its pack), so a release missing them leaves earlier files alone. The
@@ -47,34 +46,36 @@ def cmd_build(args) -> int:
     need_executables = variant.language is not None
     if need_executables:
         variant.check(need_executables=True)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    info = build_pack(Path(args.rom), payload, out_dir / "emerald3ds.pak", _progress, args.keep_workdir,
-                      rom=rom, need_executables=need_executables)
-    print("Times (%s): %s" % (info["rom"], ", ".join("%s %.1f s" % t for t in info["timings"])))
-    for exe in info["payload"].executables():
-        if exe.exists():
-            shutil.copy2(exe, out_dir / exe.name)
+    out_root.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="emerald3ds-") as tmp:
+        pak_path = Path(tmp) / "emerald3ds.pak"
+        info = build_pack(Path(args.rom), payload, pak_path, _progress, args.keep_workdir,
+                          rom=rom, need_executables=need_executables)
+        print("Times (%s): %s" % (info["rom"], ", ".join("%s %.1f s" % t for t in info["timings"])))
+        placed = {rel: src for rel, src in placed_files(info["payload"]).items() if src.exists()}
+        install(out_root, {"emerald3ds.pak": pak_path}, placed=placed)
     print("Data pack: %d files, %.1f MiB, release %s" % (info["entries"], info["bytes"] / 1048576,
                                                          info["release"]))
     if info.get("followers"):
         f = info["followers"]
         print("Followers: %d sprites, %d texts (%d downloaded)%s" % (f["sprites"], f.get("texts", 0), f["downloaded"],
               ", %d not available" % len(f["missing"]) if f["missing"] else ""))
-    print("Copy the folder %s to the root of your SD card." % (Path(args.output) / "3ds"))
+    print("Copy everything in %s into your RG DS's roms folder (the games-roms network share)."
+          % out_root)
     return 0
 
 
 def cmd_install(args) -> int:
     payload = Payload(args.payload)
     payload.check()
-    sd = Path(args.sd)
+    roms = roms_folder(Path(args.roms))
     with tempfile.TemporaryDirectory(prefix="emerald3ds-") as tmp:
         pak_path = Path(tmp) / "emerald3ds.pak"
         info = build_pack(Path(args.rom), payload, pak_path, _progress, need_executables=True)
-        files = {exe.name: exe for exe in info["payload"].executables()}
-        files["emerald3ds.pak"] = pak_path
-        dest = install(sd, files, lambda f: _progress(f, "Copying to the SD card"), warn=_warn)
-    print("Installed to %s" % dest)
+        install(roms, {"emerald3ds.pak": pak_path}, lambda f: _progress(f, "Copying to the RG DS"),
+                warn=_warn, placed=placed_files(info["payload"]))
+    print("Installed to %s. On the RG DS: Start > Game settings > Update gamelists (or reboot), "
+          "then run Ports > RG3DS Setup once." % roms)
     return 0
 
 
@@ -102,7 +103,7 @@ def cmd_verify(args) -> int:
 def cmd_detect(args) -> int:
     cards = find_sd_cards()
     if not cards:
-        print("No SD card with a 'Nintendo 3DS' folder was found.")
+        print("No card with a ROCKNIX roms folder was found.")
     for card in cards:
         print(card)
     return 0
@@ -115,16 +116,17 @@ def main(argv=None) -> int:
     ap.add_argument("--payload", type=Path, default=default_payload(),
                     help="folder with the release payload (default: next to the builder)")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    b = sub.add_parser("build", help="write 3ds/emerald3ds/ into a folder")
+    b = sub.add_parser("build", help="write a roms/ folder to copy onto the RG DS")
     b.add_argument("--rom", required=True)
     b.add_argument("--output", required=True)
     b.add_argument("--keep-workdir", action="store_true", help=argparse.SUPPRESS)
-    i = sub.add_parser("install", help="install straight onto an SD card")
+    i = sub.add_parser("install", help="install straight into the RG DS's roms folder")
     i.add_argument("--rom", required=True)
-    i.add_argument("--sd", required=True)
+    i.add_argument("--roms", "--sd", dest="roms", required=True,
+                   help="the roms folder: the games-roms share, or a games card")
     v = sub.add_parser("verify", help="check a data pack against this release")
     v.add_argument("--pak", required=True)
-    sub.add_parser("detect", help="list SD cards that look like a 3DS card")
+    sub.add_parser("detect", help="list cards that hold a ROCKNIX roms folder")
     args = ap.parse_args(argv)
     try:
         return {"build": cmd_build, "install": cmd_install, "verify": cmd_verify,

@@ -1,4 +1,11 @@
-"""Put the game on an SD card (or any folder laid out like one)."""
+"""Put the game on an RG DS running ROCKNIX: into its roms folder (the
+`games-roms` network share, a games card's roms/, or any folder laid out like
+one, to copy over by hand).
+
+RG3DS targets the RG DS only. Azahar keeps its SD card in roms/3ds/azahar/sdmc
+(start_azahar.sh makes it), so the data pack and the save live in
+roms/3ds/azahar/sdmc/3ds/emerald3ds/, the game itself in roms/3ds/, and the
+one-time setup (the Azahar launcher hook) in roms/ports/."""
 
 from __future__ import annotations
 
@@ -14,7 +21,14 @@ from pathlib import Path
 
 from .errors import BuilderError
 
-APP_DIR = Path("3ds") / "emerald3ds"
+# Azahar's SD card inside the roms folder, and the game's folder on it.
+SDMC_DIR = Path("3ds") / "azahar" / "sdmc"
+APP_DIR = SDMC_DIR / "3ds" / "emerald3ds"
+# The game, as EmulationStation lists it in the 3DS system.
+GAME_PATH = Path("3ds") / "Pokemon Emerald RG3DS.3dsx"
+# Ports > RG3DS Setup, run once: installs the launcher hook it keeps beside it.
+SETUP_PATH = Path("ports") / "RG3DS Setup.sh"
+SETUP_DIR = Path("ports") / "rg3ds"
 
 # The player's save, real-time clock and Nuzlocke tracker, in the app folder.
 SAVE_NAME = "emerald3ds.sav"
@@ -23,15 +37,36 @@ SAVE_FILES = (SAVE_NAME, "emerald3ds.clock", "emerald3ds.clock.tmp", "emerald3ds
 BACKUP_DIR = "backup"   # <app folder>/backup/<timestamp>/
 
 # The 3DS sound firmware dump that homebrew needs for audio.
-DSP_FIRM = Path("3ds") / "dspfirm.cdc"
+DSP_FIRM = SDMC_DIR / "3ds" / "dspfirm.cdc"
 DSP_WARNING = ("The 3DS sound firmware dump (dspfirm.cdc) was not found at:\n%s\n\n"
-               "The game was installed. If this is your 3DS SD card, the game may have no "
-               "sound until the firmware is dumped on the console (for example with the "
-               "DSP1 homebrew).")
+               "The game was installed but has no sound until you put your own dump "
+               "(made on a 3DS, for example with the DSP1 homebrew) at "
+               "roms/3ds/azahar/sdmc/3ds/dspfirm.cdc.")
+
+# ROCKNIX's network share of the roms folder (hostname ROCKNIX by default).
+NETWORK_SHARE = r"\\ROCKNIX\games-roms"
+
+
+def is_roms_folder(path: Path) -> bool:
+    """A ROCKNIX roms folder: it already holds the 3DS or the ports system."""
+    try:
+        return (path / "3ds").is_dir() or (path / "ports").is_dir()
+    except OSError:
+        return False
+
+
+def roms_folder(path: Path) -> Path:
+    """The roms folder the player meant: a card or folder holding roms/ means
+    that roms/ (a ROCKNIX games card's root, games-internal/ on its own card)."""
+    path = Path(path)
+    for inner in (path / "roms", path / "games-internal" / "roms", path / "games-external" / "roms"):
+        if not is_roms_folder(path) and is_roms_folder(inner):
+            return inner
+    return path
 
 
 def find_sd_cards() -> list[Path]:
-    """Mounted volumes that look like a 3DS SD card (they hold 'Nintendo 3DS').
+    """Mounted volumes whose roms folder looks like ROCKNIX's.
 
     Only a suggestion: the builder never installs anywhere without the
     player choosing the destination."""
@@ -44,11 +79,20 @@ def find_sd_cards() -> list[Path]:
         roots = [p for base in ("/media", "/run/media") for p in Path(base).glob("*/*")]
     for root in roots:
         try:
-            if (root / "Nintendo 3DS").is_dir():
-                candidates.append(root)
+            found = roms_folder(root)
         except OSError:
             continue
+        if found != root or is_roms_folder(root):
+            candidates.append(found)
     return candidates
+
+
+def placed_files(payload) -> dict[str, Path]:
+    """Everything but the data pack, where it goes under the roms folder: the
+    game (the release's engine-only 3DSX) and the Ports setup with its hook."""
+    setup, hook = payload.rgds_files()
+    return {GAME_PATH.as_posix(): payload.game, SETUP_PATH.as_posix(): setup,
+            (SETUP_DIR / hook.name).as_posix(): hook}
 
 
 _RETRY_HINT = ("Nothing already on the card was changed. Check that the card is still inserted, "
@@ -61,6 +105,17 @@ def _check_name(name) -> None:
             or Path(name).name != name):
         raise BuilderError("Refusing to install a file with an unsafe name: %r" % (name,),
                            code="install_failed")
+
+
+def _check_relative(rel) -> Path:
+    """A placed file's path under the roms folder: plain names, no way out of it."""
+    parts = Path(rel).parts if isinstance(rel, (str, Path)) else ()
+    if not parts or Path(rel).is_absolute():
+        raise BuilderError("Refusing to install a file with an unsafe name: %r" % (rel,),
+                           code="install_failed")
+    for part in parts:
+        _check_name(part)
+    return Path(*parts)
 
 
 def _create_temp(dest: Path, name: str) -> tuple[Path, int]:
@@ -209,8 +264,10 @@ def _warn_missing_dsp(sd_root: Path, warn) -> None:
             pass   # the install already succeeded; a broken display must not undo that
 
 
-def install(sd_root: Path, files: dict[str, Path], progress=None, warn=None) -> Path:
-    """Copy `files` ({name: source}) into <sd_root>/3ds/emerald3ds/.
+def install(sd_root: Path, files: dict[str, Path], progress=None, warn=None,
+            placed: dict[str, Path] | None = None) -> Path:
+    """Copy `files` ({name: source}) into <sd_root>/APP_DIR, and `placed`
+    ({path under sd_root: source}: the game, the setup) where they say.
 
     Every file is first copied (and synced) under a new, unique temporary name.
     Only when all of them are copied are they renamed into place, so a failed
@@ -227,15 +284,20 @@ def install(sd_root: Path, files: dict[str, Path], progress=None, warn=None) -> 
     is replaced. The originals are never written, older backups never removed.
 
     `warn(message)`, if given, receives non-fatal warnings after a successful
-    install (currently: <sd_root>/3ds/dspfirm.cdc is missing)."""
+    install (currently: <sd_root>/DSP_FIRM is missing)."""
     sd_root = Path(sd_root)
     if not sd_root.is_dir():
         raise BuilderError("The destination folder does not exist:\n%s" % sd_root)
     for name in files:
         _check_name(name)
     dest = sd_root / APP_DIR
+    # Every file as (folder, name, source): the app folder's, then the placed ones.
+    targets = [(dest, name, src) for name, src in files.items()]
+    for rel, src in (placed or {}).items():
+        rel = _check_relative(rel)
+        targets.append((sd_root / rel.parent, rel.name, src))
     need = 0
-    for src in files.values():
+    for _, _, src in targets:
         try:
             st = Path(src).stat()
         except OSError as exc:
@@ -254,11 +316,12 @@ def install(sd_root: Path, files: dict[str, Path], progress=None, warn=None) -> 
     if free is not None and free < need + (4 << 20):
         raise BuilderError("There is not enough free space on the destination (%d MiB needed)."
                            % ((need >> 20) + 4))
-    try:
-        dest.mkdir(parents=True, exist_ok=True)
-    except OSError as exc:
-        raise BuilderError("Could not create the folder %s:\n%s" % (dest, exc), _RETRY_HINT,
-                           code="install_failed") from exc
+    for folder in dict.fromkeys(folder for folder, _, _ in targets + [(dest, None, None)]):
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise BuilderError("Could not create the folder %s:\n%s" % (folder, exc), _RETRY_HINT,
+                               code="install_failed") from exc
 
     staged: list[tuple[Path, Path]] = []
     done = 0
@@ -270,10 +333,11 @@ def install(sd_root: Path, files: dict[str, Path], progress=None, warn=None) -> 
             progress(done / max(need, 1))
 
     name = None
+    folder = dest
     try:
-        for name, src in files.items():
-            tmp, fd = _create_temp(dest, name)
-            staged.append((tmp, dest / name))
+        for folder, name, src in targets:
+            tmp, fd = _create_temp(folder, name)
+            staged.append((tmp, folder / name))
             with os.fdopen(fd, "wb") as fout, Path(src).open("rb") as fin:
                 while True:
                     chunk = fin.read(1 << 20)
@@ -285,7 +349,7 @@ def install(sd_root: Path, files: dict[str, Path], progress=None, warn=None) -> 
                 os.fsync(fout.fileno())
     except OSError as exc:
         _remove(tmp for tmp, _ in staged)
-        raise BuilderError("Copying %s to %s failed:\n%s" % (name, dest, exc), _RETRY_HINT,
+        raise BuilderError("Copying %s to %s failed:\n%s" % (name, folder, exc), _RETRY_HINT,
                            code="install_failed") from exc
     except BaseException:
         _remove(tmp for tmp, _ in staged)

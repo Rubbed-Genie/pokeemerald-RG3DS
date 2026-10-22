@@ -1,4 +1,4 @@
-"""The builder's window: pick the ROM, pick the SD card, Install."""
+"""The builder's window: pick the ROM, pick the RG DS's roms folder, Install."""
 
 from __future__ import annotations
 
@@ -12,10 +12,15 @@ from tkinter import filedialog, messagebox, ttk
 from . import __version__
 from .build import Payload, build_pack, default_payload
 from .errors import BuilderError
-from .install import APP_DIR, find_sd_cards, install
+from .install import NETWORK_SHARE, find_sd_cards, install, is_roms_folder, placed_files, roms_folder
 from .rom import load_rom
 
-TITLE = "Emerald 3DS Builder"
+TITLE = "Pokemon Emerald RG3DS Builder"
+DONE = ("Done. Pokemon Emerald RG3DS is in\n%s\n\n"
+        "On the RG DS:\n"
+        "1. Start > Game settings > Update gamelists (or reboot).\n"
+        "2. Run Ports > RG3DS Setup once (it puts the game's two windows on the two screens).\n"
+        "3. Play it from the 3DS system.")
 
 
 class App:
@@ -38,12 +43,17 @@ class App:
         self.rom_status = ttk.Label(frame, text="")
         self.rom_status.grid(row=2, column=0, columnspan=2, sticky="w", pady=(2, 10))
 
-        ttk.Label(frame, text="Install to (the root of your 3DS SD card)").grid(
+        ttk.Label(frame, text="Install to your RG DS's roms folder (the games-roms network share, "
+                              "a games card, or any folder to copy over)").grid(
             row=3, column=0, columnspan=2, sticky="w")
         self.sd = tk.StringVar()
         self.sd_box = ttk.Combobox(frame, textvariable=self.sd, width=53)
         self.sd_box.grid(row=4, column=0, sticky="we")
-        ttk.Button(frame, text="Browse...", command=self.pick_sd).grid(row=4, column=1, padx=(8, 0))
+        buttons = ttk.Frame(frame)
+        buttons.grid(row=4, column=1, padx=(8, 0))
+        ttk.Button(buttons, text="Browse...", command=self.pick_sd).grid(row=0, column=0)
+        ttk.Button(buttons, text="Network", command=lambda: self.sd.set(NETWORK_SHARE)).grid(
+            row=0, column=1, padx=(4, 0))
         self.sd_status = ttk.Label(frame, text="")
         self.sd_status.grid(row=5, column=0, columnspan=2, sticky="w", pady=(2, 10))
 
@@ -71,7 +81,7 @@ class App:
             self.rom.set(path)
 
     def pick_sd(self):
-        path = filedialog.askdirectory(title="SD card or output folder")
+        path = filedialog.askdirectory(title="The RG DS's roms folder, or an output folder")
         if path:
             self.sd.set(path)
 
@@ -97,13 +107,16 @@ class App:
         path = Path(self.sd.get().strip()) if self.sd.get().strip() else None
         if path is None:
             self.sd_status.config(text="")
-        elif (path / "Nintendo 3DS").is_dir():
-            self.sd_status.config(text="OK  Nintendo 3DS SD card detected", foreground="#1b7a1b")
+            return
+        roms = roms_folder(path)
+        if is_roms_folder(roms):
+            self.sd_status.config(text="OK  ROCKNIX roms folder: %s" % roms, foreground="#1b7a1b")
         elif path.is_dir():
-            self.sd_status.config(text="This folder is not a 3DS SD card; the files will be written "
-                                       "into it for you to copy.", foreground="#8a6d00")
+            self.sd_status.config(text="Not a ROCKNIX roms folder: the files are written into it for you "
+                                       "to copy into roms on the RG DS.", foreground="#8a6d00")
         else:
-            self.sd_status.config(text="X  Folder not found", foreground="#b00020")
+            self.sd_status.config(text="X  Folder not found (is the RG DS on and on the same network?)",
+                                  foreground="#b00020")
 
     # -- work -----------------------------------------------------------------
     def start(self):
@@ -113,13 +126,14 @@ class App:
         if not rom or not sd:
             messagebox.showwarning(TITLE, "Choose the ROM and the destination first.")
             return
-        dest = Path(sd) / APP_DIR
-        if not messagebox.askokcancel(TITLE, "Emerald 3DS will be installed to:\n\n%s\n\nContinue?" % dest):
+        dest = roms_folder(Path(sd))
+        if not messagebox.askokcancel(TITLE, "Pokemon Emerald RG3DS will be installed into:\n\n%s\n\n"
+                                             "Continue?" % dest):
             return
         self.busy = True
         self.warnings = []
         self.button.state(["disabled"])
-        threading.Thread(target=self.work, args=(Path(rom), Path(sd)), daemon=True).start()
+        threading.Thread(target=self.work, args=(Path(rom), dest), daemon=True).start()
 
     def work(self, rom: Path, sd: Path):
         def progress(fraction, message):
@@ -130,11 +144,11 @@ class App:
                 pak_path = Path(tmp) / "emerald3ds.pak"
                 info = build_pack(rom, self.payload, pak_path, lambda f, m: progress(f * 0.9, m),
                                   need_executables=True)
-                files = {exe.name: exe for exe in info["payload"].executables()}
-                files["emerald3ds.pak"] = pak_path
-                dest = install(sd, files, lambda f: progress(0.9 + 0.1 * f, "Copying to the SD card"),
-                               warn=lambda message: self.events.put(("warning", message)))
-            self.events.put(("done", str(dest)))
+                install(sd, {"emerald3ds.pak": pak_path},
+                        lambda f: progress(0.9 + 0.1 * f, "Copying to the RG DS"),
+                        warn=lambda message: self.events.put(("warning", message)),
+                        placed=placed_files(info["payload"]))
+            self.events.put(("done", str(sd)))
         except BuilderError as exc:
             self.events.put(("error", str(exc)))
         except Exception as exc:  # the player gets a message, never a traceback
@@ -151,8 +165,7 @@ class App:
                     self.warnings.append(event[1])
                 elif event[0] == "done":
                     self.finish()
-                    text = ("Done. Emerald 3DS is installed in\n%s\n\n"
-                            "Start it from the Homebrew Launcher." % event[1])
+                    text = DONE % event[1]
                     if self.warnings:
                         messagebox.showwarning(TITLE, text + "\n\nWarning:\n" + "\n\n".join(self.warnings))
                     else:

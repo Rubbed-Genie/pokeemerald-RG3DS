@@ -1,0 +1,37 @@
+name: RG3DS builder (Windows exe)
+
+# The Windows builder for a release, frozen from the source alone: no ROM and
+# no payload here, so nothing of the game is ever on GitHub's runners.
+# tools/build_release.py --exe-dir adds the downloaded artifact to the release
+# (see docs/RG3DS-RELEASING.md).
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "rg3ds-v*"
+
+permissions:
+  contents: read
+
+jobs:
+  freeze:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          # The bundled Python: 3.12 gives the relief generator the release's
+          # bytes (3.14 does not, see docs/RG3DS-RELEASING.md).
+          python-version: "3.12"
+      - run: pip install pyinstaller pillow
+      - name: Builder tests (synthetic data, no ROM)
+        run: python -m unittest discover -s builder/tests
+      - name: Freeze the builder
+        run: python tools/freeze_builder.py
+      - name: The frozen builder starts
+        run: builder\build\dist\Emerald3DS-Builder\emerald3ds-builder-cli.exe --version
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Emerald3DS-Builder-windows
+          path: builder/build/dist/Emerald3DS-Builder/
+          if-no-files-found: error

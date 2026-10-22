@@ -251,6 +251,10 @@ def make_synthetic(out_dir: Path) -> dict[str, Path]:
     (payload / "es" / "Emerald3DS.3dsx").write_bytes(b"3DSX" + b"SYNTHETIC SECOND VARIANT PLACEHOLDER\n")
     (payload / "es" / "Emerald3DS.smdh").write_bytes(b"SMDH" + b"SYNTHETIC ICON PLACEHOLDER\n")
     make_recipe(rom_es, 0xA5).save(payload / "es" / "emerald3ds.recipe")
+    # RG3DS: the RG DS's Ports setup and its hook, as a release ships them.
+    (payload / "rgds").mkdir(parents=True, exist_ok=True)
+    (payload / "rgds" / "RG3DS Setup.sh").write_text("#!/bin/bash\n# SYNTHETIC SETUP PLACEHOLDER\n")
+    (payload / "rgds" / "054-azahar-3dsx-stretch").write_text("#!/bin/sh\n# SYNTHETIC HOOK PLACEHOLDER\n")
     (payload / "voxelgen" / "scripts" / "gen_intro_margins.py").write_text(SYNTHETIC_GENERATOR, encoding="utf-8")
     (payload / "voxelgen" / "scripts" / "synthetic_state.py").write_text("CALLS = 0\n", encoding="utf-8")
 

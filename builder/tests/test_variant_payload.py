@@ -28,6 +28,7 @@ sys.path.insert(0, str(HERE.parents[2] / "tools"))
 import build_web_payload  # noqa: E402
 from emerald3ds_builder import cli, pak, rom as romlib, web  # noqa: E402
 from emerald3ds_builder.build import EXECUTABLE_NAMES, Payload, build_pack, select_payload  # noqa: E402
+from emerald3ds_builder.install import APP_DIR, GAME_PATH  # noqa: E402
 from emerald3ds_builder.errors import BuilderError  # noqa: E402
 
 REAL_BUILD_PACK = build_pack
@@ -180,9 +181,9 @@ class CliVariantTests(VariantPayloadMixin, unittest.TestCase):
     def test_build_leaves_an_earlier_output_untouched(self):
         self.remove_es(EXECUTABLE_NAMES[0])
         output = self.tmp / "output"
-        app = output / "3ds" / "emerald3ds"
+        app = output / "roms" / APP_DIR
         app.mkdir(parents=True)
-        (app / EXECUTABLE_NAMES[0]).write_bytes(b"stale English executable")
+        (output / "roms" / GAME_PATH).write_bytes(b"stale English executable")
         (app / "emerald3ds.pak").write_bytes(b"stale English pack")
         before = snapshot(output)
         code, err = self.run_cli("build", "--rom", str(self.synthetic["rom_es"]), "--output", str(output))
@@ -201,13 +202,13 @@ class CliVariantTests(VariantPayloadMixin, unittest.TestCase):
 
     def test_build_copies_the_variant_executables(self):
         output = self.tmp / "output"
-        app = output / "3ds" / "emerald3ds"
+        app = output / "roms" / APP_DIR
         app.mkdir(parents=True)
-        (app / EXECUTABLE_NAMES[0]).write_bytes(b"stale English executable")
+        (output / "roms" / GAME_PATH).write_bytes(b"stale English executable")
         code, err = self.run_cli("build", "--rom", str(self.synthetic["rom_es"]), "--output", str(output))
         self.assertEqual(code, 0, err)
-        for name in EXECUTABLE_NAMES:
-            self.assertEqual((app / name).read_bytes(), (self.es_dir / name).read_bytes(), name)
+        # RG3DS: the game goes to roms/3ds/, the variant's own executable.
+        self.assertEqual((output / "roms" / GAME_PATH).read_bytes(), (self.es_dir / EXECUTABLE_NAMES[0]).read_bytes())
         with pak.PakReader(app / "emerald3ds.pak") as reader:
             self.assertEqual(reader.rom_sha1.hex(), self.rom_es.sha1)
 
@@ -221,7 +222,7 @@ class CliVariantTests(VariantPayloadMixin, unittest.TestCase):
         code, err = self.run_cli("build", "--rom", str(self.synthetic["rom"]), "--output", str(output),
                                  rom=self.rom_en)
         self.assertEqual(code, 0, err)
-        app = output / "3ds" / "emerald3ds"
+        app = output / "roms" / APP_DIR
         self.assertEqual(sorted(p.name for p in app.iterdir()), ["emerald3ds.pak"])
         with pak.PakReader(app / "emerald3ds.pak") as reader:
             reader.verify()
@@ -233,9 +234,9 @@ class CliVariantTests(VariantPayloadMixin, unittest.TestCase):
         code, err = self.run_cli("build", "--rom", str(self.synthetic["rom"]), "--output", str(output),
                                  rom=self.rom_en)
         self.assertEqual(code, 0, err)
-        app = output / "3ds" / "emerald3ds"
-        for name in EXECUTABLE_NAMES:
-            self.assertEqual((app / name).read_bytes(), (self.root / name).read_bytes(), name)
+        self.assertEqual((output / "roms" / GAME_PATH).read_bytes(), (self.root / EXECUTABLE_NAMES[0]).read_bytes())
+        self.assertTrue((output / "roms" / "ports" / "RG3DS Setup.sh").is_file())
+        self.assertTrue((output / "roms" / "ports" / "rg3ds" / "054-azahar-3dsx-stretch").is_file())
 
     def test_spanish_build_is_strict_even_when_the_default_is_recipe_only(self):
         for name in EXECUTABLE_NAMES:
@@ -250,8 +251,8 @@ class CliVariantTests(VariantPayloadMixin, unittest.TestCase):
     def test_install_leaves_the_sd_card_untouched(self):
         self.remove_es(EXECUTABLE_NAMES[0])
         sd = self.tmp / "sd"
-        (sd / "Nintendo 3DS").mkdir(parents=True)
-        app = sd / "3ds" / "emerald3ds"
+        (sd / "ports").mkdir(parents=True)
+        app = sd / APP_DIR
         app.mkdir(parents=True)
         for name in EXECUTABLE_NAMES:
             (app / name).write_bytes(b"stale English " + name.encode())

@@ -23,6 +23,8 @@ SRC=/usr/bin/start_azahar.sh
 OWN=/storage/.config/launcher-patches/start_azahar-stretch.sh
 mkdir -p /storage/.config/logs /storage/.config/launcher-patches
 
+# Run again (RG3DS Setup, or by hand) with the patch already live: nothing to do.
+grep -q "$MARK" "$SRC" && { echo "$(date '+%F %T') already patched (live)" >> "$LOG"; exit 0; }
 if grep -q " ${SRC} " /proc/mounts; then
   DST=/storage/.config/launcher-patches/start_azahar-patched.sh   # 043's copy
   [ -f "$DST" ] || { echo "$(date '+%F %T') mount live but $DST missing -- skipped" >> "$LOG"; exit 0; }

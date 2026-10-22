@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from emerald3ds_builder import install as installmod  # noqa: E402
 from emerald3ds_builder.errors import BuilderError  # noqa: E402
-from emerald3ds_builder.install import APP_DIR, BACKUP_DIR, install  # noqa: E402
+from emerald3ds_builder.install import APP_DIR, BACKUP_DIR, DSP_FIRM, install  # noqa: E402
 
 Usage = namedtuple("Usage", "total used free")
 EXE, PAK = "Emerald3DS.3dsx", "emerald3ds.pak"
@@ -76,8 +76,8 @@ class _Base(unittest.TestCase):
         return sorted(p.name for p in folder.iterdir()) if folder.exists() else []
 
     def _with_dsp(self):
-        (self.sd / "3ds").mkdir(exist_ok=True)
-        (self.sd / "3ds" / "dspfirm.cdc").write_bytes(b"SYNTHETIC-DSP")
+        (self.sd / DSP_FIRM).parent.mkdir(parents=True, exist_ok=True)
+        (self.sd / DSP_FIRM).write_bytes(b"SYNTHETIC-DSP")
 
 
 class BackupContentTests(_Base):
@@ -463,7 +463,8 @@ class FrontEndWarningTests(_Base):
 
         def build(rom, payload, pak_path, progress, *rest, need_executables=True):
             Path(pak_path).write_bytes(b"SYNTHETIC-PAK")
-            return {"payload": SimpleNamespace(executables=lambda: [exe])}
+            return {"payload": SimpleNamespace(executables=lambda: [exe], game=exe,
+                                               rgds_files=lambda: [exe, exe])}
         return build
 
     def test_cli_prints_warning_and_succeeds(self):
@@ -471,14 +472,14 @@ class FrontEndWarningTests(_Base):
             from emerald3ds_builder import cli
         except ImportError as exc:   # optional build dependencies not installed here
             self.skipTest("cli unavailable: %s" % exc)
-        args = SimpleNamespace(payload=None, rom="synthetic.gba", sd=str(self.sd))
+        args = SimpleNamespace(payload=None, rom="synthetic.gba", roms=str(self.sd))
         out, err = io.StringIO(), io.StringIO()
         with patch.object(cli, "Payload", Mock()), patch.object(cli, "build_pack", self._fake_build()), \
                 contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             self.assertEqual(cli.cmd_install(args), 0)
         self.assertIn("Warning:", err.getvalue())
         self.assertIn("dspfirm.cdc", err.getvalue())
-        self.assertIn("Installed to %s" % self.dest, out.getvalue())
+        self.assertIn("Installed to %s" % self.sd, out.getvalue())
 
     def test_gui_worker_queues_warning_before_done(self):
         try:

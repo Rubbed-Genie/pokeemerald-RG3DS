@@ -42,8 +42,9 @@ RG3DS is a layer on top.
 **Made for the RG DS's screens** (built with `TOP_WIDTH=320`)
 - The top screen is laid out at **4:3 (320×240)** and shown at an exact 2× on the 640×480 panel, so pixels stay sharp
   and nothing is stretched.
-- Bigger title, naming, map, PC, mart, bag, party, summary and battle-text screens.
-- A lower, longer-lens indoor camera chosen by playing through the early game (tilt 33°, zoom 155%), with people a
+- Bigger title, naming, clock, starter, map and battle-text screens; the bottom screen's menus are upstream's native
+  ones.
+- A lower, longer-lens indoor camera chosen by playing through the early game (tilt 33°, distance 160%), with people a
   little forward on their tile at 93% size so they stand on it, and the mart clerk lifted above the glass counter.
 - Every value is a built-in default (`sEditionDefaults` in [`3ds_port/src/3ds_settings.c`](3ds_port/src/3ds_settings.c))
   that `settings.txt` can override, or `tune.txt` live while the game runs (with `dev_files=1`).
@@ -90,11 +91,43 @@ Every one passes `gen_voxel_buildings.py --verify` (the drawing is reproduced pi
 **Dev menu** (ZL+ZR): time of day, day/night, night light, weather held across maps, and warps to Slateport,
 Rustboro, Dewford, Petalburg or Mauville. Its settings last for that play only; nothing is saved.
 
-### Building it
+### Installing it on your RG DS
 
-There is no download of the finished game: the `.3dsx` contains Pokémon Emerald's graphics, maps and music, which
-belong to Nintendo, so you build it yourself. You need **git**, **Python 3.11+** with Pillow, and **Podman** (or
-Docker).
+RG3DS targets the **Anbernic RG DS running ROCKNIX** only. The download does not contain the game: the builder makes
+it from **your own Pokémon Emerald (USA, Europe) ROM**, on your computer.
+
+1. Download `RG3DS-vX.Y-Windows.zip` from [Releases](https://github.com/Rubbed-Genie/pokeemerald-RG3DS/releases) and
+   extract it.
+2. Run `Emerald3DS-Builder.exe`, choose your ROM, and choose where to install:
+   - **Network** fills in `\\ROCKNIX\games-roms`, the RG DS's roms folder over Wi-Fi (the RG DS on and on the same
+     network), or
+   - a games card's `roms` folder, or any empty folder whose contents you then copy into `roms` yourself.
+3. For sound, put your own `dspfirm.cdc` (dumped from a 3DS, for example with the DSP1 homebrew) in
+   `roms/3ds/azahar/sdmc/3ds/`. Without it the game is silent.
+4. On the RG DS: **Start > Game settings > Update gamelists** (or reboot), then run **Ports > RG3DS Setup** once.
+5. Play **Pokemon Emerald RG3DS** from the 3DS system.
+
+What the builder writes, under `roms/`:
+
+| File | What it is |
+|---|---|
+| `3ds/Pokemon Emerald RG3DS.3dsx` | the game (the engine, no Nintendo data) |
+| `3ds/azahar/sdmc/3ds/emerald3ds/emerald3ds.pak` | the game's data, made from your ROM; your save goes next to it |
+| `ports/RG3DS Setup.sh`, `ports/rg3ds/` | the one-time setup and the launcher hook it installs |
+
+**Why the setup:** Azahar titles a homebrew game's bottom-screen window plain "Azahar", which ROCKNIX's rule for
+second windows does not match, so on a stock RG DS both windows end up side by side on the top screen. The hook
+([`rocknix/054-azahar-3dsx-stretch`](rocknix/054-azahar-3dsx-stretch)), installed in `/storage/.config/autostart/`,
+puts each window on its own screen, keeps Azahar fullscreen and stretches the 4:3 top screen to fit, for `.3dsx`
+homebrew only: retail 3DS games are left as they were. Running the setup again is harmless; what it did is in
+`ports/rg3ds/setup.log`.
+
+Updating: run the new release's builder with the same ROM. Your save (`emerald3ds.sav`) is never touched; the builder
+backs it up first. Optional: a 2× resolution for the game in its per-game options looks sharper.
+
+### Building it from source
+
+You need **git**, **Python 3.11+** with Pillow, and **Podman** (or Docker).
 
 ```sh
 git clone -b rg3ds-dev https://github.com/Rubbed-Genie/pokeemerald-RG3DS.git
@@ -110,21 +143,9 @@ podman run --rm -v "$PWD":/work:Z -w /work docker.io/devkitpro/devkitarm sh -c '
 
 The tools must be built inside the container (`libpng-dev`, `python3-pil`). Without Pillow the building models are
 not regenerated and the link fails, sometimes without an error, so check the date of `3ds_port/emerald3ds.3dsx`.
-`TOP_WIDTH=320` gives the RG DS layout; leave it out for the 3DS's own 400-wide layout. `EMBED_DATA=1` puts the game
-data inside the `.3dsx` (about 40 MB), so it needs no separate data pack.
-
-### Installing on the RG DS (ROCKNIX)
-
-1. Copy `build/upstream/3ds_port/emerald3ds.3dsx` to `roms/3ds/` (rename it as you like) and launch it from the 3DS
-   system (Azahar).
-2. For sound, put a `dspfirm.cdc` dumped from your own 3DS in `roms/3ds/azahar/sdmc/3ds/`.
-3. Install the launcher hook [`rocknix/054-azahar-3dsx-stretch`](rocknix/054-azahar-3dsx-stretch) in
-   `/storage/.config/autostart/`. It turns on Azahar's top-screen stretch for `.3dsx` homebrew only (retail 3DS games
-   stay 5:3), keeps Azahar fullscreen, and moves Azahar's bottom-screen window onto the bottom panel. Without that last
-   step the game stalls on a black screen.
-4. Optional: in ROCKNIX, set the game's Azahar resolution to 2× for a sharper 3D world.
-
-Saves and settings live in `roms/3ds/azahar/sdmc/3ds/emerald3ds/`, the same place as the original port's.
+`TOP_WIDTH=320` gives the RG DS layout. `EMBED_DATA=1` puts the game data inside the `.3dsx` (about 50 MB), so it
+needs no separate data pack: copy it to `roms/3ds/` and install the hook as above. That `.3dsx` contains Nintendo's
+data: keep it to yourself. Making a release (engine-only, for the builder): [docs/RG3DS-RELEASING.md](docs/RG3DS-RELEASING.md).
 
 ### Credits
 

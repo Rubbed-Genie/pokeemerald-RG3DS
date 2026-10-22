@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from emerald3ds_builder import pak, recipe as rcp, rom as romlib, vtree  # noqa: E402
 from emerald3ds_builder.build import Payload, build_pack
 from emerald3ds_builder.errors import BuilderError  # noqa: E402
-from emerald3ds_builder.install import install  # noqa: E402
+from emerald3ds_builder.install import install, placed_files, roms_folder  # noqa: E402
 
 
 def lz77_literal(data: bytes) -> bytes:
@@ -243,7 +243,66 @@ class InstallTests(unittest.TestCase):
             sd.mkdir()
             dest = install(sd, {"Emerald3DS.3dsx": src, "emerald3ds.pak": src})
             self.assertEqual(sorted(p.name for p in dest.iterdir()), ["Emerald3DS.3dsx", "emerald3ds.pak"])
-            self.assertEqual(dest, sd / "3ds" / "emerald3ds")
+            # RG3DS: Azahar's SD card in the RG DS's roms folder.
+            self.assertEqual(dest, sd / "3ds" / "azahar" / "sdmc" / "3ds" / "emerald3ds")
+
+
+class RgdsLayoutTests(unittest.TestCase):
+    """RG3DS: the game, the pack and the Ports setup where ROCKNIX wants them."""
+
+    def payload(self, root: Path) -> Payload:
+        base = root / "payload"
+        (base / "rgds").mkdir(parents=True)
+        (base / "Emerald3DS.3dsx").write_bytes(b"3DSX")
+        (base / "rgds" / "RG3DS Setup.sh").write_text("setup\n")
+        (base / "rgds" / "054-azahar-3dsx-stretch").write_text("hook\n")
+        return Payload(base)
+
+    def test_install_places_every_file_under_the_roms_folder(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            pak_src = root / "pak.bin"
+            pak_src.write_bytes(b"PAK")
+            roms = root / "roms"
+            roms.mkdir()
+            install(roms, {"emerald3ds.pak": pak_src}, placed=placed_files(self.payload(root)))
+            self.assertEqual((roms / "3ds" / "Pokemon Emerald RG3DS.3dsx").read_bytes(), b"3DSX")
+            self.assertEqual((roms / "3ds/azahar/sdmc/3ds/emerald3ds/emerald3ds.pak").read_bytes(), b"PAK")
+            self.assertEqual((roms / "ports" / "RG3DS Setup.sh").read_text(), "setup\n")
+            self.assertEqual((roms / "ports" / "rg3ds" / "054-azahar-3dsx-stretch").read_text(), "hook\n")
+            self.assertEqual([p for p in roms.rglob("*.partial")], [])
+
+    def test_placed_paths_cannot_leave_the_roms_folder(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "src.bin"
+            src.write_bytes(b"x")
+            roms = Path(tmp) / "roms"
+            roms.mkdir()
+            for bad in ("../escape.bin", "/abs/escape.bin", "3ds/../../escape.bin", ""):
+                with self.subTest(bad), self.assertRaises(BuilderError):
+                    install(roms, {}, placed={bad: src})
+            self.assertFalse((Path(tmp) / "escape.bin").exists())
+
+    def test_roms_folder_finds_roms_inside_a_card(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            card = Path(tmp) / "card"
+            (card / "games-internal" / "roms" / "3ds").mkdir(parents=True)
+            self.assertEqual(roms_folder(card), card / "games-internal" / "roms")
+            self.assertEqual(roms_folder(card / "games-internal" / "roms"), card / "games-internal" / "roms")
+            other = Path(tmp) / "empty"
+            other.mkdir()
+            self.assertEqual(roms_folder(other), other)
+
+    def test_missing_setup_file_is_named_from_the_payload(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            payload = self.payload(Path(tmp))
+            (payload.root / "Emerald3DS.smdh").write_bytes(b"SMDH")
+            rcp.Recipe(engine_abi=0, rom_sha1="00" * 20, release="synthetic", entries=[]).save(payload.recipe)
+            (payload.root / "rgds" / "054-azahar-3dsx-stretch").unlink()
+            with self.assertRaises(BuilderError) as ctx:
+                payload.check()
+            self.assertEqual(ctx.exception.code, "payload_incomplete")
+            self.assertIn("payload/rgds/054-azahar-3dsx-stretch", ctx.exception.message)
 
 
 class VtreeTests(unittest.TestCase):

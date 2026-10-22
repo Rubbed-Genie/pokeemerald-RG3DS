@@ -54,6 +54,7 @@ CIA_NAME = "Emerald3DS-Forwarder.cia"
 GENERATORS = ["gen_voxel_regions.py", "gen_voxel_sign_masks.py",
               "gen_voxel_relief.py", "gen_voxel_buildings.py", "gen_intro_margins.py"]
 VOXELGEN_FILES = ["src/voxel/voxel_regions.h", "assets/voxel/relief_fixes.json"]
+RGDS_FILES = ["RG3DS Setup.sh", "054-azahar-3dsx-stretch"]
 
 
 def run(cmd, cwd=None, env=None):
@@ -152,6 +153,9 @@ def main() -> None:
     ap.add_argument("--skip-make", action="store_true")
     ap.add_argument("--skip-recipe", action="store_true")
     ap.add_argument("--skip-exe", action="store_true")
+    ap.add_argument("--exe-dir", type=Path, default=None,
+                    help="RG3DS: an already frozen builder folder (the GitHub workflow's artifact, "
+                         "tools/freeze_builder.py) to ship instead of freezing one here")
     ap.add_argument("--skip-cia", action="store_true", help="no HOME Menu forwarder (needs makerom, bannertool)")
     ap.add_argument("--allow-local-mk", action="store_true",
                     help="build even though 3ds_port/local.mk adds this machine's settings")
@@ -164,17 +168,20 @@ def main() -> None:
         sys.exit("3ds_port/local.mk exists and would change the English build: move it away "
                  "and rebuild (make clean), or pass --allow-local-mk if it is meant to ship")
 
-    # The version the title screen shows is the port Makefile's.
-    shown = re.search(r"^APP_VERSION := (\S+)$", (PORT / "Makefile").read_text(encoding="utf-8"), re.M)
+    # The version the title screen shows is the port Makefile's: RG3DS
+    # releases are the edition's own (RG3DS_VERSION, beside its credit).
+    makefile = (PORT / "Makefile").read_text(encoding="utf-8")
+    shown = re.search(r"^RG3DS_VERSION := (\S+)$", makefile, re.M)
     if not shown or shown.group(1) != args.version:
-        sys.exit("3ds_port/Makefile has APP_VERSION %s, not %s: bump it first"
+        sys.exit("3ds_port/Makefile has RG3DS_VERSION %s, not %s: bump it first"
                  % (shown.group(1) if shown else "(none)", args.version))
-    tag = "v" + args.version
-    release = DIST / ("Emerald3DS-%s-Windows" % tag)
+    tag = "rg3ds-v" + args.version
+    release = DIST / ("RG3DS-v%s-Windows" % args.version)
     payload = release / "payload"
 
     if not args.skip_make:
-        run((args.make.split() if args.make else ["make"]) + ["release"], cwd=PORT)
+        # RG3DS: always the RG DS edition (the 4:3 top screen and its tuning).
+        run((args.make.split() if args.make else ["make"]) + ["TOP_WIDTH=320", "release"], cwd=PORT)
         # the buildings' proofs even when buildings.bin is up to date (the
         # builder only exports and trusts this build's CRC); a localized tree
         # is a fresh copy, so its make makes and verifies the file anew
@@ -202,6 +209,10 @@ def main() -> None:
         dst = payload / "voxelgen" / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(PORT / rel, dst)
+    # RG3DS: the RG DS's Ports setup and the Azahar launcher hook it installs.
+    (payload / "rgds").mkdir()
+    for name in RGDS_FILES:
+        shutil.copy2(ROOT / "rocknix" / name, payload / "rgds" / name)
     locales = []
     if args.spanish_rom:
         locales.append({"code": "es", "stem": "spanish", "rom": args.spanish_rom,
@@ -215,7 +226,11 @@ def main() -> None:
     for locale in locales:
         build_localized_variant(args, tag, payload / locale["code"], locale)
 
-    if not args.skip_exe:
+    if args.exe_dir:
+        if not (args.exe_dir / "Emerald3DS-Builder.exe").is_file():
+            sys.exit("%s holds no Emerald3DS-Builder.exe" % args.exe_dir)
+        shutil.copytree(args.exe_dir, release, dirs_exist_ok=True)
+    elif not args.skip_exe:
         build = ROOT / "builder" / "build"
         build.mkdir(parents=True, exist_ok=True)
         (build / "hidden-imports.txt").write_text("\n".join(sorted(external)) + "\n", encoding="utf-8")
@@ -234,7 +249,7 @@ def main() -> None:
     for rel in ("3ds_port/src/voxel/NOTICE.md",):
         shutil.copy2(ROOT / rel, licenses / "voxel-NOTICE.md")
 
-    archive = DIST / ("Emerald3DS-%s-Windows.zip" % tag)
+    archive = DIST / ("RG3DS-v%s-Windows.zip" % args.version)
     if archive.exists():
         archive.unlink()
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:

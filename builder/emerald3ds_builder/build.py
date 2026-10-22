@@ -19,6 +19,11 @@ from .vtree import build_tree
 
 RECIPE_NAME = "emerald3ds.recipe"
 EXECUTABLE_NAMES = ("Emerald3DS.3dsx", "Emerald3DS.smdh")
+# RG3DS: the RG DS's one-time setup (payload/rgds/): the Ports entry and the
+# Azahar launcher hook it installs (rocknix/ in the source tree).
+RGDS_DIR = "rgds"
+RGDS_SETUP = "RG3DS Setup.sh"
+RGDS_HOOK = "054-azahar-3dsx-stretch"
 
 
 def default_payload() -> Path:
@@ -74,9 +79,25 @@ class Payload:
     def executables(self) -> list[Path]:
         return [self.root / name for name in EXECUTABLE_NAMES]
 
+    @property
+    def game(self) -> Path:
+        return self.root / EXECUTABLE_NAMES[0]
+
+    def rgds_files(self) -> list[Path]:
+        """The setup script and the hook, shared by every variant."""
+        base = (self.shared or self.root) / RGDS_DIR
+        return [base / RGDS_SETUP, base / RGDS_HOOK]
+
     def check(self, need_executables: bool = True) -> None:
         missing = [p for p in ([self.recipe] + (self.executables() if need_executables else []))
                    if not p.exists()]
+        # The RG DS setup is shared by every variant: named from payload/.
+        setup = [p for p in (self.rgds_files() if need_executables else []) if not p.exists()]
+        if setup and not missing:
+            raise BuilderError("This release is incomplete (%s missing next to the builder)."
+                               % ", ".join("payload/%s/%s" % (RGDS_DIR, p.name) for p in setup),
+                               "Extract the whole ZIP again and run the builder from there.",
+                               code="payload_incomplete")
         if not missing:
             return
         if self.language is None:
