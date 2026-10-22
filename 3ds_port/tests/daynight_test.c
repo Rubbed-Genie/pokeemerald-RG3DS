@@ -7,6 +7,8 @@
 static uint64_t sNow;
 static unsigned sLocal = 12 * 3600;
 static int sEnabled, sSpeed, sShowClock, sTimedEncounters;
+/* RG3DS: percent of the light kept at full night (the edition's default 45). */
+static int sNightDark = 45;
 static bool sOutdoor = true, sClockValid = true;
 static int64_t sWall = 1700000000;
 
@@ -24,6 +26,7 @@ int CtrSettings_GetInt(const char *key, int fallback)
     if (strcmp(key, "clock_speed") == 0) return sSpeed;
     if (strcmp(key, "show_clock") == 0) return sShowClock;
     if (strcmp(key, "timed_encounters") == 0) return sTimedEncounters;
+    if (strcmp(key, "night_dark") == 0) return sNightDark;
     return fallback;
 }
 static unsigned sSetCalls;
@@ -218,8 +221,15 @@ static void RuntimeTests(void)
     sEnabled = 1;
     sLocal = 0;
     CtrDayNight_Update();
+    /* RG3DS: the night darkened to night_dark (45%), lit from overhead. */
+    Near(CtrDayNight_Get()->rgb[0], 0.66f * 0.45f);
+    assert(CtrDayNight_GetSun()->key == 704);
+    Near(CtrDayNight_GetSun()->strength, 0.90f);
+    /* night_dark 100 keeps the cycle's own night. */
+    sNightDark = 100;
+    CtrDayNight_Update();
     Near(CtrDayNight_Get()->rgb[0], 0.66f);
-    assert(CtrDayNight_GetSun()->key == 1 && CtrDayNight_GetSun()->strength == 0);
+    sNightDark = 45;
     sOutdoor = false;
     CtrDayNight_Update();
     Near(CtrDayNight_Get()->rgb[0], 1);
@@ -453,7 +463,7 @@ static void SyncRuntimeTests(void)
     sLocal = 23u * 3600u + 59u * 60u + 30u;
     assert(CtrDayNight_SyncToConsole());
     assert(sSpeed == 0 && sSetCalls == calls + 1);
-    Near(CtrDayNight_Get()->rgb[0], 0.66f);
+    Near(CtrDayNight_Get()->rgb[0], 0.66f * 0.45f);   /* RG3DS: night_dark */
     assert(CtrDayNight_Snapshot(&snapshot) && !snapshot.shifted);
     assert(snapshot.timeMs == 86370000u && snapshot.berryBonusMs == 3808000u);
 
