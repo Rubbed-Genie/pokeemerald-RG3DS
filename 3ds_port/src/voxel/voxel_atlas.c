@@ -25,6 +25,7 @@
 #define TILES_PER_TILESET 512u
 #define SUBTILE_PX 8u
 
+
 void VoxelAtlas_SlotUV(unsigned slot, float *u0, float *v0, float *u1, float *v1)
 {
     unsigned page = slot / VOXEL_ATLAS_MAX_SLOTS;
@@ -35,7 +36,9 @@ void VoxelAtlas_SlotUV(unsigned slot, float *u0, float *v0, float *u1, float *v1
     /* A quarter texel in from the slot's edges: away from a whole-pixel
      * scale (the indoor camera), an edge sample can land on the neighbouring
      * slot - a dotted line of its colour, or black from an empty one, along
-     * floor, table and chair seams. */
+     * floor, table and chair seams. RG3DS: this also covers upstream's
+     * north/south thirty-second (a scrolling tile edge through pixel
+     * centres taking a row of the slot above or below). */
     const float in = VOXEL_ATLAS_UV_INSET;
 
     /* Row 0 in memory is v=1, the same convention the 2D compositor uses. */

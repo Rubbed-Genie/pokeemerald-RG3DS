@@ -2,6 +2,74 @@
 
 ## Unreleased
 
+- Builder: the terrain relief is made after the buildings, whose cells it
+  reads. Made side by side, the relief depended on which finished first,
+  and a data pack could fail to match the release.
+
+- Juan's gym battle no longer crashes the game when it ends, by @DannyM90
+  (pull request #182, issue #134). His defeat text is longer than the
+  battle's text buffer; on the GBA the rest landed in an unused array, here
+  it ran into live variables. The buffer now has room to spare behind it.
+
+- Portuguese, by @carlosmozart (pull request #178): the general texts of the
+  scripts (the POKéMON CENTER and MART signs, SELECT with no registered item,
+  whiting out, POKéRUS, a TM or HM found, the weird tree...) are translated,
+  and the bottom screen's type and contest icons are in Portuguese again.
+  In every language, the bottom screen's Pokédex shows an entry's whole
+  description, over the box's full width, instead of losing its last line.
+
+- Double battle target choice, by @eathanpage (pull request #176): the
+  bottom screen shows the four places of the battle two by two, as the top
+  screen has them, instead of left and right arrows and OK. Each plate has
+  the Pokémon's icon, name, level, gender and HP bar (the HP figures for
+  your side only), the opponents in red and your side in blue; one the move
+  cannot reach is grey and takes no tap, and an empty place has no plate. A
+  tap on a plate aims there and confirms; the D-pad walks the grid.
+
+- Double battles, by @maxxandres (pull request #152): the bottom screen's
+  target plates and the second mon's move menu are made ready while the
+  turn plays out, with the action menu and the first mon's moves. Built
+  when they first came up, they dropped an Old 3DS's frame rate sharply the
+  first time a target, or the second mon's move, was chosen. The second
+  mon's moves have pictures of their own, so warming them no longer throws
+  out the first mon's.
+
+- Voxel world: a map whose layout its script swaps is drawn with the swapped
+  one. The Mirage Tower no longer stands in 3D on the days the game hides it,
+  or after it falls, and it no longer shows from Mauville or Routes 112 and
+  113 while it is hidden; Route 131 shows the Sky Pillar, and Mirage Island
+  and the Sky Pillar's clean floors get their own relief and objects. Route
+  111's hand-shaped mountains apply to its layout without the tower too.
+  Reported, with the cause, by @Deunnis (issue #179).
+
+- Bottom screen map: a magnifier button in the map's bottom right corner
+  zooms in on the player's place and back out. Touching a place on the map
+  picks it: zoomed in, a panel shows its name and, for a city or town, its
+  picture, or the landmarks there. Based on @luksgrin's pull request #108.
+
+- Fly on the bottom screen: FLY from the party menu, or the HM from the Bag,
+  opens the bottom screen's map as the Fly map, with the places you can fly
+  to marked. Touch a place, then FLY in the header, or A; CANCEL or B goes
+  back to the party or the Bag. Meanwhile the dock is locked and the game's
+  buttons wait. The PokéNav's HOENN MAP entry is gone: the bottom screen's MAP
+  is that map, zoom included. Based on @luksgrin's pull request #108.
+
+- Battle speed, by @maxxandres (pull request #149): in a battle (wild or
+  trainer) R speeds the game up and L slows it down, 1x, 1.5x, 2x, 3x and 4x,
+  and a badge in the top right corner shows the speed for two seconds after
+  each press.
+  It is a speed of its own: until the first press the battle follows the
+  SPEED the player uses in the overworld, and then keeps its own
+  (`battle_speed=` in settings.txt). The bag, the party and the summary opened
+  from a battle, and the field, keep the overworld's SPEED; a local wireless
+  session and the measured scenarios stay at 1x. In the battle L and R no
+  longer reach the game; with the game's L=A button mode L stays A and R
+  alone goes round the speeds, 4x back to 1x. The soft reset,
+  L+R+START+SELECT, still works. The bottom screen's focus ring and the intervals of its
+  background refreshes now go by the clock, so they keep their pace at any
+  speed. The quick ball moves from R to X
+  (patch 0006-quick-ball); the ball button on the bottom screen is as before.
+
 - Soft reset is now L+R+START+SELECT, as in the 3DS games, instead of the
   GBA's A+B+START+SELECT.
 

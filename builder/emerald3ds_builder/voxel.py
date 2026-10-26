@@ -10,10 +10,9 @@ checks are shared. Only the way one step is run differs:
 
 * `run_step_subprocess` runs each script in its own process (desktop and the
   frozen Windows builder): no state can carry over between scripts. Their
-  processes run side by side, as many at once as there are processors,
-  except that a script waits for the outputs it reads (AFTER: the relief
-  reads buildings.bin, voxel_terraces.modelled): the build takes as long as
-  the longest chain (buildings, then relief), not the sum;
+  processes run side by side, as many at once as there are processors, each
+  as soon as the steps it reads (AFTER) are done: the build takes as long as
+  the buildings and then the relief, not the sum of every step;
 * `run_step_inprocess` runs each script in this interpreter (the web builder:
   Pyodide has no processes). It gives every script a fresh copy of its sibling
   modules, its own argv, working directory and import path, and puts them all
@@ -51,10 +50,14 @@ STEPS = [
     ("gen_intro_margins.py", ["--output", "3ds_port/romfs/stage/leaves.bin"], "3ds_port/romfs/stage/leaves.bin"),
 ]
 
-# The steps whose output a step reads: it starts once they are done. Without
-# buildings.bin the relief leaves the cells under the buildings' models out
-# (voxel_terraces.modelled), a different relief.bin than the release's.
-AFTER = {"gen_voxel_relief.py": ("gen_voxel_buildings.py",)}
+# The steps that must be done before a step starts, because it reads their
+# output: the relief leaves a building's cells to its model and reads which
+# cells those are from buildings.bin (voxel_terraces.modelled). Started
+# beside it, it found the file missing or half written, and made another
+# relief than the release's.
+AFTER = {
+    "gen_voxel_relief.py": ("gen_voxel_buildings.py",),
+}
 
 # What each step makes, for the progress line.
 LABELS = {
@@ -158,10 +161,18 @@ def run_generators(tree: Path, voxelgen: Path, expected: list[dict], progress=No
             progress(0.0, ", ".join(LABELS.get(s[0], s[0]) for s in steps))
         workers = max(1, min(len(steps), os.cpu_count() or 1))
         names = [s[0] for s in steps]
-        waits = {i: {names.index(n) for n in AFTER.get(names[i], ()) if n in names} for i in range(len(steps))}
+        # step -> the steps it still waits for (AFTER, those this release has)
+        waits = {i: {names.index(d) for d in AFTER.get(names[i], ()) if d in names} for i in range(len(steps))}
         with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
-            running = {pool.submit(timed, i): i for i in range(len(steps)) if not waits[i]}
+            running: dict = {}
             failed: dict[int, BaseException] = {}
+
+            def start_ready() -> None:
+                for i in [i for i, wait in waits.items() if not wait]:
+                    del waits[i]
+                    running[pool.submit(timed, i)] = i
+
+            start_ready()
             while running:
                 done, _ = concurrent.futures.wait(running, return_when=concurrent.futures.FIRST_COMPLETED)
                 for future in done:
@@ -171,13 +182,12 @@ def run_generators(tree: Path, voxelgen: Path, expected: list[dict], progress=No
                     except BaseException as exc:  # reported below, the first step's first
                         failed[i] = exc
                         continue
+                    for wait in waits.values():
+                        wait.discard(i)
                     if progress:
                         progress(len(took) / len(steps), "%s, done in %.1f s" % (label(i), took[i]))
-                    for j in range(len(steps)):
-                        if i in waits[j]:
-                            waits[j].discard(i)
-                            if not waits[j]:
-                                running[pool.submit(timed, j)] = j
+                if not failed:      # after a failure, what waits is never started
+                    start_ready()
         if failed:
             raise failed[min(failed)]
     else:
